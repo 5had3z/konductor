@@ -1,0 +1,25 @@
+# Launch app in kubernetes cluster should be attached to datastore
+apiVersion: v1
+kind: Pod
+metadata:
+  name: torchstats
+  labels:
+    name: torchstats
+spec:
+  containers:
+    - name: torchstats
+      image: torchstats:latest
+      resources:
+        limits:
+          memory: 1Gi
+          cpu: 500m
+      volumeMounts:
+        - name: datastore
+          mountPath: /data
+      ports:
+        - containerPort: 8050
+  volumes:
+    - name: datastore
+      nfs:
+        path: /path/on/server
+        server: 10.0.0.10
