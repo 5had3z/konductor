@@ -19,7 +19,7 @@ class Checkpointer:
         """
         Args:
         """
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(type(self).__name__)
         self.model = (
             model.module
             if isinstance(model, (DistributedDataParallel, DataParallel))
@@ -28,10 +28,10 @@ class Checkpointer:
 
         self.extras: Dict[str, nn.Module] = {}
         for k, v in extras.items():
-            if hasattr(v, "state_dict"):
-                extras[k] = v
-            else:
-                self.logger.error(f'{k} has no "state_dict" method')
+            assert hasattr(
+                v, "state_dict"
+            ), f"Checkpointable {k} does not have state_dict method"
+            extras[k] = v
 
         if not rootdir.exists():
             self.logger.info(f"Creating directory at {rootdir}")
@@ -39,6 +39,20 @@ class Checkpointer:
         self.rootdir = rootdir
 
         self.logger.info(f"Saving checkpoint data at {rootdir}")
+
+    def add_checkpointable(self, key: str, checkpointable: nn.Module) -> None:
+        """
+        Add checkpointable for logging.
+        """
+        assert (
+            key not in self.extras
+        ), f"{key} already in dict of checkpointables, can't add another"
+
+        assert hasattr(
+            checkpointable, "state_dict"
+        ), f"Checkpointable {key} does not have state_dict method"
+
+        self.extras[key] = checkpointable
 
     def save(self, filename: str = "latest.pth", **extras) -> None:
         """
@@ -62,7 +76,7 @@ class Checkpointer:
         if _path.name != "latest.pth":
             (self.rootdir / "latest.pth").symlink_to(_path)
 
-    def load(self, filename: str) -> None:
+    def load(self, filename: str) -> Dict[str, Any]:
         """Load checkpoint and return any previously saved scalar kwargs"""
         if not filename.endswith(".pth"):
             filename += ".pth"
@@ -78,6 +92,8 @@ class Checkpointer:
         # Return any extra data
         return checkpoint
 
-    def resume(self) -> None:
+    def resume(self) -> Dict[str, Any]:
         """Resumes from checkpoint linked with latest.pth"""
-        self.load("latest.pth")
+        if (self.rootdir / "latest.pth").exists():
+            return self.load("latest.pth")
+        return None
