@@ -1,21 +1,14 @@
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Dict
+from typing import Any, Dict
 
 import torch
-from torch import nn, optim, inference_mode, Tensor
+from torch import nn, optim, Tensor
+from torch.autograd.grad_mode import inference_mode
 from torch.utils.data import DataLoader
-from torch.cuda.amp import GradScaler
+from torch.cuda.amp.grad_scaler import GradScaler
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.profiler import (
-    profile,
-    ProfilerActivity,
-    tensorboard_trace_handler,
-    schedule,
-    record_function,
-)
-
-from tqdm.auto import tqdm
+from torch.profiler import profile, record_function
 
 
 from torchstats.metadata import MetadataManager
@@ -32,7 +25,7 @@ class TrainingModules:
     trainloader: DataLoader
     valloader: DataLoader
     meta_manager: MetadataManager
-    grad_scaler: GradScaler = None
+    grad_scaler: GradScaler | None = None
 
     def add_grad_scaler(self) -> None:
         self.grad_scaler = GradScaler()
@@ -81,6 +74,8 @@ class TrainingManager:
         """Accumulate losses with optional grad scaler if enabled"""
         loss = torch.zeros(1).cuda()
         for loss_ in losses:
+            if not torch.isfinite(losses[loss_]):
+                raise RuntimeError(f"Not finite loss detected for {loss_}")
             if self.modules.grad_scaler is not None:
                 loss += self.modules.grad_scaler(losses[loss_])
             else:
@@ -98,8 +93,11 @@ class TrainingManager:
 
             self.modules.optimizer.zero_grad()
 
-    def train_epoch(self, tqdm_bar: tqdm = None, profiler: profile = None) -> None:
+    def train_epoch(
+        self, pbar: Any | None = None, profiler: profile | None = None
+    ) -> None:
         self.modules.model.train()
+        self.modules.meta_manager.perflog.train()
 
         for idx, data in enumerate(self.modules.trainloader):
             with record_function("inference"):
@@ -118,12 +116,15 @@ class TrainingManager:
             if profiler is not None:
                 profiler.step()
 
-            if tqdm_bar is not None:
-                tqdm_bar.update(1)
+            if pbar is not None:
+                pbar.update(1)
 
     @inference_mode()
-    def validation_epoch(self, tqdm_bar: tqdm = None, profiler: profile = None) -> None:
+    def validation_epoch(
+        self, pbar: Any | None = None, profiler: profile | None = None
+    ) -> None:
         self.modules.model.eval()
+        self.modules.meta_manager.perflog.eval()
 
         for data in self.modules.valloader:
             with record_function("inference"):
@@ -138,8 +139,8 @@ class TrainingManager:
             if profiler is not None:
                 profiler.step()
 
-            if tqdm_bar is not None:
-                tqdm_bar.update(1)
+            if pbar is not None:
+                pbar.update(1)
 
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):
             self.modules.scheduler.step(self.modules.meta_manager.perflog.epoch_loss())

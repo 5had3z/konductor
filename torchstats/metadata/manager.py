@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 
 from .checkpointer import Checkpointer
-from .statistics.perflogger import PerfLoggger
+from .statistics.perflogger import PerfLogger
 from .remotesync import _RemoteSyncrhoniser
 
 
@@ -31,14 +31,17 @@ class _Timer:
 class MetadataManager:
     """Manages the lifecycle for statistics, checkpoints and any other relevant logs during training"""
 
-    perflog: PerfLoggger
+    perflog: PerfLogger
     checkpointer: Checkpointer
-    remoteSync: _RemoteSyncrhoniser = None
-    remoteSyncInterval: float = None
+    remoteSync: _RemoteSyncrhoniser | None = None
+    remoteSyncInterval: float | None = None
 
     def __post_init__(self) -> None:
         if all(mod is not None for mod in [self.remoteSync, self.remoteSyncInterval]):
             self.remote_timer = _Timer()
 
     def epoch_step(self) -> None:
-        """Step every"""
+        """Step every epoch"""
+
+    def iter_step(self) -> None:
+        """Step every iteration"""

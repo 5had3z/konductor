@@ -2,7 +2,7 @@
 Synchronise workspace with minio s3 bucket
 """
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from minio import Minio, S3Error
 
 from ._base import _RemoteSyncrhoniser
@@ -18,13 +18,13 @@ class MinioSync(_RemoteSyncrhoniser):
 
     def __init__(
         self,
-        bucket_name: str = None,
-        minio_access: Optional[Dict[str, Any]] = None,
+        bucket_name: str | None = None,
+        minio_access: Dict[str, Any] | None = None,
         **kwargs,
     ) -> None:
         """Initialiser for minio bucket
 
-        :param bucket_name: Name of the bucket to use, if left blank
+        :param bucket_name: Optional name of the bucket to use, if left blank
                             uses hostpath folder name
         :param minio_access: Optional config for minio client,
                              if left to none uses environment variables,

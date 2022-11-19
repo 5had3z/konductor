@@ -74,7 +74,10 @@ class Checkpointer:
         # If the path name is not 'latest.pth' create a symlink to it
         # using 'latest.pth' prevents the accumulation of checkpoints.
         if _path.name != "latest.pth":
-            (self.rootdir / "latest.pth").symlink_to(_path)
+            try:
+                (self.rootdir / "latest.pth").symlink_to(_path)
+            except OSError:
+                pass  # continue of symlink is unsupported
 
     def load(self, filename: str) -> Dict[str, Any]:
         """Load checkpoint and return any previously saved scalar kwargs"""
@@ -92,7 +95,7 @@ class Checkpointer:
         # Return any extra data
         return checkpoint
 
-    def resume(self) -> Dict[str, Any]:
+    def resume(self) -> Dict[str, Any] | None:
         """Resumes from checkpoint linked with latest.pth"""
         if (self.rootdir / "latest.pth").exists():
             return self.load("latest.pth")
