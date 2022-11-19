@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 import torch
 from torch import nn, optim, Tensor
-from torch.autograd.grad_mode import inference_mode
+from torch.autograd.grad_mode import no_grad
 from torch.utils.data import DataLoader
+from torch.amp.autocast_mode import autocast
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.profiler import profile, record_function
@@ -21,7 +22,7 @@ class TrainingModules:
     model: nn.Module
     criterion: nn.Module
     optimizer: optim.Optimizer
-    scheduler: optim.lr_scheduler._LRScheduler
+    scheduler: optim.lr_scheduler._LRScheduler | ReduceLROnPlateau
     trainloader: DataLoader
     valloader: DataLoader
     meta_manager: MetadataManager
@@ -37,8 +38,8 @@ class TrainingModules:
 @dataclass
 class TrainingMangerConfig:
     amp: bool = False  # Enable Nvidia AMP
-    profile: bool = False  # Enable Profiling
-    tqdm: bool = False  # Enable tqdm
+    profile: Callable | None = None  # Enable Profiling
+    pbar: Callable | None = None  # Enable Console Progress
     optimizer_interval: int = 1  # interval to call optimizer.step()
     checkpoint_interval: int = 0  # Save extra checkpoints at interval
 
@@ -67,6 +68,22 @@ class TrainingManager:
         else:
             self._logger.info(f"Unable to load checkpont, starting from scatch")
 
+        if config.pbar is not None:
+            self.train_epoch = config.pbar(
+                self.train_epoch, total=len(self.modules.trainloader)
+            )
+            self.validation_epoch = config.pbar(
+                self.validation_epoch, total=len(self.modules.valloader)
+            )
+
+    @staticmethod
+    def _amp(func):
+        def with_amp(*args, **kwargs):
+            with autocast("cuda"):
+                func(*args, **kwargs)
+
+        return with_amp
+
     def run_epoch(self) -> None:
         """Complete one epoch with training and validation epoch"""
 
@@ -77,7 +94,7 @@ class TrainingManager:
             if not torch.isfinite(losses[loss_]):
                 raise RuntimeError(f"Not finite loss detected for {loss_}")
             if self.modules.grad_scaler is not None:
-                loss += self.modules.grad_scaler(losses[loss_])
+                loss += self.modules.grad_scaler.scale(losses[loss_])
             else:
                 loss += losses[loss_]
         return loss
@@ -93,9 +110,8 @@ class TrainingManager:
 
             self.modules.optimizer.zero_grad()
 
-    def train_epoch(
-        self, pbar: Any | None = None, profiler: profile | None = None
-    ) -> None:
+    def _train(self, pbar: Any | None = None, profiler: profile | None = None) -> None:
+        """Train for one epoch over the dataset"""
         self.modules.model.train()
         self.modules.meta_manager.perflog.train()
 
@@ -108,7 +124,7 @@ class TrainingManager:
                 loss = self._accumulate_losses(losses)
                 loss.backward()
 
-            with record_function("statistics"), inference_mode():
+            with record_function("statistics"), no_grad():
                 self.modules.meta_manager.perflog(data, pred, losses)
 
             self._maybe_step_optimiser(idx)
@@ -119,8 +135,26 @@ class TrainingManager:
             if pbar is not None:
                 pbar.update(1)
 
-    @inference_mode()
-    def validation_epoch(
+    def train_epoch(self) -> None:
+        """"""
+        train_fn = self._train
+
+        if self._config.pbar is not None:
+            train_fn = self._config.pbar(train_fn, total=len(self.modules.valloader))
+
+        if self._config.amp:
+            train_fn = self._amp(train_fn)
+
+        if self._config.profile is not None and not any(
+            "trace.json" in pth.name
+            for pth in self.modules.meta_manager.checkpointer.rootdir.iterdir()
+        ):
+            train_fn = self._config.profile(train_fn)
+
+        train_fn()
+
+    @no_grad()
+    def _validation(
         self, pbar: Any | None = None, profiler: profile | None = None
     ) -> None:
         self.modules.model.eval()
@@ -146,3 +180,14 @@ class TrainingManager:
             self.modules.scheduler.step(self.modules.meta_manager.perflog.epoch_loss())
         else:
             self.modules.scheduler.step()
+
+    def validation_epoch(self) -> None:
+        val_fn = self._validation
+
+        if self._config.pbar is not None:
+            val_fn = self._config.pbar(val_fn, total=len(self.modules.valloader))
+
+        if self._config.amp:
+            val_fn = self._amp(val_fn)
+
+        val_fn()

@@ -4,7 +4,7 @@ Synchonise workspace with folder of remote machine
 
 import os
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 from getpass import getpass
 
 import paramiko
@@ -21,8 +21,8 @@ class SshSync(_RemoteSyncrhoniser):
     def __init__(
         self,
         remote_path: Path,
-        ssh_cfg: Dict[str, str] = None,
-        pk_cfg: paramiko.SSHConfigDict = None,
+        ssh_cfg: Dict[str, Any] | None = None,
+        pk_cfg: paramiko.SSHConfigDict | None = None,
         **kwargs,
     ) -> None:
         """Initialisation method for SSH based folder synchronisation.
@@ -37,7 +37,7 @@ class SshSync(_RemoteSyncrhoniser):
 
         self._session = paramiko.SSHClient()
         self._session.load_system_host_keys()
-        self._session.set_missing_host_key_policy(paramiko.client.AutoAddPolicy)
+        self._session.set_missing_host_key_policy(paramiko.AutoAddPolicy)
 
         if ssh_cfg is not None:
             pk_cfg = self.parse_ssh_config(**ssh_cfg)
@@ -112,6 +112,7 @@ class SshSync(_RemoteSyncrhoniser):
                 ).st_mtime
                 local_modified = (self._host_path / filename).stat().st_mtime
 
+                assert remote_modified is not None
                 # Remote mod will be greater than since its "modify" time will
                 # be the last push which is after the actual modify on a worker
                 if remote_modified > local_modified and not force:
@@ -134,10 +135,8 @@ class SshSync(_RemoteSyncrhoniser):
 
         # Change local time to remote last modified
         remote_modified = stfp_session.stat(str(self._remote_path / filename)).st_mtime
-        os.utime(
-            str(self._host_path / filename),
-            (remote_modified, remote_modified),
-        )
+        assert remote_modified is not None
+        os.utime(str(self._host_path / filename), (remote_modified, remote_modified))
 
         stfp_session.close()
 
@@ -151,6 +150,7 @@ class SshSync(_RemoteSyncrhoniser):
                     str(self._remote_path / filename)
                 ).st_mtime
 
+                assert remote_modified is not None
                 if remote_modified < local_modified and not force:
                     continue
             else:

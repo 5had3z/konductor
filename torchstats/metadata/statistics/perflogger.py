@@ -14,11 +14,17 @@ class PerfLoggerConfig:
     for many performance evaluation methods.
     """
 
+    # collects accuracy statistics during training
+    collect_training_accuracy: bool = True
+
+    # collects loss statistics during validation
+    collect_validation_loss: bool = True
+
     # General stats for many tasks
     n_classes: int = -1
 
     # Typical Data for Panoptic Segmentation
-    things_ids: Set[int] = None
+    things_ids: Set[int] = set()
 
 
 class PerfLogger:
@@ -27,8 +33,17 @@ class PerfLogger:
     available_statistics: Dict[str, Statistic] = {}
 
     def __init__(self, config: PerfLoggerConfig) -> None:
+        self.is_training = False
         self.config = config
         self._logger = getLogger(type(self).__name__)
+
+    def train(self) -> None:
+        """Set logger in training mode"""
+        self.is_training = True
+
+    def eval(self) -> None:
+        """Set logger in validation mode"""
+        self.is_training = False
 
     def __call__(
         self,

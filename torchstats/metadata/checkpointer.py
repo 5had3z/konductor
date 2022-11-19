@@ -40,9 +40,9 @@ class Checkpointer:
 
         self.logger.info(f"Saving checkpoint data at {rootdir}")
 
-    def add_checkpointable(self, key: str, checkpointable: nn.Module) -> None:
+    def add_checkpointable(self, key: str, checkpointable: Any) -> None:
         """
-        Add checkpointable for logging.
+        Add checkpointable for logging, requres state_dict method.
         """
         assert (
             key not in self.extras

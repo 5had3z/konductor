@@ -3,38 +3,11 @@ import os
 import itertools
 from threading import Thread, Event
 from datetime import timedelta
-from pathlib import Path
 from typing import Any, List
 import enum
 
 from tqdm.auto import tqdm
 from colorama import Fore
-from torch.profiler import (
-    profile,
-    ProfilerActivity,
-    tensorboard_trace_handler,
-    schedule,
-)
-
-
-def default_profiler(func, save_dir: Path):
-    """Default wrapper for profiling pytorch, requires save_dir"""
-    return profile_wrapper(
-        func,
-        activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-        on_trace_ready=tensorboard_trace_handler(str(save_dir)),
-        schedule=schedule(wait=1, warmup=1, active=3, repeat=1),
-    )
-
-
-def profile_wrapper(func, *prof_args, **prof_kwargs):
-    """Wraps function with pytorch profiler, function must take profiler as a key-word argument"""
-
-    def with_profiler(*args, **kwargs):
-        with profile(*prof_args, **prof_kwargs) as prof:
-            func(*args, **kwargs, profiler=prof)
-
-    return with_profiler
 
 
 class PbarType(enum.Enum):
