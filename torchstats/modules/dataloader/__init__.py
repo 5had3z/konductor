@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Tuple
 
 import torch
-import torch.distributed as dist
 from torch.utils.data import (
     Dataset,
     DataLoader,
@@ -22,9 +21,8 @@ try:
 except ImportError:
     pass
 
-import torchstats.utilities.comm as comm
-
 from ..registry import Registry
+from ...utilities.comm import get_rank, get_world_size, in_distributed_mode
 
 REGISTRY = Registry("datasets")
 
@@ -76,11 +74,11 @@ def get_dataloader(config: DataloaderConfig) -> DataLoader | DALIGenericIterator
     match config.loader_type:
         case DataloaderType.DALI:
             pipe_kwargs = {
-                "shard_id": comm.get_rank(),
-                "num_shards": comm.get_world_size(),
+                "shard_id": get_rank(),
+                "num_shards": get_world_size(),
                 "num_threads": config.workers,
                 "device_id": torch.cuda.current_device(),
-                "batch_size": config.batch_size // comm.get_world_size(),
+                "batch_size": config.batch_size // get_world_size(),
             }
             dali_pipe, out_map = get_dali_pipe(config.dataset, pipe_kwargs)
             loader = DALIGenericIterator(
@@ -90,9 +88,9 @@ def get_dataloader(config: DataloaderConfig) -> DataLoader | DALIGenericIterator
             dataset = get_dataset(config.dataset)
             if config.custom_sampler is not None:
                 sampler = config.custom_sampler(dataset)
-            elif dist.is_available() and dist.is_initialized():
+            elif in_distributed_mode():
                 sampler = DistributedSampler(dataset, shuffle=config.shuffle)
-                config.batch_size //= dist.get_world_size()
+                config.batch_size //= get_world_size()
             elif config.shuffle:
                 sampler = RandomSampler(dataset)
             else:
