@@ -5,7 +5,15 @@ from typing import Any, Dict
 import torch
 from torch.optim import Optimizer
 
-from .lamb import LAMB
+
+from ..registry import Registry
+
+REGISTRY = Registry("losses")
+REGISTRY.register_module("Adam", torch.optim.Adam)
+REGISTRY.register_module("SGD", torch.optim.SGD)
+REGISTRY.register_module("AdamW", torch.optim.AdamW)
+
+from . import lamb  # TODO: Automatically import all modules in folder
 
 
 @dataclass
@@ -22,13 +30,6 @@ class OptimizerConfig:
 
 def get_optimizer(cfg: OptimizerConfig, model: torch.nn.Module) -> Optimizer:
     """Return an initialised optimizer according to the configmap"""
-
-    optim_map = {
-        "Adam": torch.optim.Adam,
-        "SGD": torch.optim.SGD,
-        "AdamW": torch.optim.AdamW,
-        "LAMB": LAMB,
-    }
 
     def maybe_add_gradient_clipping(optim: Optimizer) -> Optimizer:
         if cfg.gradient_clipping is not None:
@@ -48,7 +49,7 @@ def get_optimizer(cfg: OptimizerConfig, model: torch.nn.Module) -> Optimizer:
 
         return optim
 
-    optimizer_cls = maybe_add_gradient_clipping(optim_map[cfg.type])
+    optimizer_cls = maybe_add_gradient_clipping(REGISTRY[cfg.type])
 
     if cfg.backbone_multiplier is not None:
         mult_ = cfg.backbone_multiplier

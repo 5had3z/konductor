@@ -3,7 +3,10 @@ from typing import Iterable, Tuple
 
 import torch
 
+from . import REGISTRY
 
+
+@REGISTRY.register_module()
 class LAMB(torch.optim.Optimizer):
     r"""Implements Lamb algorithm.
 
