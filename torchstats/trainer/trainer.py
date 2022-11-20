@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, List
 
 import torch
 from torch import nn, optim, Tensor
@@ -20,7 +20,7 @@ class TrainingModules:
     """Holds all common training Modules"""
 
     model: nn.Module
-    criterion: nn.Module
+    criterion: List[nn.Module]
     optimizer: optim.Optimizer
     scheduler: optim.lr_scheduler._LRScheduler | ReduceLROnPlateau
     trainloader: DataLoader
@@ -120,7 +120,9 @@ class TrainingManager:
                 pred = self.modules.model(data)
 
             with record_function("criterion"):
-                losses = self.modules.criterion(data, pred)
+                losses = {}
+                for criterion in self.modules.criterion:
+                    losses.update(criterion(data, pred))
                 loss = self._accumulate_losses(losses)
                 loss.backward()
 
@@ -165,7 +167,9 @@ class TrainingManager:
                 pred = self.modules.model(data)
 
             with record_function("criterion"):
-                losses = self.modules.criterion(data, pred)
+                losses = {}
+                for criterion in self.modules.criterion:
+                    losses.update(criterion(data, pred))
 
             with record_function("statistics"):
                 self.modules.meta_manager.perflog(data, pred, losses)

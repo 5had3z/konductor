@@ -1,10 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Set
 from logging import getLogger
 
 from torch import Tensor
 
-from statistic import Statistic
+from .statistic import Statistic
 
 
 @dataclass
@@ -24,7 +24,7 @@ class PerfLoggerConfig:
     n_classes: int = -1
 
     # Typical Data for Panoptic Segmentation
-    things_ids: Set[int] = set()
+    things_ids: Set[int] = field(default_factory=set)
 
 
 class PerfLogger:

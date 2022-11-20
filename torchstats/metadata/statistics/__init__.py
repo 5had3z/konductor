@@ -1,1 +1,1 @@
-from perflogger import PerfLogger, PerfLoggerConfig
+from .perflogger import PerfLogger, PerfLoggerConfig

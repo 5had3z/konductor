@@ -7,15 +7,16 @@ from pathlib import Path
 import yaml
 import hashlib
 
-from trainer import TrainingManager, TrainingMangerConfig, TrainingModules
-from torchstats.modules import (
+from .trainer import TrainingManager, TrainingMangerConfig, TrainingModules
+from ..modules.dataloader import get_dataloader, DataloaderConfig
+from ..modules import (
     get_model,
     get_criterion,
     get_optimizer,
     get_lr_scheduler,
     get_dataloader,
 )
-from torchstats.metadata import get_metadata_manager
+from ..metadata import get_metadata_manager
 
 
 def parser_add_common_args(parser: argparse.ArgumentParser) -> None:
@@ -47,15 +48,10 @@ def parser_add_common_args(parser: argparse.ArgumentParser) -> None:
     # Remote configuration
     parser.add_argument(
         "-r",
-        "--ssh_sync",
-        type=str,
+        "--remote",
+        type=Path,
         required=False,
-        help="ssh remote syncrhonisation config path or string (this will be deduced)",
-    )
-    parser.add_argument(
-        "--minio_sync",
-        action="store_true",
-        help="Push results to minio bucket",
+        help="Path to configuration file for remote synchronisation",
     )
 
     # Number of workers
@@ -131,8 +127,8 @@ def get_experiment_cfg_and_path(cli_args: argparse.Namespace) -> Dict[str, Any]:
 
 def initialise_training_modules(exp_config) -> TrainingModules:
     """"""
-    train_loader = get_dataloader(exp_config["train_loader"])
-    val_loader = get_dataloader(exp_config["val_loader"])
+    train_loader = get_dataloader(DataloaderConfig.from_config(exp_config, "train"))
+    val_loader = get_dataloader(DataloaderConfig.from_config(exp_config, "val"))
     model = get_model(exp_config["model"])
     criteron = get_criterion(exp_config["criterion"])
     optim = get_optimizer(exp_config["optimizer"], model)
