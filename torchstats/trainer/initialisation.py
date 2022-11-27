@@ -8,7 +8,6 @@ import yaml
 import hashlib
 
 from .trainer import TrainingManager, TrainingMangerConfig, TrainingModules
-from ..modules.dataloader import get_dataloader, DataloaderConfig
 from ..modules import (
     get_model,
     get_criterion,
@@ -127,13 +126,16 @@ def get_experiment_cfg_and_path(cli_args: argparse.Namespace) -> Dict[str, Any]:
 
 def initialise_training_modules(exp_config) -> TrainingModules:
     """"""
-    train_loader = get_dataloader(DataloaderConfig.from_config(exp_config, "train"))
-    val_loader = get_dataloader(DataloaderConfig.from_config(exp_config, "val"))
-    model = get_model(exp_config["model"])
-    criteron = get_criterion(exp_config["criterion"])
-    optim = get_optimizer(exp_config["optimizer"], model)
-    scheduler = get_lr_scheduler(exp_config["lr_scheduler"], optim)
-    meta_manager = get_metadata_manager(exp_config["model"])
+    # Want to first "get_dataset" so I can get all its properties
+    # the loaders then get a train and test variant of it, model
+    # can the read properies, and so can meta manager
+    train_loader = get_dataloader(exp_config, "train")
+    val_loader = get_dataloader(exp_config, "val")
+    model = get_model(exp_config, None)
+    criteron = get_criterion(exp_config)
+    optim = get_optimizer(exp_config, model)
+    scheduler = get_lr_scheduler(exp_config, optim)
+    meta_manager = get_metadata_manager(exp_config, model)
 
     return TrainingModules(
         model, criteron, optim, scheduler, train_loader, val_loader, meta_manager

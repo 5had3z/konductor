@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 import os
+from typing import Any, Dict
 
 import torch
 from torch import nn
 from torch.nn.parallel import DistributedDataParallel
 
 
-from ..registry import Registry
+from ..registry import Registry, BaseConfig
 from ...utilities.comm import in_distributed_mode
 
 # Model is end-to-end definition of
@@ -17,30 +18,35 @@ POSTPROCESSOR_REGISTRY = Registry("postproc")
 
 
 @dataclass
-class ModelConfig:
+class ModelConfig(BaseConfig):
     """
     Base Model configuration configuration, architectures should implement via this.
     """
-
-    name: str
 
     # Some Common Parameters (maybe unused)
     bn_momentum: float = 0.1
     bn_freeze: bool = False  # freeze bn statistics
 
+    def get_instance(self, model):
+        if self.bn_momentum != 0.1:
+            for module in model.modules():
+                if isinstance(module, nn.BatchNorm2d):
+                    module.momentum = self.bn_momentum
 
-def get_model(config: ModelConfig) -> nn.Module:
-    model: nn.Module = MODEL_REGISTRY[config.name](config)
+        if self.bn_freeze:
+            for module in model.modules():
+                if isinstance(module, nn.BatchNorm2d):
+                    module.track_running_stats = False
 
-    if config.bn_momentum != 0.1:
-        for module in model.modules():
-            if isinstance(module, nn.BatchNorm2d):
-                module.momentum = config.bn_momentum
+        return model
 
-    if config.bn_freeze:
-        for module in model.modules():
-            if isinstance(module, nn.BatchNorm2d):
-                module.track_running_stats = False
+
+def get_model_config(config: Dict[str, Any]) -> ModelConfig:
+    return MODEL_REGISTRY[config["model"]["name"]].from_config(config)
+
+
+def get_model(config: Dict[str, Any], dataset_properties) -> nn.Module:
+    model: nn.Module = get_model_config(config).get_instance()
 
     if in_distributed_mode():
         model = DistributedDataParallel(

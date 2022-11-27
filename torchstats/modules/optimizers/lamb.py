@@ -1,12 +1,12 @@
 import math
-from typing import Iterable, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, Tuple
 
 import torch
 
-from . import REGISTRY
+from . import REGISTRY, OptimizerConfig
 
 
-@REGISTRY.register_module()
 class LAMB(torch.optim.Optimizer):
     r"""Implements Lamb algorithm.
 
@@ -146,3 +146,17 @@ class LAMB(torch.optim.Optimizer):
                 p.data.add_(adam_step, alpha=-step_size * trust_ratio)
 
         return loss
+
+
+@dataclass
+@REGISTRY.register_module("LAMB")
+class LAMBConfig(OptimizerConfig):
+    kwargs: Dict[str, Any]
+
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]):
+        return super().from_config(config, kwargs=config["optimizer"]["args"])
+
+    def get_instance(self, model):
+        optim, params = super().get_instance(LAMB, model)
+        return optim(params, self.lr)

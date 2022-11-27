@@ -1,38 +1,23 @@
-from dataclasses import dataclass
 import itertools
-from typing import Any, Dict
+from typing import Any, Dict, Type
 
 import torch
 from torch.optim import Optimizer
 
 
-from ..registry import Registry
+from ..registry import Registry, BaseConfig
 
 REGISTRY = Registry("losses")
-REGISTRY.register_module("Adam", torch.optim.Adam)
-REGISTRY.register_module("SGD", torch.optim.SGD)
-REGISTRY.register_module("AdamW", torch.optim.AdamW)
-
-from . import lamb  # TODO: Automatically import all modules in folder
 
 
-@dataclass
-class OptimizerConfig:
+class OptimizerConfig(BaseConfig):
     type: str
     lr: float = 1e-3
     gradient_clipping: float | None = None
     backbone_multiplier: float | None = None
 
-    def get_kwargs(self) -> Dict[str, Any]:
-        """Returns kwargs for optimizer class initialisation"""
-        return {"lr": self.lr}
-
-
-def get_optimizer(cfg: OptimizerConfig, model: torch.nn.Module) -> Optimizer:
-    """Return an initialised optimizer according to the configmap"""
-
-    def maybe_add_gradient_clipping(optim: Optimizer) -> Optimizer:
-        if cfg.gradient_clipping is not None:
+    def maybe_add_gradient_clipping(self, optim: Type[Optimizer]) -> Type[Optimizer]:
+        if self.gradient_clipping is not None:
 
             class FullModelGradientClippingOptimizer(optim):
                 """Gradient clipping wrapper"""
@@ -42,28 +27,42 @@ def get_optimizer(cfg: OptimizerConfig, model: torch.nn.Module) -> Optimizer:
                     all_params = itertools.chain(
                         *[x["params"] for x in self.param_groups]
                     )
-                    torch.nn.utils.clip_grad_norm_(all_params, cfg.gradient_clipping)
+                    torch.nn.utils.clip_grad_norm_(all_params, self.gradient_clipping)
                     super().step(closure=closure)
 
             return FullModelGradientClippingOptimizer
 
         return optim
 
-    optimizer_cls = maybe_add_gradient_clipping(REGISTRY[cfg.type])
+    def get_instance(self, optim_cls, model):
 
-    if cfg.backbone_multiplier is not None:
-        mult_ = cfg.backbone_multiplier
-        param_grps = [
-            {"params": [], "lr": cfg.lr},
-            {"params": [], "lr": mult_ * cfg.lr},
-        ]
-        for name, param in model.named_parameters():
-            if any(str_ in name for str_ in ["backbone", "encoder"]):
-                param_grps[1]["params"].append(param)
-            else:
-                param_grps[0]["params"].append(param)
-        optimizer = optimizer_cls(param_grps, **cfg.get_kwargs())
-    else:
-        optimizer = optimizer_cls(model.parameters(), **cfg.get_kwargs())
+        optim_cls = self.maybe_add_gradient_clipping(optim_cls)
+
+        if self.backbone_multiplier is not None:
+            mult_ = self.backbone_multiplier
+            param_grps = [
+                {"params": [], "lr": self.lr},
+                {"params": [], "lr": mult_ * self.lr},
+            ]
+            for name, param in model.named_parameters():
+                if any(str_ in name for str_ in ["backbone", "encoder"]):
+                    param_grps[1]["params"].append(param)
+                else:
+                    param_grps[0]["params"].append(param)
+            params = param_grps
+        else:
+            params = model.parameters()
+
+        return optim_cls, params
+
+
+from . import lamb, common  # TODO: Automatically import all modules in folder
+
+
+def get_optimizer(cfg: Dict[str, Any], model: torch.nn.Module) -> Optimizer:
+    """Return an initialised optimizer according to the configmap"""
+
+    optimizer_conf = REGISTRY[cfg["optimizer"]["name"]].from_config(cfg)
+    optimizer = optimizer_conf.get_instance(model)
 
     return optimizer

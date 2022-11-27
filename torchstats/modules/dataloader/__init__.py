@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import enum
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Tuple
+from typing import Any, Callable, Dict, List, Literal, Tuple, Type
 
 import torch
 from torch.utils.data import (
@@ -22,46 +22,38 @@ try:
 except ImportError:
     pass
 
-from ..registry import Registry
+from ..registry import Registry, BaseConfig
 from ...utilities.comm import get_rank, get_world_size, in_distributed_mode
 
 DATASET_REGISTRY = Registry("dataset")
-CONFIG_REGISTRY = Registry("dataset_config")
 SAMPLER_REGISTRY = Registry("data_sampler")
-
-
-class DataloaderType(enum.Enum):
-    DALI = enum.auto()
-    PYTORCH_V1 = enum.auto()
-    PYTORCH_V2 = enum.auto()
+DATALOADER_REGISTRY = Registry("dataloder")
 
 
 @dataclass
-class DatasetConfig:
+class DatasetConfig(BaseConfig):
     """Base dataset configuration class"""
 
-    name: str
-    mode: Literal["train", "val"] = "train"
     basepath: Path = Path(os.environ.get("DATAPATH", "/data"))
 
     @classmethod
-    def from_config(cls, config, mode: Literal["train", "val"]):
-        return cls(config["data"]["dataset"]["name"], mode=mode)
+    def from_config(cls, config: Dict[str, Any], *args, **kwargs):
+        return cls(*args, **kwargs)
 
-    def get_kwargs(self) -> Dict[str, Any]:
-        return {}
+    def get_instance(self, mode: Literal["train", "val"]) -> Dataset:
+        raise NotImplementedError()
 
 
 @dataclass
-class DataloaderConfig:
-    loader_type: DataloaderType
+class DataloaderConfig(BaseConfig):
     dataset: DatasetConfig
+    mode: Literal["train", "val"]
     batch_size: int
     workers: int = 4
     shuffle: bool = False
     drop_last: bool = True
     pin_memory: bool = True
-    custom_sampler: Sampler | None = None
+    custom_sampler: Type[Sampler] | None = None
     collate_fn: Callable[[List[Dict[str, Any]]], Dict[str, Any]] | None = None
 
     @classmethod
@@ -75,67 +67,60 @@ class DataloaderConfig:
         else:
             loader_cfg = deepcopy(config["data"]["loader"])
 
-        loader_cfg["loader_type"] = DataloaderType[loader_cfg["loader_type"]]
-        dataset = CONFIG_REGISTRY[dataset_cfg["name"]].from_config(config, mode)
+        dataset = DATASET_REGISTRY[dataset_cfg["name"]].from_config(config)
 
-        return cls(dataset=dataset, **loader_cfg)
+        return cls(dataset=dataset, mode=mode, **loader_cfg["args"])
 
 
-def get_dataset(config: DatasetConfig) -> Dataset:
-    """Simply returns the dataset based on the configuration"""
-    return DATASET_REGISTRY[config.name](
-        config.basepath, config.mode, **config.get_kwargs()
+@DATALOADER_REGISTRY.register_module("PYTORCH_V1")
+class DataloaderV1Config(DataloaderConfig):
+    def get_instance(self, *args):
+        dataset = self.dataset.get_instance(self.mode)
+        if self.custom_sampler is not None:
+            sampler = self.custom_sampler(dataset)
+        elif in_distributed_mode():
+            sampler = DistributedSampler(dataset, shuffle=self.shuffle)
+            self.batch_size //= get_world_size()
+        elif self.shuffle:
+            sampler = RandomSampler(dataset)
+        else:
+            sampler = SequentialSampler(dataset)
+
+        return DataLoader(
+            dataset,
+            sampler=sampler,
+            drop_last=self.drop_last,
+            batch_size=self.batch_size,
+            num_workers=self.workers,
+            pin_memory=self.pin_memory,
+            collate_fn=self.collate_fn,
+        )
+
+
+@DATALOADER_REGISTRY.register_module("DALI")
+class DaliLoaderConfig(DataloaderConfig):
+    def get_instance(self, *args):
+        pipe_kwargs = {
+            "shard_id": get_rank(),
+            "num_shards": get_world_size(),
+            "num_threads": self.workers,
+            "device_id": torch.cuda.current_device(),
+            "batch_size": self.batch_size // get_world_size(),
+        }
+
+        dali_pipe, out_map = self.dataset.get_instance(mode=self.mode, **pipe_kwargs)
+
+        return DALIGenericIterator(dali_pipe, out_map, reader_name=self.mode)
+
+
+def get_dataloder_config(config: Dict[str, Any], mode: str) -> DataloaderConfig:
+    return DATALOADER_REGISTRY[config["data"]["loader"]["name"]].from_config(
+        config, mode
     )
 
 
-def get_dali_pipe(
-    config: DatasetConfig, pipe_kwargs: Dict[str, int]
-) -> Tuple[Pipeline, List[str]]:
-    """Registered DALI Datapipes should be functions that return pipe and list of strings for output map"""
-    return DATASET_REGISTRY[config.name](
-        config.basepath, config.mode, **config.get_kwargs(), **pipe_kwargs
-    )
-
-
-def get_dataloader(config: DataloaderConfig) -> DataLoader | DALIGenericIterator:
+def get_dataloader(
+    config: Dict[str, Any], mode: str
+) -> DataLoader | DALIGenericIterator:
     """"""
-    match config.loader_type:
-        case DataloaderType.DALI:
-            pipe_kwargs = {
-                "shard_id": get_rank(),
-                "num_shards": get_world_size(),
-                "num_threads": config.workers,
-                "device_id": torch.cuda.current_device(),
-                "batch_size": config.batch_size // get_world_size(),
-            }
-            dali_pipe, out_map = get_dali_pipe(config.dataset, pipe_kwargs)
-            loader = DALIGenericIterator(
-                dali_pipe, out_map, reader_name=config.dataset.mode
-            )
-
-        case DataloaderType.PYTORCH_V1:
-            dataset = get_dataset(config.dataset)
-            if config.custom_sampler is not None:
-                sampler = config.custom_sampler(dataset)
-            elif in_distributed_mode():
-                sampler = DistributedSampler(dataset, shuffle=config.shuffle)
-                config.batch_size //= get_world_size()
-            elif config.shuffle:
-                sampler = RandomSampler(dataset)
-            else:
-                sampler = SequentialSampler(dataset)
-
-            loader = DataLoader(
-                dataset,
-                sampler=sampler,
-                drop_last=config.drop_last,
-                batch_size=config.batch_size,
-                num_workers=config.workers,
-                pin_memory=config.pin_memory,
-                collate_fn=config.collate_fn,
-            )
-
-        case DataloaderType.PYTORCH_V2:
-            raise NotImplementedError("Dataloader 2/Datapipes not implemented yet")
-
-    return loader
+    return get_dataloder_config(config, mode).get_instance()
