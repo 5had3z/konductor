@@ -26,7 +26,7 @@ class BaseConfig(metaclass=abc.ABCMeta):
         return cls(*args, **kwargs)
 
     @abc.abstractmethod
-    def get_instance(self, *args):
+    def get_instance(self, *args, **kwargs):
         """Get initialised module from configuration"""
 
 

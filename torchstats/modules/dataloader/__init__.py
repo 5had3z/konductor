@@ -37,7 +37,7 @@ class DataloaderConfig(BaseConfig):
     dataset: DatasetConfig
     mode: Mode
     batch_size: int
-    workers: int = 4
+    workers: int = 0
     shuffle: bool = False
     drop_last: bool = True
 

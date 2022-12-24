@@ -17,7 +17,7 @@ from torch.utils.data import (
 class DataloaderV1Config(DataloaderConfig):
     pin_memory: bool = True
     custom_sampler: Type[Sampler] | None = None
-    collate_fn: Callable[[List[Dict[str, Any]]], Dict[str, Any]] | None
+    collate_fn: Callable[[List[Dict[str, Any]]], Dict[str, Any]] | None = None
 
     def get_instance(self, *args):
         dataset: Dataset = self.dataset.get_instance(self.mode)

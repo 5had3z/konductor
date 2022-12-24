@@ -53,21 +53,6 @@ def parser_add_common_args(parser: argparse.ArgumentParser) -> None:
         help="Path to configuration file for remote synchronisation",
     )
 
-    # Number of workers
-    parser.add_argument("-w", "--workers", type=int, required=False)
-
-    # Configruation for torch.distributed training
-    parser.add_argument("-g", "--gpu", type=int, required=False, default=0)
-    parser.add_argument("-b", "--backend", type=str, required=False, default="nccl")
-    parser.add_argument(
-        "-d",
-        "--dist_method",
-        type=str,
-        required=False,
-        help="dist method eg. tcp://master_ip:master_port",
-        default=None,
-    )
-
 
 def parse_training_args() -> argparse.Namespace:
     """Parses arguments used for training"""
@@ -79,6 +64,25 @@ def parse_training_args() -> argparse.Namespace:
         type=float,
         default=None,
         help="Save intermediate checkpoints at defined time interval (sec)",
+    )
+    parser.add_argument(
+        "-w",
+        "--workers",
+        type=int,
+        default=0,
+        help="Number of dataloader workers",
+    )
+
+    # Configruation for torch.distributed training
+    parser.add_argument("-g", "--gpu", type=int, required=False, default=0)
+    parser.add_argument("-b", "--backend", type=str, required=False, default="nccl")
+    parser.add_argument(
+        "-d",
+        "--dist_method",
+        type=str,
+        required=False,
+        help="dist method eg. tcp://master_ip:master_port",
+        default=None,
     )
 
     return parser.parse_args()

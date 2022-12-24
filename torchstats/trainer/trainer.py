@@ -86,6 +86,8 @@ class TrainingManager:
 
     def run_epoch(self) -> None:
         """Complete one epoch with training and validation epoch"""
+        self.train_epoch()
+        self.validation_epoch()
 
     def _accumulate_losses(self, losses: Dict[str, Tensor]) -> Tensor:
         """Accumulate losses with optional grad scaler if enabled"""

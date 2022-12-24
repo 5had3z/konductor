@@ -8,6 +8,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 
 from ..registry import Registry, BaseConfig
+from ..dataloader import DatasetConfig
 from ...utilities.comm import in_distributed_mode
 
 # Model is end-to-end definition of
@@ -27,7 +28,7 @@ class ModelConfig(BaseConfig):
     bn_momentum: float = 0.1
     bn_freeze: bool = False  # freeze bn statistics
 
-    def get_instance(self, model):
+    def apply_extra(self, model: nn.Module) -> nn.Module:
         if self.bn_momentum != 0.1:
             for module in model.modules():
                 if isinstance(module, nn.BatchNorm2d):
@@ -45,7 +46,7 @@ def get_model_config(config: Dict[str, Any]) -> ModelConfig:
     return MODEL_REGISTRY[config["model"]["name"]].from_config(config)
 
 
-def get_model(config: Dict[str, Any], dataset_properties) -> nn.Module:
+def get_model(config: Dict[str, Any], dataset_config: DatasetConfig) -> nn.Module:
     model: nn.Module = get_model_config(config).get_instance()
 
     if in_distributed_mode():
