@@ -4,7 +4,6 @@ from ....utilities.comm import get_world_size, in_distributed_mode
 from .. import DataloaderConfig, DATALOADER_REGISTRY
 
 from torch.utils.data import (
-    Dataset,
     DataLoader,
     DistributedSampler,
     SequentialSampler,
@@ -20,7 +19,7 @@ class DataloaderV1Config(DataloaderConfig):
     collate_fn: Callable[[List[Dict[str, Any]]], Dict[str, Any]] | None = None
 
     def get_instance(self, *args):
-        dataset: Dataset = self.dataset.get_instance(self.mode)
+        dataset: Any = self.dataset.get_instance(self.mode)
         if self.custom_sampler is not None:
             sampler = self.custom_sampler(dataset)
         elif in_distributed_mode():

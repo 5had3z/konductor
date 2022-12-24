@@ -2,10 +2,13 @@
 model:
   name: resnet50
 data:
-  val_dataset:
-  train_dataset:
-
-  dataloader:
+  dataset:
+    name: MNIST
+    args: {}
+  loader:
+    name: PYTORCH_V1
+    args:
+      batch_size: 8
 criterion:
   - name: bce
     args:
@@ -17,4 +20,4 @@ optimizer:
 scheduler:
   name: linear
   args:
-    
+    max_iter: 10

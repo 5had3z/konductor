@@ -76,12 +76,17 @@ except ImportError:
     print("tensoflow data modules disabled")
 
 
-def get_dataloder_config(config: Dict[str, Any], mode: str) -> DataloaderConfig:
+def get_dataloder_config(config: Dict[str, Any], mode: Mode | str) -> DataloaderConfig:
+    if isinstance(mode, str):
+        mode = Mode[mode]
     return DATALOADER_REGISTRY[config["data"]["loader"]["name"]].from_config(
         config, mode
     )
 
 
-def get_dataloader(config: Dict[str, Any], mode: str) -> Iterable:
+def get_dataloader(config: Dict[str, Any], mode: Mode | str) -> Iterable:
     """"""
+    if isinstance(mode, str):
+        mode = Mode[mode]
+
     return get_dataloder_config(config, mode).get_instance()
