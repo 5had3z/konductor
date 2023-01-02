@@ -16,14 +16,14 @@ def in_distributed_mode() -> bool:
     return dist.is_available() and dist.is_initialized()
 
 
-def get_world_size() -> int:
+def get_world_size(group=None) -> int:
     """Return world size"""
-    return dist.get_world_size() if in_distributed_mode() else 1
+    return dist.get_world_size(group=group) if in_distributed_mode() else 1
 
 
-def get_rank() -> int:
+def get_rank(group=None) -> int:
     """Return global rank"""
-    return dist.get_rank() if in_distributed_mode() else 0
+    return dist.get_rank(group) if in_distributed_mode() else 0
 
 
 def get_local_rank() -> int:
@@ -76,12 +76,12 @@ def _serialize_to_tensor(data, group):
     device = torch.device("cpu" if backend == "gloo" else "cuda")
 
     buffer = pickle.dumps(data)
-    if len(buffer) > 1024 ** 3:
+    if len(buffer) > 1024**3:
         logger = logging.getLogger(__name__)
         logger.warning(
             "Rank %d trying to all-gather %f GB of data on device %s",
             get_rank(),
-            len(buffer) / (1024 ** 3),
+            len(buffer) / (1024**3),
             device,
         )
     storage = torch.ByteStorage.from_buffer(buffer)
@@ -113,7 +113,7 @@ def _pad_to_largest_tensor(tensor, group):
     # gathering tensors of different shapes
     if local_size != max_size:
         padding = torch.zeros(
-            (max_size - local_size,), dtype=torch.uint8, device=tensor.device
+            max_size - int(local_size.item()), dtype=torch.uint8, device=tensor.device
         )
         tensor = torch.cat((tensor, padding), dim=0)
     return size_list, tensor
@@ -133,7 +133,7 @@ def all_gather(data, group=None):
         return [data]
     if group is None:
         group = _get_global_gloo_group()
-    if dist.get_world_size(group) == 1:
+    if get_world_size(group) == 1:
         return [data]
 
     tensor = _serialize_to_tensor(data, group)
@@ -172,9 +172,9 @@ def gather(data, dst=0, group=None):
         return [data]
     if group is None:
         group = _get_global_gloo_group()
-    if dist.get_world_size(group=group) == 1:
+    if get_world_size(group=group) == 1:
         return [data]
-    rank = dist.get_rank(group=group)
+    rank = get_rank(group=group)
 
     tensor = _serialize_to_tensor(data, group)
     size_list, tensor = _pad_to_largest_tensor(tensor, group)
@@ -206,7 +206,7 @@ def shared_random_seed():
             create one.
     All workers must call this function, otherwise it will deadlock.
     """
-    ints = np.random.randint(2 ** 31)
+    ints = np.random.randint(2**31)
     all_ints = all_gather(ints)
     return all_ints[0]
 
