@@ -4,7 +4,7 @@ from typing import Any, Dict, Iterable, Tuple
 
 import torch
 
-from . import REGISTRY, OptimizerConfig
+from . import REGISTRY, OptimizerConfig, ExperimentInitConfig
 
 
 class LAMB(torch.optim.Optimizer):
@@ -154,9 +154,9 @@ class LAMBConfig(OptimizerConfig):
     kwargs: Dict[str, Any]
 
     @classmethod
-    def from_config(cls, config: Dict[str, Any]):
-        return super().from_config(config, kwargs=config["optimizer"]["args"])
+    def from_config(cls, config: ExperimentInitConfig):
+        return super().from_config(config, kwargs=config.optimizer.args)
 
-    def get_instance(self, model):
+    def get_instance(self, model: torch.nn.Module):
         optim, params = super().get_instance(LAMB, model)
         return optim(params, self.lr)

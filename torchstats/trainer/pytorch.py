@@ -1,15 +1,16 @@
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 import torch
-from torch import nn, optim, Tensor
+from torch import optim, Tensor
 from torch.autograd.grad_mode import no_grad
 from torch.amp.autocast_mode import autocast
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.profiler import profile, record_function
+from torch.profiler import record_function
 
-from trainer import BaseTrainer, TrainingModules, TrainingMangerConfig, IterHooksT
+from ..metadata.statistics import PerfLogger
+from .trainer import BaseTrainer, TrainingModules, TrainingMangerConfig
 
 
 @dataclass
@@ -24,6 +25,18 @@ class PytorchTrainingModules(TrainingModules):
         )
 
 
+def _amp_wrapper(func, amp_kwargs: Dict[str, Any] | None = None):
+    if amp_kwargs is None:
+        amp_kwargs = {"device_type": "cuda"}
+        print("Assuming cuda amp")
+
+    def with_amp(*args, **kwargs):
+        with autocast(**amp_kwargs):
+            func(*args, **kwargs)
+
+    return with_amp
+
+
 class PyTorchTrainer(BaseTrainer):
     """Training manager for pytorch based models"""
 
@@ -32,19 +45,14 @@ class PyTorchTrainer(BaseTrainer):
     def __init__(self, train_modules: TrainingModules, config: TrainingMangerConfig):
         super().__init__(train_modules, config)
 
+        # If AMP is enabled, wrap train and eval loops and add grad_scaler
         if config.amp:
             self.modules.add_grad_scaler()
+            self._train = _amp_wrapper(self._train, config.amp_kwargs)
+            self._validate = _amp_wrapper(self._validate, config.amp_kwargs)
 
-    @staticmethod
-    def _amp(func):
-        def with_amp(*args, **kwargs):
-            with autocast("cuda"):
-                func(*args, **kwargs)
-
-        return with_amp
-
-    def _accumulate_losses(self, losses: Dict[str, Tensor]) -> Tensor:
-        """Accumulate losses with optional grad scaler if enabled"""
+    def _accumulate_losses(self, losses: Dict[str, Tensor]) -> None:
+        """Accumulate and backprop losses with optional grad scaler if enabled"""
         loss = torch.zeros(1).cuda()
         for loss_ in losses:
             if not torch.isfinite(losses[loss_]):
@@ -53,7 +61,9 @@ class PyTorchTrainer(BaseTrainer):
                 loss += self.modules.grad_scaler.scale(losses[loss_])
             else:
                 loss += losses[loss_]
-        return loss
+
+        loss /= self._config.optimizer_interval
+        loss.backward()
 
     def _maybe_step_optimiser(self, iter_: int) -> None:
         """"""
@@ -66,80 +76,101 @@ class PyTorchTrainer(BaseTrainer):
 
             self.modules.optimizer.zero_grad()
 
-    def _train(self, iter_hooks: IterHooksT) -> None:
+    def _train(self) -> None:
         """Train for one epoch over the dataset"""
         self.modules.model.train()
         self.modules.meta_manager.perflog.train()
 
-        for idx, (data, label) in enumerate(self.modules.trainloader):
-            with record_function("inference"):
-                pred = self.modules.model(data)
+        for idx, data in enumerate(self.modules.trainloader):
+            losses, preds = self.train_step(
+                data, self.modules.model, self.modules.criterion
+            )
 
-            with record_function("criterion"):
-                losses = {}
-                for criterion in self.modules.criterion:
-                    losses.update(criterion(label, pred))
-                loss = self._accumulate_losses(losses)
-                loss.backward()
+            self.log_step(self.modules.meta_manager.perflog, data, preds, losses)
 
-            with record_function("statistics"), no_grad():
-                self.modules.meta_manager.perflog(label, pred, losses)
+            self._accumulate_losses(losses)
 
             self._maybe_step_optimiser(idx)
 
-            for hook in iter_hooks:
-                hook()
+            self.modules.meta_manager.iter_step()
 
-    def train_epoch(self) -> None:
-        """"""
-        train_fn = self._train
+        self.modules.meta_manager.epoch_step()
 
-        if self._config.pbar is not None:
-            train_fn = self._config.pbar(train_fn, total=len(self.modules.valloader))
+    @staticmethod
+    def train_step(
+        batch_data, model, criterion
+    ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor] | None]:
+        """
+        Standard training step, if you don't want to calculate
+        performance during training, return None for predictions.
+        return
+            Losses: description of losses for logging purposes
+            Predictions: predictions in dict
+        """
+        [data, label] = [x.cuda() for x in batch_data]
 
-        if self._config.amp:
-            train_fn = self._amp(train_fn)
+        with record_function("train_inference"):
+            pred = model(data)
 
-        if self._config.profile is not None and not any(
-            "trace.json" in pth.name
-            for pth in self.modules.meta_manager.checkpointer.rootdir.iterdir()
-        ):
-            train_fn = self._config.profile(train_fn)
+        with record_function("criterion"):
+            losses = {}
+            for criterion in criterion:
+                losses.update(criterion(label, pred))
 
-        train_fn()
+        return losses, pred
+
+    @staticmethod
+    def eval_step(
+        batch_data, model, criterion
+    ) -> Tuple[Dict[str, Tensor] | None, Dict[str, Tensor]]:
+        """
+        Standard evaluation step, if you don't want to evaluate/track loss
+        during evaluation, do not perform the calculation and return None
+        in the loss part of the tuple.
+        return:
+            Losses: description of losses for logging purposes
+            Predictions: predictions dict
+        """
+        with record_function("eval_inference"):
+            pred = model(batch_data[0].cuda())
+
+        return None, pred
+
+    @staticmethod
+    @no_grad()
+    @record_function("statistics")
+    def log_step(
+        logger: PerfLogger,
+        data: Dict[str, Tensor],
+        preds: Dict[str, Tensor] | None,
+        losses: Dict[str, Tensor] | None,
+    ) -> None:
+        """
+        Logging things, statistics should have "losses" tracker, all losses are forwarded to that.
+        If losses are missing logging of them will be skipped (if you don't want to log loss during eval)
+        If predictions are missing then accuracy logging will be skipped (if you don't want to log acc during training)
+        """
+        for statistic in logger.statistics_keys:
+            if statistic == "losses" and losses is not None:
+                logger.log(statistic, {k: v.item() for k, v in losses.items()})
+            elif preds is not None:
+                logger.log(statistic, data, preds)
 
     @no_grad()
-    def _validate(self, iter_hooks: IterHooksT) -> None:
+    def _validate(self) -> None:
         self.modules.model.eval()
         self.modules.meta_manager.perflog.eval()
 
         for data in self.modules.valloader:
-            with record_function("inference"):
-                pred = self.modules.model(data)
-
-            with record_function("criterion"):
-                losses = {}
-                for criterion in self.modules.criterion:
-                    losses.update(criterion(data, pred))
-
-            with record_function("statistics"):
-                self.modules.meta_manager.perflog(data, pred, losses)
-
-            for hook in iter_hooks:
-                hook()
+            losses, preds = self.eval_step(
+                data, self.modules.model, self.modules.criterion
+            )
+            self.log_step(self.modules.meta_manager.perflog, data, preds, losses)
+            self.modules.meta_manager.iter_step()
 
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):
             self.modules.scheduler.step(self.modules.meta_manager.perflog.epoch_loss())
         else:
             self.modules.scheduler.step()
 
-    def validation_epoch(self) -> None:
-        val_fn = self._validation
-
-        if self._config.pbar is not None:
-            val_fn = self._config.pbar(val_fn, total=len(self.modules.valloader))
-
-        if self._config.amp:
-            val_fn = self._amp(val_fn)
-
-        val_fn()
+        self.modules.meta_manager.epoch_step()

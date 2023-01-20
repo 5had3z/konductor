@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 import os
-from typing import Any, Dict
 
 import torch
 from torch import nn
@@ -9,6 +8,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 from ..registry import Registry, BaseConfig
 from ..dataloader import DatasetConfig
+from ...modules import ExperimentInitConfig
 from ...utilities.comm import in_distributed_mode
 
 # Model is end-to-end definition of
@@ -42,11 +42,11 @@ class ModelConfig(BaseConfig):
         return model
 
 
-def get_model_config(config: Dict[str, Any]) -> ModelConfig:
-    return MODEL_REGISTRY[config["model"]["name"]].from_config(config)
+def get_model_config(config: ExperimentInitConfig) -> ModelConfig:
+    return MODEL_REGISTRY[config.model.name].from_config(config)
 
 
-def get_model(config: Dict[str, Any], dataset_config: DatasetConfig) -> nn.Module:
+def get_model(config: ExperimentInitConfig, dataset_config: DatasetConfig) -> nn.Module:
     model: nn.Module = get_model_config(config).get_instance()
 
     if in_distributed_mode():

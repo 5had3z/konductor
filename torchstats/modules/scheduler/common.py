@@ -17,7 +17,7 @@ from torch.optim.lr_scheduler import (
 from torch.optim import Optimizer
 
 
-from . import REGISTRY, SchedulerConfig
+from . import REGISTRY, SchedulerConfig, ExperimentInitConfig
 
 
 @dataclass
@@ -32,11 +32,11 @@ class PolyLRConfig(SchedulerConfig):
         return (1.0 - min(index, max_iter - 1) / max_iter) ** power
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config: ExperimentInitConfig):
         """"""
-        return cls(**config["scheduler"]["args"])
+        return cls(**config.scheduler.args)
 
-    def get_instance(self, optimizer):
+    def get_instance(self, optimizer: Optimizer):
         return LambdaLR(
             optimizer,
             partial(self._poly_lr_lambda, max_iter=self.max_iter, power=self.power),
@@ -55,9 +55,9 @@ class CosineLRConfig(SchedulerConfig):
         return (1.0 + math.cos(math.pi * index / max_iter)) / 2
 
     @classmethod
-    def from_config(cls, config, optimizer):
+    def from_config(cls, config: ExperimentInitConfig, optimizer: Optimizer):
         """"""
-        return cls(optimizer, **config["scheduler"]["args"])
+        return cls(optimizer, **config.scheduler.args)
 
     def get_instance(self):
         return LambdaLR(
@@ -72,9 +72,9 @@ class ReduceLROnPlateauConfig(SchedulerConfig):
     kwargs: Dict[str, Any]
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config: ExperimentInitConfig):
         """"""
-        return cls(kwargs=config["scheduler"]["args"])
+        return cls(kwargs=config.scheduler.args)
 
     def get_instance(self, optimizer):
         return ReduceLROnPlateau(optimizer, **self.kwargs)
@@ -86,9 +86,9 @@ class LinearLRConfig(SchedulerConfig):
     kwargs: Dict[str, Any]
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config: ExperimentInitConfig):
         """"""
-        return cls(kwargs=config["scheduler"]["args"])
+        return cls(kwargs=config.scheduler.args)
 
     def get_instance(self, optimizer):
         return LinearLR(optimizer, **self.kwargs)
@@ -100,9 +100,9 @@ class ConstantLRConfig(SchedulerConfig):
     kwargs: Dict[str, Any]
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config: ExperimentInitConfig):
         """"""
-        return cls(kwargs=config["scheduler"]["args"])
+        return cls(kwargs=config.scheduler.args)
 
     def get_instance(self, optimizer):
         return ConstantLR(optimizer, **self.kwargs)
@@ -114,9 +114,9 @@ class StepLRConfig(SchedulerConfig):
     kwargs: Dict[str, Any]
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config: ExperimentInitConfig):
         """"""
-        return cls(kwargs=config["scheduler"]["args"])
+        return cls(kwargs=config.scheduler.args)
 
     def get_instance(self, optimizer) -> _LRScheduler:
         return StepLR(optimizer, **self.kwargs)
@@ -128,9 +128,9 @@ class MultiStepLRConfig(SchedulerConfig):
     kwargs: Dict[str, Any]
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config: ExperimentInitConfig):
         """"""
-        return cls(kwargs=config["scheduler"]["args"])
+        return cls(kwargs=config.scheduler.args)
 
     def get_instance(self, optimizer) -> _LRScheduler:
         return MultiStepLR(optimizer, **self.kwargs)

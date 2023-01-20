@@ -3,9 +3,10 @@ import enum
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import Any, Dict, Iterable
+from typing import Any, Sequence
 
 from ..registry import Registry, BaseConfig
+from ...modules import ExperimentInitConfig
 
 DATASET_REGISTRY = Registry("dataset")
 SAMPLER_REGISTRY = Registry("data_sampler")
@@ -25,7 +26,7 @@ class DatasetConfig(BaseConfig):
     basepath: Path = Path(os.environ.get("DATAPATH", "/data"))
 
     @classmethod
-    def from_config(cls, config: Dict[str, Any], *args, **kwargs):
+    def from_config(cls, config: ExperimentInitConfig, *args, **kwargs):
         return cls(*args, **kwargs)
 
     def get_instance(self, mode: Mode) -> Any:
@@ -42,19 +43,22 @@ class DataloaderConfig(BaseConfig):
     drop_last: bool = True
 
     @classmethod
-    def from_config(cls, config: Dict[str, Any], mode: Mode):
-        dataset_cfg = config["data"]["dataset"]
+    def from_config(cls, config: ExperimentInitConfig, mode: Mode):
+        dataset_cfg = config.data.dataset
 
-        if mode == Mode.train and "train_loader" in config["data"]:
-            loader_cfg = deepcopy(config["data"]["train_loader"])
-        elif mode == Mode.val and "val_loader" in config["data"]:
-            loader_cfg = deepcopy(config["data"]["val_loader"])
+        if mode == Mode.train:
+            loader_cfg = deepcopy(config.data.train_loader)
+        elif mode == Mode.val:
+            loader_cfg = deepcopy(config.data.val_loader)
         else:
-            loader_cfg = deepcopy(config["data"]["loader"])
+            raise RuntimeError("How did I get here?")
 
-        dataset = DATASET_REGISTRY[dataset_cfg["name"]].from_config(config)
+        dataset = DATASET_REGISTRY[dataset_cfg.name].from_config(config)
 
-        return cls(dataset=dataset, mode=mode, **loader_cfg["args"])
+        return cls(dataset=dataset, mode=mode, **loader_cfg.args)
+
+    def get_instance(self, *args, **kwargs) -> Sequence:
+        raise NotImplementedError()
 
 
 try:
@@ -76,15 +80,20 @@ except ImportError:
     print("tensoflow data modules disabled")
 
 
-def get_dataloder_config(config: Dict[str, Any], mode: Mode | str) -> DataloaderConfig:
+def get_dataloder_config(
+    config: ExperimentInitConfig, mode: Mode | str
+) -> DataloaderConfig:
     if isinstance(mode, str):
         mode = Mode[mode]
-    return DATALOADER_REGISTRY[config["data"]["loader"]["name"]].from_config(
-        config, mode
-    )
+
+    if mode == Mode.train:
+        return DATALOADER_REGISTRY[config.data.train_loader.name].from_config(
+            config, mode
+        )
+    return DATALOADER_REGISTRY[config.data.val_loader.name].from_config(config, mode)
 
 
-def get_dataloader(config: Dict[str, Any], mode: Mode | str) -> Iterable:
+def get_dataloader(config: ExperimentInitConfig, mode: Mode | str) -> Sequence:
     """"""
     if isinstance(mode, str):
         mode = Mode[mode]

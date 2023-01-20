@@ -17,7 +17,7 @@ class _RemoteSyncrhoniser(metaclass=ABCMeta):
 
     def __init__(
         self,
-        file_list: Set[str] = None,
+        file_list: Set[str] | None = None,
         host_path: Path = Path("/tmp/nnet_data"),
     ) -> None:
         self.logger = getLogger("remote_sync")

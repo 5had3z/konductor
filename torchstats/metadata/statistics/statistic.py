@@ -4,7 +4,10 @@ from typing import Dict
 
 import numpy as np
 
-from torchstats.utilities import comm
+from ...utilities import comm
+from ...modules.registry import Registry
+
+STATISTICS_REGISTRY = Registry("STATISTICS")
 
 
 class Statistic(metaclass=ABCMeta):
@@ -27,12 +30,10 @@ class Statistic(metaclass=ABCMeta):
         )
 
     @abstractmethod
-    def __call__(
-        self, iter_step: int, pred: Dict[str, np.ndarray], target: Dict[str, np.ndarray]
-    ) -> None:
+    def __call__(self, iter_step: int, *args, **kwargs) -> None:
         """
-        Calculate statistics based off targets and predictions
-        and appends to current epoch statistics
+        Interface for logging the statistics, gives flexibility of either logging a scalar
+        directly to a dictionary or calculate the statistic with data and predictions.
         """
         self._last_step = iter_step
 
@@ -49,6 +50,12 @@ class Statistic(metaclass=ABCMeta):
             s: v[: self._last_step % self._epoch_length]
             for s, v in self._statistics.items()
         }
+
+    def get_epoch(self, idx: int = -1) -> Dict[str, float]:
+        """
+        Returns the average of each statistic for the given epoch
+        """
+        return {}
 
     def reset(self) -> None:
         """Empty the currently held data"""

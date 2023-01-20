@@ -8,7 +8,7 @@ if not _has_imported:
         import torch
 
         print("Using pytorch for distributed communication")
-        from _pytorch import *  # Yeah, what you gonna do about it?
+        from ._pytorch import *  # Yeah, what you gonna do about it?
 
         _has_imported = True
     except ImportError:
@@ -16,10 +16,10 @@ if not _has_imported:
 
 if not _has_imported:
     try:
-        import _tensorflow
+        import tensorflow
 
         print("Using tensorflow for distributed communication")
-        from _tensorflow import *  # Yeah, what you gonna do about it?
+        from ._tensorflow import *  # Yeah, what you gonna do about it?
 
         _has_imported = True
     except ImportError:

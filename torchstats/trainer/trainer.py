@@ -21,13 +21,11 @@ class TrainingModules:
     valloader: Sequence
     meta_manager: MetadataManager
 
-    train_iter_hooks: IterHooksT
-    val_iter_hooks: IterHooksT
-
 
 @dataclass
 class TrainingMangerConfig:
     amp: bool = False  # Enable Nvidia AMP
+    amp_kwargs: Dict[str, Any] | None = None  # Additional AMP Args
     profile: Callable | None = None  # Enable Profiling
     pbar: Callable | None = None  # Enable Console Progress
     optimizer_interval: int = 1  # interval to call optimizer.step()
@@ -58,17 +56,17 @@ class BaseTrainer(ABC):
             self._logger.info(f"Unable to load checkpont, starting from scatch")
 
         if config.pbar is not None:
-            self.train_epoch = config.pbar(
-                self.train_epoch, total=len(self.modules.trainloader)
+            self._train_epoch = config.pbar(
+                self._train_epoch, total=len(self.modules.trainloader)
             )
-            self.validation_epoch = config.pbar(
-                self.validation_epoch, total=len(self.modules.valloader)
+            self._validate_epoch = config.pbar(
+                self._validate_epoch, total=len(self.modules.valloader)
             )
 
     def run_epoch(self) -> None:
         """Complete one epoch with training and validation epoch"""
-        self.train_epoch()
-        self.validation_epoch()
+        self._train_epoch()
+        self._validate_epoch()
 
     @abstractmethod
     def _accumulate_losses(self, losses: Dict[str, Any]) -> Any:
@@ -80,37 +78,9 @@ class BaseTrainer(ABC):
         """Step optimizer if iteration is divisible by subbatch number"""
 
     @abstractmethod
-    def _train(self, iter_hooks: IterHooksT) -> None:
+    def _train_epoch(self) -> None:
         """Train for one epoch over the dataset"""
 
-    def train_epoch(self) -> None:
-        """"""
-        train_fn = self._train
-
-        if self._config.pbar is not None:
-            train_fn = self._config.pbar(train_fn, total=len(self.modules.valloader))
-
-        if self._config.amp:
-            train_fn = self._amp(train_fn)
-
-        if self._config.profile is not None and not any(
-            "trace.json" in pth.name
-            for pth in self.modules.meta_manager.checkpointer.rootdir.iterdir()
-        ):
-            train_fn = self._config.profile(train_fn)
-
-        train_fn()
-
-    def _validate(self, iter_hooks: IterHooksT) -> None:
+    @abstractmethod
+    def _validate_epoch(self) -> None:
         """Validate one epoch over the dataset"""
-
-    def validation_epoch(self) -> None:
-        val_fn = self._validate
-
-        if self._config.pbar is not None:
-            val_fn = self._config.pbar(val_fn, total=len(self.modules.valloader))
-
-        if self._config.amp:
-            val_fn = self._amp(val_fn)
-
-        val_fn()

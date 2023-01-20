@@ -7,13 +7,14 @@ from pathlib import Path
 import yaml
 import hashlib
 
-from .trainer import TrainingManager, TrainingMangerConfig, TrainingModules
+from .trainer import BaseTrainer, TrainingMangerConfig, TrainingModules
 from ..modules import (
     get_model,
     get_criterion,
     get_optimizer,
     get_lr_scheduler,
     get_dataloader,
+    ExperimentInitConfig,
 )
 from ..metadata import get_metadata_manager
 
@@ -24,14 +25,14 @@ def parser_add_common_args(parser: argparse.ArgumentParser) -> None:
     # Training config file or string
     parser.add_argument(
         "-t",
-        "--train_config",
+        "--config_file",
         required=False,
         type=str,
         help="Training configuration either as path to json or string (this will be deduced)",
     )
     parser.add_argument(
         "-x",
-        "--train_hash",
+        "--run_hash",
         required=False,
         type=str,
         help="The hash encoding of an experiment that already exists to run",
@@ -54,9 +55,9 @@ def parser_add_common_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def parse_training_args() -> argparse.Namespace:
+def get_training_parser() -> argparse.ArgumentParser:
     """Parses arguments used for training"""
-    parser = argparse.ArgumentParser("Training")
+    parser = argparse.ArgumentParser("Training Script")
     parser_add_common_args(parser)
     parser.add_argument(
         "-k",
@@ -85,12 +86,12 @@ def parse_training_args() -> argparse.Namespace:
         default=None,
     )
 
-    return parser.parse_args()
+    return parser
 
 
-def parse_evaluation_args() -> argparse.Namespace:
+def parse_evaluation_args() -> argparse.ArgumentParser:
     """Parses arguments used for training"""
-    parser = argparse.ArgumentParser("Training")
+    parser = argparse.ArgumentParser("Evaluation Script")
     parser_add_common_args(parser)
     parser.add_argument(
         "-p",
@@ -99,60 +100,65 @@ def parse_evaluation_args() -> argparse.Namespace:
         help="Enable Tensorboard Profiler (Runs only once if trace.json is not present)",
     )
 
-    return parser.parse_args()
+    return parser
 
 
-def get_experiment_cfg_and_path(cli_args: argparse.Namespace) -> Dict[str, Any]:
+def get_experiment_cfg_and_path(
+    workspace: Path, config_file: Path | None = None, run_hash: str | None = None
+) -> ExperimentInitConfig:
     """
     Returns a model config and its savepath given a list of directorys to search for the model.\n
     Uses argparse for seraching for the model or config argument.
     """
 
-    if cli_args.train_hash:
-        exp_path: Path = cli_args.workspace / cli_args.train_hash
-        with open(exp_path / "training_config.yml", "r", encoding="utf-8") as conf_f:
-            exp_cfg = yaml.load(conf_f, yaml.SafeLoader)
+    if run_hash is not None:
+        exp_path: Path = workspace / run_hash
+        with open(exp_path / "train_config.yml", "r", encoding="utf-8") as conf_f:
+            exp_cfg = yaml.safe_load(conf_f)
 
-    elif cli_args.train_config:
-        with open(cli_args.train_config, "r", encoding="utf-8") as conf_f:
-            exp_cfg = yaml.load(conf_f, yaml.SafeLoader)
+    elif config_file is not None:
+        with open(config_file, "r", encoding="utf-8") as conf_f:
+            exp_cfg = yaml.safe_load(conf_f)
 
         train_hash = hashlib.md5(str(exp_cfg).encode("utf-8")).hexdigest()
-        exp_path: Path = cli_args.workspace / train_hash
+        exp_path: Path = workspace / train_hash
 
     else:
         raise RuntimeError("Either --train_hash or --train_config are required")
 
     exp_cfg["work_dir"] = exp_path
 
-    return exp_cfg
+    return ExperimentInitConfig.from_yaml(exp_cfg)
 
 
-def initialise_training_modules(exp_config) -> TrainingModules:
+def initialise_training_modules(config: ExperimentInitConfig) -> TrainingModules:
     """"""
     # Want to first "get_dataset" so I can get all its properties
     # the loaders then get a train and test variant of it, model
     # can the read properies, and so can meta manager
-    train_loader = get_dataloader(exp_config, "train")
-    val_loader = get_dataloader(exp_config, "val")
-    model = get_model(exp_config, None)
-    criteron = get_criterion(exp_config)
-    optim = get_optimizer(exp_config, model)
-    scheduler = get_lr_scheduler(exp_config, optim)
-    meta_manager = get_metadata_manager(exp_config, model)
+    train_loader = get_dataloader(config, "train")
+    val_loader = get_dataloader(config, "val")
+    model = get_model(config, None)
+    criteron = get_criterion(config)
+    optim = get_optimizer(config, model)
+    scheduler = get_lr_scheduler(config, optim)
+    meta_manager = get_metadata_manager(config, model)
 
     return TrainingModules(
         model, criteron, optim, scheduler, train_loader, val_loader, meta_manager
     )
 
 
-def initialise_training() -> TrainingManager:
+def initialise_training() -> BaseTrainer:
     """"""
-    args = parse_training_args()
-    exp_config = get_experiment_cfg_and_path(args)
+    parser = get_training_parser()
+    args = parser.parse_args()
+    exp_config = get_experiment_cfg_and_path(
+        args.workspace, args.config_file, args.run_hash
+    )
 
     tmodules = initialise_training_modules(exp_config)
 
     train_conf = TrainingMangerConfig()
 
-    return TrainingManager(tmodules, train_conf)
+    return BaseTrainer(tmodules, train_conf)

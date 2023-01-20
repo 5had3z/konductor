@@ -1,8 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Set
+from typing import Dict, List, Set
 from logging import getLogger
-
-from torch import Tensor
 
 from .statistic import Statistic
 
@@ -30,11 +28,12 @@ class PerfLoggerConfig:
 class PerfLogger:
     """"""
 
-    available_statistics: Dict[str, Statistic] = {}
-
-    def __init__(self, config: PerfLoggerConfig) -> None:
+    def __init__(
+        self, config: PerfLoggerConfig, statistics: Dict[str, Statistic]
+    ) -> None:
         self.is_training = False
         self.config = config
+        self.statistics = statistics
         self._logger = getLogger(type(self).__name__)
 
     def train(self) -> None:
@@ -45,14 +44,17 @@ class PerfLogger:
         """Set logger in validation mode"""
         self.is_training = False
 
-    def __call__(
-        self,
-        target: Dict[str, Tensor],
-        pred: Dict[str, Tensor],
-        losses: Dict[str, Tensor],
-    ) -> Any:
-        pass
+    @property
+    def statistics_keys(self) -> List[str]:
+        return list(self.statistics.keys())
+
+    def log(self, name: str, *args, **kwargs) -> None:
+        self.statistics[name](*args, **kwargs)
 
     def epoch_loss(self, idx: int = -1) -> float:
         """Get last epoch if idx = -1"""
-        pass
+        losses = self.statistics["losses"].data
+        mean_loss = 0
+        for loss in losses.values():
+            mean_loss += loss.mean()
+        return mean_loss / len(losses)

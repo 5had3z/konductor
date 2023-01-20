@@ -1,15 +1,14 @@
 from dataclasses import dataclass
-from typing import Any, Dict
 
 from torch.optim import Adam, AdamW, SGD
-from . import REGISTRY, OptimizerConfig
+from . import REGISTRY, OptimizerConfig, ExperimentInitConfig
 
 
 @dataclass
 @REGISTRY.register_module("Adam")
 class AdamConfig(OptimizerConfig):
     @classmethod
-    def from_config(cls, config: Dict[str, Any], *args):
+    def from_config(cls, config: ExperimentInitConfig, *args):
         return super().from_config(config, *args)
 
     def get_instance(self, model):
@@ -21,7 +20,7 @@ class AdamConfig(OptimizerConfig):
 @REGISTRY.register_module("SGD")
 class SGDConfig(OptimizerConfig):
     @classmethod
-    def from_config(cls, config: Dict[str, Any], *args):
+    def from_config(cls, config: ExperimentInitConfig, *args):
         return super().from_config(config, *args)
 
     def get_instance(self, model):
@@ -33,7 +32,7 @@ class SGDConfig(OptimizerConfig):
 @REGISTRY.register_module("AdamW")
 class AdamWConfig(OptimizerConfig):
     @classmethod
-    def from_config(cls, config: Dict[str, Any], *args):
+    def from_config(cls, config: ExperimentInitConfig, *args):
         return super().from_config(config, *args)
 
     def get_instance(self, model):
