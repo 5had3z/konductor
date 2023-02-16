@@ -55,6 +55,10 @@ class ExperimentInitConfig:
 
     @classmethod
     def from_yaml(cls, parsed_dict: Dict[str, Any]):
+        if "remote_sync" in parsed_dict:
+            remote_sync = ModuleInitConfig(**parsed_dict["remote_sync"])
+        else:
+            remote_sync = None
 
         return cls(
             model=ModuleInitConfig(**parsed_dict["model"]),
@@ -65,7 +69,7 @@ class ExperimentInitConfig:
             optimizer=ModuleInitConfig(**parsed_dict["optimizer"]),
             scheduler=ModuleInitConfig(**parsed_dict["scheduler"]),
             work_dir=parsed_dict["work_dir"],
-            remote_sync=parsed_dict.get("remote_sync", None),
+            remote_sync=remote_sync,
         )
 
 

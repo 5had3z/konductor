@@ -1,6 +1,7 @@
 # Example configuration with MNIST
 model:
   name: resnet50
+  args: {}
 data:
   dataset:
     name: MNIST

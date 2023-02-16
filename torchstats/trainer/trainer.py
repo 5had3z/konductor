@@ -1,12 +1,9 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Any, Callable, Dict, List, Sequence, NoReturn
+from typing import Any, Callable, Dict, List, Sequence
 
 from torchstats.metadata import MetadataManager
-
-# List of functions which are called at the end of an iteration
-IterHooksT = List[Callable[[], NoReturn]]
 
 
 @dataclass

@@ -5,8 +5,7 @@ import torch
 from torch.optim import Optimizer
 
 
-from ..registry import Registry, BaseConfig
-from ...modules import ExperimentInitConfig
+from ..registry import Registry, BaseConfig, ExperimentInitConfig
 
 REGISTRY = Registry("losses")
 
@@ -37,7 +36,6 @@ class OptimizerConfig(BaseConfig):
         return optim
 
     def get_instance(self, optim_cls: Type[Optimizer], model: torch.nn.Module):
-
         optim_cls = self.maybe_add_gradient_clipping(optim_cls)
 
         if self.backbone_multiplier is not None:

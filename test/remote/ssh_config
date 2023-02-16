@@ -1,0 +1,4 @@
+Host Foo
+HostName 127.0.0.1
+User bar
+IdentityFile /workspace/.ssh/ssh-privatekey

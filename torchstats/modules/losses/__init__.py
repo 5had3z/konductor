@@ -15,8 +15,7 @@ from typing import List
 
 from torch import nn
 
-from ..registry import Registry, BaseConfig
-from ...modules import ExperimentInitConfig
+from ..registry import Registry, BaseConfig, ExperimentInitConfig
 
 REGISTRY = Registry("losses")
 

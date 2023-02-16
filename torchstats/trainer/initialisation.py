@@ -2,7 +2,6 @@
 Initialisation methods for Training/Validation etc.
 """
 import argparse
-from typing import Any, Dict
 from pathlib import Path
 import yaml
 import hashlib
@@ -103,7 +102,7 @@ def parse_evaluation_args() -> argparse.ArgumentParser:
     return parser
 
 
-def get_experiment_cfg_and_path(
+def get_experiment_cfg(
     workspace: Path, config_file: Path | None = None, run_hash: str | None = None
 ) -> ExperimentInitConfig:
     """
@@ -153,9 +152,7 @@ def initialise_training() -> BaseTrainer:
     """"""
     parser = get_training_parser()
     args = parser.parse_args()
-    exp_config = get_experiment_cfg_and_path(
-        args.workspace, args.config_file, args.run_hash
-    )
+    exp_config = get_experiment_cfg(args.workspace, args.config_file, args.run_hash)
 
     tmodules = initialise_training_modules(exp_config)
 

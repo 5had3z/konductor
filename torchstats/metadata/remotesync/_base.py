@@ -15,14 +15,11 @@ class _RemoteSyncrhoniser(metaclass=ABCMeta):
     data source.
     """
 
-    def __init__(
-        self,
-        file_list: Set[str] | None = None,
-        host_path: Path = Path("/tmp/nnet_data"),
-    ) -> None:
+    def __init__(self, host_path: Path, file_list: Set[str] | None = None) -> None:
         self.logger = getLogger("remote_sync")
-        self.file_list = set() if file_list is None else file_list
-        self._host_path: Path = host_path
+        self.file_list: Set[str] = set() if file_list is None else file_list
+        assert host_path.exists(), f"Host path does not exist: {host_path}"
+        self._host_path = host_path
 
     @abstractmethod
     def push(self, filename: str) -> None:

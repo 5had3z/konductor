@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler, ReduceLROnPlateau
 
-from ..registry import Registry, BaseConfig
-from ...modules import ExperimentInitConfig
+from ..registry import Registry, BaseConfig, ExperimentInitConfig
 
 REGISTRY = Registry("scheduler")
 

@@ -5,8 +5,7 @@ import os
 from pathlib import Path
 from typing import Any, Sequence
 
-from ..registry import Registry, BaseConfig
-from ...modules import ExperimentInitConfig
+from ..registry import Registry, BaseConfig, ExperimentInitConfig
 
 DATASET_REGISTRY = Registry("dataset")
 SAMPLER_REGISTRY = Registry("data_sampler")
