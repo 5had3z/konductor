@@ -42,7 +42,7 @@ def main() -> None:
     import numpy as np
     from torch.nn import Conv2d
     from pathlib import Path
-    from torchstats.modules import (
+    from konductor.modules import (
         ExperimentInitConfig,
         ModuleInitConfig,
         DataInitConfig,

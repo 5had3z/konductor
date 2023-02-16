@@ -27,7 +27,7 @@ def export(
 def main() -> None:
     """Run as main script"""
     import argparse
-    from torchstats.trainer import get_model_from_experiment
+    from konductor.trainer import get_model_from_experiment
 
     model, path = get_model_from_experiment()
     parser = argparse.ArgumentParser()

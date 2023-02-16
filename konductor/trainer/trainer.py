@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Callable, Dict, List, Sequence
 
-from torchstats.metadata import MetadataManager
+from konductor.metadata import MetadataManager
 
 
 @dataclass

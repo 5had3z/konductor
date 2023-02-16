@@ -3,15 +3,15 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "example_package_YOUR_USERNAME_HERE"
+name = "konductor"
 version = "0.0.1"
 authors = [
   { name="Bryce Ferenczi", email="frenzi@hotmail.com" },
 ]
-description = "Framework for training generic pytorch models"
+description = "Framework for training generic ml models"
 readme = "README.md"
 license = { file="LICENSE" }
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache 2 License",
@@ -19,5 +19,5 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/pypa/sampleproject"
-"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+"Homepage" = "https://github.com/5had3z/konductor"
+"Bug Tracker" = "https://github.com/5had3z/konductor/issues"

@@ -36,7 +36,7 @@ class _RemoteSyncrhoniser(metaclass=ABCMeta):
         Force pushes files even if last modified time is older.
         """
         self._generate_file_list_from_host()
-        if self.file_list == set():  # warn if still empty
+        if len(self.file_list) == 0:  # warn if still empty
             self.logger.warning("No files to push to remote")
 
     @abstractmethod
@@ -59,7 +59,7 @@ class _RemoteSyncrhoniser(metaclass=ABCMeta):
         Force pulls files even if last modified time is older.
         """
         self._generate_file_list_from_remote()
-        if self.file_list == set():  # warn if still empty
+        if len(self.file_list) == 0:  # warn if still empty
             self.logger.warning("No files to pull from remote")
             return
 
