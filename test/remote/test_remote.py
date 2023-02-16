@@ -2,8 +2,8 @@ from pathlib import Path
 
 from ..init_config import example_config_path
 
-from torchstats.metadata.remotesync import get_remote, ExperimentInitConfig
-from torchstats.modules import ModuleInitConfig
+from konductor.metadata.remotesync import get_remote, ExperimentInitConfig
+from konductor.modules import ModuleInitConfig
 
 
 def test_ssh_pk(example_config_path: ExperimentInitConfig):
