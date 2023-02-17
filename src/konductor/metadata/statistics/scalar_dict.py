@@ -21,15 +21,13 @@ class ScalarStatistic(Statistic):
 
         for key in keys:
             logstr += f"{key}, "
-            self._statistics[key] = np.empty(self._epoch_length)
+            self._statistics[key] = np.empty(self._buffer_length)
 
         self._logger.info(logstr.removesuffix(", "))
 
-    def __call__(self, iter_step: int, data: Dict[str, float]) -> None:
+    def __call__(self, data: Dict[str, float]) -> None:
         if len(self._statistics) == 0:
             self._register_statistics(list(data.keys()))
-
         for name, value in data.items():
-            self._statistics[name][iter_step] = value
-
-        super().__call__(iter_step)
+            self._append_sample(name, value)
+        self._end_idx += 1

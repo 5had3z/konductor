@@ -27,15 +27,15 @@ def export(
 def main() -> None:
     """Run as main script"""
     import argparse
-    from konductor.trainer import get_model_from_experiment
+    from ..trainer import get_model_from_experiment
 
-    model, path = get_model_from_experiment()
+    model = get_model_from_experiment()
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", "-i", type=int, nargs="+")
     parser.add_argument("--save", "-s", type=str, required=False)
     args = parser.parse_known_args()[0]
 
-    savepath = Path(f"{path}/{args.save if args.save else 'model.onnx'}")
+    savepath = Path(f"{args.save if args.save else 'model.onnx'}")
     print(f"Exporting onnx model to {savepath}")
     export(model, args.input, savepath=savepath)
 

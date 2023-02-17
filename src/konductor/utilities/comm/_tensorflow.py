@@ -1,4 +1,6 @@
 import functools
+from typing import Any, List
+
 import numpy as np
 
 
@@ -72,7 +74,7 @@ def _pad_to_largest_tensor(tensor, group):
     raise NotImplementedError()
 
 
-def all_gather(data, group=None):
+def all_gather(data: Any, group=None) -> List[Any]:
     """
     Run all_gather on arbitrary picklable data (not necessarily tensors).
     Args:
@@ -85,7 +87,7 @@ def all_gather(data, group=None):
     raise NotImplementedError()
 
 
-def gather(data, dst=0, group=None):
+def gather(data: Any, dst=0, group=None) -> List[Any]:
     """
     Run gather on arbitrary picklable data (not necessarily tensors).
     Args:
@@ -100,7 +102,7 @@ def gather(data, dst=0, group=None):
     raise NotImplementedError()
 
 
-def shared_random_seed():
+def shared_random_seed() -> int:
     """
     Returns:
         int: a random number that is the same across all workers.

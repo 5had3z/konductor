@@ -1,5 +1,6 @@
 from typing import Any, Dict
 from pathlib import Path
+import shutil
 import logging
 
 import torch
@@ -77,7 +78,8 @@ class Checkpointer:
             try:
                 (self.rootdir / "latest.pth").symlink_to(_path)
             except OSError:
-                pass  # continue of symlink is unsupported
+                # make copy if symlink is unsupported
+                shutil.copy(_path, self.rootdir / "latest.pth")
 
     def load(self, filename: str) -> Dict[str, Any]:
         """Load checkpoint and return any previously saved scalar kwargs"""

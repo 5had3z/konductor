@@ -7,7 +7,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 
 from ..registry import Registry, BaseConfig, ExperimentInitConfig
-from ..dataloader import DatasetConfig
+from ..data import DatasetConfig
 from ...utilities.comm import in_distributed_mode
 
 # Model is end-to-end definition of

@@ -8,8 +8,6 @@ from torch.profiler import (
     schedule,
 )
 
-from .trainer import TrainingManager
-
 
 def default_profiler(func, save_dir: Path):
     """Default wrapper for profiling pytorch, requires save_dir"""
@@ -38,10 +36,4 @@ def profile_function(
     if profile_kwargs is None:
         default_profiler(target_func, save_dir)()
     else:
-        profile_wrapper(target_func, save_dir=save_dir, **profile_kwargs)
-
-
-def profile_validation(t_manager: TrainingManager, profiler: Callable) -> None:
-    """"""
-    train_fn = profiler(t_manager._train)
-    train_fn()
+        profile_wrapper(target_func, save_dir=save_dir, **profile_kwargs)()

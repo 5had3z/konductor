@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 
 import torch
-from torch import optim, Tensor
+from torch import optim, Tensor, nn
 from torch.autograd.grad_mode import no_grad
 from torch.amp.autocast_mode import autocast
 from torch.cuda.amp.grad_scaler import GradScaler
@@ -15,6 +15,7 @@ from .trainer import BaseTrainer, TrainingModules, TrainingMangerConfig
 
 @dataclass
 class PytorchTrainingModules(TrainingModules):
+    model: nn.Module
     optimizer: optim.Optimizer
     grad_scaler: GradScaler | None = None
 
@@ -115,7 +116,7 @@ class PyTorchTrainer(BaseTrainer):
         with record_function("criterion"):
             losses = {}
             for criterion in criterion:
-                losses.update(criterion(label, pred))
+                losses.update(criterion(pred, label))
 
         return losses, pred
 
@@ -146,15 +147,16 @@ class PyTorchTrainer(BaseTrainer):
         losses: Dict[str, Tensor] | None,
     ) -> None:
         """
-        Logging things, statistics should have "losses" tracker, all losses are forwarded to that.
-        If losses are missing logging of them will be skipped (if you don't want to log loss during eval)
-        If predictions are missing then accuracy logging will be skipped (if you don't want to log acc during training)
+        Logging things, statistics should have "losses" tracker, all losses are forwarded
+        to that. If losses are missing logging of them will be skipped (if you don't want
+        to log loss during eval). If predictions are missing then accuracy logging will
+        be skipped (if you don't want to log acc during training)
         """
         for statistic in logger.statistics_keys:
             if statistic == "losses" and losses is not None:
                 logger.log(statistic, {k: v.item() for k, v in losses.items()})
             elif preds is not None:
-                logger.log(statistic, data, preds)
+                logger.log(statistic, preds, data)
 
     @no_grad()
     def _validate(self) -> None:
@@ -165,7 +167,7 @@ class PyTorchTrainer(BaseTrainer):
             losses, preds = self.eval_step(
                 data, self.modules.model, self.modules.criterion
             )
-            self.log_step(self.modules.meta_manager.perflog, data, preds, losses)
+            self.log_step(self.modules.meta_manager.perflog, preds, data, losses)
             self.modules.meta_manager.iter_step()
 
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):

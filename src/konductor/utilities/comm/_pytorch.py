@@ -6,7 +6,10 @@ import functools
 import logging
 import os
 import pickle
+from typing import Any, Dict, List
+
 import numpy as np
+from torch import Tensor
 import torch
 import torch.distributed as dist
 
@@ -55,7 +58,6 @@ def synchronize():
     """
     if get_world_size() == 1:
         return
-
     dist.barrier()
 
 
@@ -70,7 +72,7 @@ def _get_global_gloo_group():
     return dist.group.WORLD
 
 
-def _serialize_to_tensor(data, group):
+def _serialize_to_tensor(data: Any, group) -> Tensor:
     backend = dist.get_backend(group)
     assert backend in ["gloo", "nccl"]
     device = torch.device("cpu" if backend == "gloo" else "cuda")
@@ -89,7 +91,7 @@ def _serialize_to_tensor(data, group):
     return tensor
 
 
-def _pad_to_largest_tensor(tensor, group):
+def _pad_to_largest_tensor(tensor: Tensor, group):
     """
     Returns:
         list[int]: size of the tensor, on each rank
@@ -119,7 +121,7 @@ def _pad_to_largest_tensor(tensor, group):
     return size_list, tensor
 
 
-def all_gather(data, group=None):
+def all_gather(data: Any, group=None) -> List[Any]:
     """
     Run all_gather on arbitrary picklable data (not necessarily tensors).
     Args:
@@ -156,7 +158,7 @@ def all_gather(data, group=None):
     return data_list
 
 
-def gather(data, dst=0, group=None):
+def gather(data: Any, dst=0, group=None) -> List[Any]:
     """
     Run gather on arbitrary picklable data (not necessarily tensors).
     Args:
@@ -198,7 +200,7 @@ def gather(data, dst=0, group=None):
     return []
 
 
-def shared_random_seed():
+def shared_random_seed() -> int:
     """
     Returns:
         int: a random number that is the same across all workers.
@@ -211,7 +213,7 @@ def shared_random_seed():
     return all_ints[0]
 
 
-def reduce_dict(input_dict, average=True):
+def reduce_dict(input_dict: Dict[str, Tensor], average=True) -> Dict[str, Tensor]:
     """
     Reduce the values in the dictionary from all processes so that process with rank
     0 has the reduced results.
@@ -221,8 +223,7 @@ def reduce_dict(input_dict, average=True):
     Returns:
         a dict with the same keys as input_dict, after reduction.
     """
-    world_size = get_world_size()
-    if world_size < 2:
+    if get_world_size() < 2:
         return input_dict
 
     with torch.no_grad():
@@ -234,9 +235,11 @@ def reduce_dict(input_dict, average=True):
             values.append(input_dict[k])
         values = torch.stack(values, dim=0)
         dist.reduce(values, dst=0)
-        if dist.get_rank() == 0 and average:
+
+        if is_main_process() and average:
             # only main process gets accumulated, so only divide by
             # world_size in this case
-            values /= world_size
+            values /= get_world_size()
         reduced_dict = dict(zip(names, values))
+
     return reduced_dict
