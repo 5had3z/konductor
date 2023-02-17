@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
+from pathlib import Path
+from logging import getLogger
 
 import torch
 from torch import nn
@@ -24,8 +26,9 @@ class ModelConfig(BaseConfig):
     """
 
     # Some Common Parameters (maybe unused)
-    bn_momentum: float = 0.1
-    bn_freeze: bool = False  # freeze bn statistics
+    pretrained: str | None = field(default=None, kw_only=True)
+    bn_momentum: float = field(default=0.1, kw_only=True)
+    bn_freeze: bool = field(default=False, kw_only=True)
 
     def apply_extra(self, model: nn.Module) -> nn.Module:
         if self.bn_momentum != 0.1:
@@ -37,6 +40,26 @@ class ModelConfig(BaseConfig):
             for module in model.modules():
                 if isinstance(module, nn.BatchNorm2d):
                     module.track_running_stats = False
+
+        if self.pretrained is not None:
+            ckpt_path = (
+                Path(os.environ.get("PRETRAINED_ROOT", Path.cwd())) / self.pretrained
+            )
+            logger = getLogger()
+            logger.info(f"Loading pretrained checkpoint from {ckpt_path}")
+            checkpoint = torch.load(ckpt_path)
+            if "model" in checkpoint:
+                missing, unused = model.load_state_dict(
+                    checkpoint["model"], strict=False
+                )
+            else:
+                # Assume direct loading
+                missing, unused = model.load_state_dict(checkpoint, strict=False)
+            if len(missing) > 0 or len(unused) > 0:
+                logger.warning(
+                    f"Loaded pretrained checkpoint {ckpt_path} with "
+                    f"{len(missing)} missing and {len(unused)} unused weights"
+                )
 
         return model
 

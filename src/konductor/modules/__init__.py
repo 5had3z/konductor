@@ -73,8 +73,8 @@ class ExperimentInitConfig:
         )
 
 
-from .models import get_model
+from .models import get_model, get_model_config
 from .losses import get_criterion
 from .optimizers import get_optimizer
 from .scheduler import get_lr_scheduler
-from .data import get_dataloader
+from .data import get_dataloader, get_dataloder_config, get_dataset_config

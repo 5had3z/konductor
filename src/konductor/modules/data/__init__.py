@@ -3,7 +3,7 @@ import enum
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Dict, Sequence
 
 from ..registry import Registry, BaseConfig, ExperimentInitConfig
 
@@ -28,6 +28,11 @@ class DatasetConfig(BaseConfig):
     def from_config(cls, config: ExperimentInitConfig, *args, **kwargs):
         return cls(*args, **kwargs)
 
+    @property
+    def properties(self) -> Dict[str, Any]:
+        """Properties about the dataset such as number of classes and their names etc"""
+        return {}
+
     def get_instance(self, mode: Mode) -> Any:
         raise NotImplementedError()
 
@@ -47,7 +52,7 @@ class DataloaderConfig(BaseConfig):
 
         if mode == Mode.train:
             loader_cfg = deepcopy(config.data.train_loader)
-        elif mode == Mode.val:
+        elif mode in {Mode.val, Mode.test}:
             loader_cfg = deepcopy(config.data.val_loader)
         else:
             raise RuntimeError("How did I get here?")
@@ -77,6 +82,10 @@ try:
     from . import tensorflow
 except ImportError:
     print("tensoflow data modules disabled")
+
+
+def get_dataset_config(config: ExperimentInitConfig) -> DatasetConfig:
+    return DATASET_REGISTRY[config.data.dataset.name].from_config(config)
 
 
 def get_dataloder_config(

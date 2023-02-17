@@ -2,6 +2,7 @@
 Initialisation methods for Training/Validation etc.
 """
 import argparse
+from typing import Type
 from pathlib import Path
 import yaml
 import hashlib
@@ -13,6 +14,7 @@ from ..modules import (
     get_optimizer,
     get_lr_scheduler,
     get_dataloader,
+    get_dataset_config,
     ExperimentInitConfig,
 )
 from ..metadata import get_metadata_manager
@@ -137,7 +139,7 @@ def initialise_training_modules(config: ExperimentInitConfig) -> TrainingModules
     # can the read properies, and so can meta manager
     train_loader = get_dataloader(config, "train")
     val_loader = get_dataloader(config, "val")
-    model = get_model(config, None)
+    model = get_model(config, get_dataset_config(config))
     criteron = get_criterion(config)
     optim = get_optimizer(config, model)
     scheduler = get_lr_scheduler(config, optim)
@@ -148,14 +150,17 @@ def initialise_training_modules(config: ExperimentInitConfig) -> TrainingModules
     )
 
 
-def initialise_training() -> BaseTrainer:
-    """"""
+def initialise_training(trainer: Type[BaseTrainer]) -> BaseTrainer:
+    """Parse cli arguments and initialize training module"""
     parser = get_training_parser()
     args = parser.parse_args()
     exp_config = get_experiment_cfg(args.workspace, args.config_file, args.run_hash)
+    exp_config.data.val_loader.args["workers"] = args.workers
+    exp_config.data.train_loader.args["workers"] = args.workers
 
+    train_conf = TrainingMangerConfig(
+        optimizer_interval=exp_config.optimizer.args.pop("step_interval", 1)
+    )
     tmodules = initialise_training_modules(exp_config)
 
-    train_conf = TrainingMangerConfig()
-
-    return BaseTrainer(tmodules, train_conf)
+    return trainer(tmodules, train_conf)
