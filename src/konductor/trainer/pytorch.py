@@ -10,7 +10,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.profiler import record_function
 
 from ..metadata.statistics import PerfLogger
-from .trainer import BaseTrainer, TrainingModules, TrainingMangerConfig
+from .trainer import BaseTrainer, TrainingModules, TrainingMangerConfig, MetadataManager
 
 
 @dataclass
@@ -18,12 +18,6 @@ class PytorchTrainingModules(TrainingModules):
     model: nn.Module
     optimizer: optim.Optimizer
     grad_scaler: GradScaler | None = None
-
-    def add_grad_scaler(self) -> None:
-        self.grad_scaler = GradScaler()
-        self.meta_manager.checkpointer.add_checkpointable(
-            "grad_scaler", self.grad_scaler
-        )
 
 
 def _amp_wrapper(func, amp_kwargs: Dict[str, Any] | None = None):
@@ -43,14 +37,22 @@ class PyTorchTrainer(BaseTrainer):
 
     modules: PytorchTrainingModules
 
-    def __init__(self, train_modules: TrainingModules, config: TrainingMangerConfig):
-        super().__init__(train_modules, config)
-
+    def __init__(
+        self,
+        config: TrainingMangerConfig,
+        train_modules: TrainingModules,
+        data_manager: MetadataManager,
+    ):
         # If AMP is enabled, wrap train and eval loops and add grad_scaler
         if config.amp:
-            self.modules.add_grad_scaler()
+            self.modules.grad_scaler = GradScaler()
+            self.data_manager.checkpointer.add_checkpointable(
+                "grad_scaler", self.modules.grad_scaler
+            )
             self._train = _amp_wrapper(self._train, config.amp_kwargs)
             self._validate = _amp_wrapper(self._validate, config.amp_kwargs)
+
+        super().__init__(config, train_modules, data_manager)
 
     def _accumulate_losses(self, losses: Dict[str, Tensor]) -> None:
         """Accumulate and backprop losses with optional grad scaler if enabled"""
@@ -80,22 +82,16 @@ class PyTorchTrainer(BaseTrainer):
     def _train(self) -> None:
         """Train for one epoch over the dataset"""
         self.modules.model.train()
-        self.modules.meta_manager.perflog.train()
+        self.data_manager.perflog.train()
 
         for idx, data in enumerate(self.modules.trainloader):
             losses, preds = self.train_step(
                 data, self.modules.model, self.modules.criterion
             )
-
-            self.log_step(self.modules.meta_manager.perflog, data, preds, losses)
-
+            self.log_step(self.data_manager.perflog, data, preds, losses)
             self._accumulate_losses(losses)
-
             self._maybe_step_optimiser(idx)
-
-            self.modules.meta_manager.iter_step()
-
-        self.modules.meta_manager.epoch_step()
+            self.data_manager.iter_step()
 
     @staticmethod
     def train_step(
@@ -120,8 +116,24 @@ class PyTorchTrainer(BaseTrainer):
 
         return losses, pred
 
+    @no_grad()
+    def _validate(self) -> None:
+        self.modules.model.eval()
+        self.data_manager.perflog.eval()
+
+        for data in self.modules.valloader:
+            losses, preds = self.val_step(
+                data, self.modules.model, self.modules.criterion
+            )
+            self.log_step(self.data_manager.perflog, preds, data, losses)
+
+        if isinstance(self.modules.scheduler, ReduceLROnPlateau):
+            self.modules.scheduler.step(self.data_manager.perflog.epoch_loss())
+        else:
+            self.modules.scheduler.step()
+
     @staticmethod
-    def eval_step(
+    def val_step(
         batch_data, model, criterion
     ) -> Tuple[Dict[str, Tensor] | None, Dict[str, Tensor]]:
         """
@@ -157,22 +169,3 @@ class PyTorchTrainer(BaseTrainer):
                 logger.log(statistic, {k: v.item() for k, v in losses.items()})
             elif preds is not None:
                 logger.log(statistic, preds, data)
-
-    @no_grad()
-    def _validate(self) -> None:
-        self.modules.model.eval()
-        self.modules.meta_manager.perflog.eval()
-
-        for data in self.modules.valloader:
-            losses, preds = self.eval_step(
-                data, self.modules.model, self.modules.criterion
-            )
-            self.log_step(self.modules.meta_manager.perflog, preds, data, losses)
-            self.modules.meta_manager.iter_step()
-
-        if isinstance(self.modules.scheduler, ReduceLROnPlateau):
-            self.modules.scheduler.step(self.modules.meta_manager.perflog.epoch_loss())
-        else:
-            self.modules.scheduler.step()
-
-        self.modules.meta_manager.epoch_step()

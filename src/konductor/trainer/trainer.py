@@ -16,7 +16,6 @@ class TrainingModules:
     scheduler: Any  # Learning rate scheduler
     trainloader: Sequence
     valloader: Sequence
-    meta_manager: MetadataManager
 
 
 @dataclass
@@ -39,14 +38,16 @@ class BaseTrainer(ABC):
 
     def __init__(
         self,
-        train_modules: TrainingModules,
         config: TrainingMangerConfig,
+        train_modules: TrainingModules,
+        data_manager: MetadataManager,
     ):
         self.modules = train_modules
+        self.data_manager = data_manager
         self._logger = getLogger(type(self).__name__)
         self._config = config
 
-        extra = self.modules.meta_manager.checkpointer.resume()
+        extra = self.data_manager.resume()
         if extra is not None and "epoch" in extra:
             self._logger.info(f"Resuming from epoch {extra['epoch']}")
         else:
@@ -62,8 +63,9 @@ class BaseTrainer(ABC):
 
     def run_epoch(self) -> None:
         """Complete one epoch with training and validation epoch"""
-        self._train_epoch()
-        self._validate_epoch()
+        self._train()
+        self._validate()
+        self.data_manager.epoch_step()
 
     @abstractmethod
     def _accumulate_losses(self, losses: Dict[str, Any]) -> Any:
@@ -75,9 +77,9 @@ class BaseTrainer(ABC):
         """Step optimizer if iteration is divisible by subbatch number"""
 
     @abstractmethod
-    def _train_epoch(self) -> None:
+    def _train(self) -> None:
         """Train for one epoch over the dataset"""
 
     @abstractmethod
-    def _validate_epoch(self) -> None:
+    def _validate(self) -> None:
         """Validate one epoch over the dataset"""

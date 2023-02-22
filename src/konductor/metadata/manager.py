@@ -4,6 +4,7 @@
 
 import time
 from dataclasses import dataclass
+from typing import Any, Dict
 
 from .checkpointer import Checkpointer
 from .statistics.perflogger import PerfLogger
@@ -39,6 +40,9 @@ class MetadataManager:
     def __post_init__(self) -> None:
         if all(mod is not None for mod in [self.remoteSync, self.remoteSyncInterval]):
             self.remote_timer = _Timer()
+
+    def resume(self) -> Dict[str, Any] | None:
+        return self.checkpointer.resume()
 
     def epoch_step(self) -> None:
         """Step every epoch"""

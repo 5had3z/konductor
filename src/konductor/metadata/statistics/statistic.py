@@ -23,8 +23,18 @@ class Statistic(metaclass=ABCMeta):
     # i.e. if a smaller or larger value is better
     sort_fn: Dict[str, Callable[[float, float], bool]] = {}
 
-    def __init__(self, buffer_length: int, logger_name: str | None = None) -> None:
+    @classmethod
+    def from_config(cls, buffer_length: int, **kwargs):
+        return cls(buffer_length, **kwargs)
+
+    def __init__(
+        self,
+        buffer_length: int,
+        logger_name: str | None = None,
+        reduce_batch: bool = True,
+    ) -> None:
         super().__init__()
+        self.reduce_batch = reduce_batch
         self._end_idx = 0
         self._buffer_length = buffer_length
         self._statistics: Dict[str, np.ndarray] = {}
@@ -72,7 +82,12 @@ class Statistic(metaclass=ABCMeta):
         if comm.in_distributed_mode():
             data_ = {}
             for s in self._statistics:
-                data_[s] = np.concatenate(comm.all_gather(self._statistics[s]))
+                # Stack along axis and reduce gives "mean" of ddp batch
+                if self.reduce_batch:
+                    data_[s] = np.stack(comm.all_gather(self._statistics[s]))
+                    data_[s] = np.mean(data_[s], axis=-1)
+                else:
+                    data_[s] = np.concatenate(comm.all_gather(self._statistics[s]))
         else:
             data_ = self._statistics
 
@@ -91,11 +106,14 @@ class Statistic(metaclass=ABCMeta):
 
     def _append_sample(self, name: str, value: float | np.ndarray) -> None:
         """Add a single scalar to the logging array"""
-        if isinstance(value, np.ndarray):
-            value = value.mean()
+        if isinstance(value, np.ndarray) and self.reduce_batch:
+            value = value.mean(axis=0)  # assume batch dimension first
         self._statistics[name][self._end_idx] = value
 
     def _append_batch(self, name: str, values: np.ndarray, sz: int) -> None:
         """Append a batch to the logging array"""
         assert sz == values.shape[0], f"{sz=}!={values.shape[0]=}"
         self._statistics[name][self._end_idx : self._end_idx + sz] = values
+
+
+from . import scalar_dict

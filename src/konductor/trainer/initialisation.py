@@ -2,7 +2,7 @@
 Initialisation methods for Training/Validation etc.
 """
 import argparse
-from typing import Type
+from typing import Dict, Type, Tuple
 from pathlib import Path
 import yaml
 import hashlib
@@ -10,14 +10,19 @@ import hashlib
 from .trainer import BaseTrainer, TrainingMangerConfig, TrainingModules
 from ..modules import (
     get_model,
-    get_criterion,
+    get_criterion_config,
     get_optimizer,
     get_lr_scheduler,
     get_dataloader,
     get_dataset_config,
     ExperimentInitConfig,
 )
-from ..metadata import get_metadata_manager
+from ..metadata import (
+    get_metadata_manager,
+    PerfLoggerConfig,
+    MetadataManager,
+    Statistic,
+)
 
 
 def parser_add_common_args(parser: argparse.ArgumentParser) -> None:
@@ -132,25 +137,48 @@ def get_experiment_cfg(
     return ExperimentInitConfig.from_yaml(exp_cfg)
 
 
-def initialise_training_modules(config: ExperimentInitConfig) -> TrainingModules:
+def initialise_training_modules(
+    exp_config: ExperimentInitConfig, statistics: Dict[str, Type[Statistic]]
+) -> Tuple[TrainingModules, MetadataManager]:
     """"""
     # Want to first "get_dataset" so I can get all its properties
     # the loaders then get a train and test variant of it, model
     # can the read properies, and so can meta manager
-    train_loader = get_dataloader(config, "train")
-    val_loader = get_dataloader(config, "val")
-    model = get_model(config, get_dataset_config(config))
-    criteron = get_criterion(config)
-    optim = get_optimizer(config, model)
-    scheduler = get_lr_scheduler(config, optim)
-    meta_manager = get_metadata_manager(config, model)
+    dataset_cfg = get_dataset_config(exp_config)
+    train_loader = get_dataloader(exp_config, dataset_cfg, "train")
+    val_loader = get_dataloader(exp_config, dataset_cfg, "val")
+    model = get_model(exp_config, dataset_cfg)
+    criteron = get_criterion_config(exp_config)
+    optim = get_optimizer(exp_config, model)
+    scheduler = get_lr_scheduler(exp_config, optim)
 
-    return TrainingModules(
-        model, criteron, optim, scheduler, train_loader, val_loader, meta_manager
+    train_modules = TrainingModules(
+        model,
+        [c.get_instance() for c in criteron],
+        optim,
+        scheduler,
+        train_loader,
+        val_loader,
     )
 
+    # Initialise metadata management engine
+    log_config = PerfLoggerConfig(
+        exp_config.work_dir,
+        len(train_loader),
+        len(val_loader),
+        statistics,
+        dataset_cfg.properties,
+    )
+    meta_manager = get_metadata_manager(
+        exp_config, log_config, model=model, optim=optim, scheduler=scheduler
+    )
 
-def initialise_training(trainer: Type[BaseTrainer]) -> BaseTrainer:
+    return train_modules, meta_manager
+
+
+def initialise_training(
+    trainer: Type[BaseTrainer], statistics: Dict[str, type[Statistic]]
+) -> BaseTrainer:
     """Parse cli arguments and initialize training module"""
     parser = get_training_parser()
     args = parser.parse_args()
@@ -161,6 +189,6 @@ def initialise_training(trainer: Type[BaseTrainer]) -> BaseTrainer:
     train_conf = TrainingMangerConfig(
         optimizer_interval=exp_config.optimizer.args.pop("step_interval", 1)
     )
-    tmodules = initialise_training_modules(exp_config)
 
-    return trainer(tmodules, train_conf)
+    train_modules, data_manager = initialise_training_modules(exp_config, statistics)
+    return trainer(train_conf, train_modules, data_manager)

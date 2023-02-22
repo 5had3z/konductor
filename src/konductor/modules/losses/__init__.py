@@ -13,8 +13,6 @@ class Loss:
 from dataclasses import dataclass
 from typing import Any, List
 
-from torch import nn
-
 from ..registry import Registry, BaseConfig, ExperimentInitConfig
 
 REGISTRY = Registry("losses")
@@ -22,6 +20,7 @@ REGISTRY = Registry("losses")
 
 @dataclass
 class LossConfig(BaseConfig):
+    names: List[str]  # Names of losses returned by the module
     weight: float = 1.0
 
     @classmethod
@@ -31,18 +30,14 @@ class LossConfig(BaseConfig):
         )
 
 
-class LossModule:
-    """Base class to inherit loss from, useful as a reminder to the ordering of things"""
+def get_criterion_config(config: ExperimentInitConfig) -> List[LossConfig]:
+    """Get list of loss configs from experiment configuration"""
+    return [
+        REGISTRY[loss_fn.name].from_config(config, idx)
+        for idx, loss_fn in enumerate(config.criterion)
+    ]
 
-    def forward(self, prediction, target) -> Any:
-        """"""
-        raise NotImplementedError()
 
-
-def get_criterion(config: ExperimentInitConfig) -> List[nn.Module]:
-    """Get list of losses from configuration"""
-    losses = []
-    for idx, loss_fn in enumerate(config.criterion):
-        losses.append(REGISTRY[loss_fn.name].from_config(config, idx).get_instance())
-
-    return losses
+def get_criterion(config: ExperimentInitConfig) -> List[Any]:
+    """Get list of loss modules from configuration"""
+    return [l.get_instance() for l in get_criterion_config(config)]

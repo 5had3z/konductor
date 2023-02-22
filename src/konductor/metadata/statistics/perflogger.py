@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Any, Dict, List, Type
 from logging import getLogger
 
 import numpy as np
@@ -8,7 +8,7 @@ import pyarrow as pa
 from pandas import DataFrame as df
 from pyarrow import parquet as pq
 
-from .statistic import Statistic
+from .statistic import Statistic, STATISTICS_REGISTRY
 
 
 @dataclass
@@ -18,7 +18,19 @@ class PerfLoggerConfig:
     for many performance evaluation methods.
     """
 
-    writepath: Path
+    write_path: Path
+
+    # training buffer length
+    train_buffer_length: int
+
+    # validation buffer length
+    validation_buffer_length: int
+
+    # List of named statistics to track
+    statistics: Dict[str, Type[Statistic]]
+
+    # attributes from dataset which statistics may need
+    dataset_properties: Dict[str, Any] = field(default_factory=dict)
 
     # collects accuracy statistics during training
     collect_training_accuracy: bool = True
@@ -26,60 +38,75 @@ class PerfLoggerConfig:
     # collects loss statistics during validation
     collect_validation_loss: bool = True
 
-    # General stats for many tasks
-    n_classes: int = -1
-
-    # Typical Data for Panoptic Segmentation
-    things_ids: Set[int] = field(default_factory=set)
-
 
 class PerfLogger:
-    """"""
+    """
+    When logging, while in training mode save the performance of each iteration
+    as the network is learning, it should improve with each iteration. While in validation
+    record performance, however summarise this as a single scalar at the end of the
+    epoch. This is because we want to see the average performance across the entire
+    validation set.
+    """
 
-    def __init__(
-        self, config: PerfLoggerConfig, statistics: Dict[str, Statistic]
-    ) -> None:
+    _not_init_msg = "Statistics not initialized with .train() or .eval()"
+
+    def __init__(self, config: PerfLoggerConfig) -> None:
         self.is_training = False
         self.config = config
-        self.statistics = statistics
+        self._statistics: Dict[str, Statistic] | None = None
         self._logger = getLogger(type(self).__name__)
 
     def train(self) -> None:
         """Set logger in training mode"""
         self.is_training = True
+        buffer_length = self.config.train_buffer_length
+        self._statistics = {
+            k: v.from_config(buffer_length, **self.config.dataset_properties)
+            for k, v in self.config.statistics.items()
+        }
 
     def eval(self) -> None:
         """Set logger in validation mode"""
         self.is_training = False
+        buffer_length = self.config.validation_buffer_length
+        self._statistics = {
+            k: v.from_config(buffer_length, **self.config.dataset_properties)
+            for k, v in self.config.statistics.items()
+        }
 
     @property
     def statistics_keys(self) -> List[str]:
         keys: List[str] = []
-        for s in self.statistics.values():
-            keys.extend(s.keys)
+        assert self._statistics is not None, self._not_init_msg
+        for name, statistic in self._statistics.items():
+            keys.extend([f"{name}/{k}" for k in statistic.keys])
         return keys
 
     @property
     def statistics_data(self) -> df:
         data: Dict[str, np.ndarray] = {}
-        for s in self.statistics.values():
-            data.update(s.data)
+        assert self._statistics is not None, self._not_init_msg
+        for name, statistic in self._statistics.items():
+            data.update({f"{name}/{k}": v for k, v in statistic.data.items()})
         return df(data)
 
     def flush(self) -> None:
         table = pa.Table.from_pandas(self.statistics_data)
-        with pq.ParquetWriter(self.config.writepath, self.statistics_keys) as writer:
+        with pq.ParquetWriter(self.config.write_path, self.statistics_keys) as writer:
             writer.write_table(table)
 
     def log(self, name: str, *args, **kwargs) -> None:
-        self.statistics[name](*args, **kwargs)
+        assert self._statistics is not None, self._not_init_msg
+        self._statistics[name](*args, **kwargs)
 
     def epoch_loss(self) -> float:
         """Get mean loss of epoch"""
-        losses = self.statistics["losses"].mean
+        assert self._statistics is not None, self._not_init_msg
+        losses = self._statistics["loss"].mean
         mean_loss = sum(losses.values()) / len(losses)
         return mean_loss
 
     def epoch_losses(self) -> Dict[str, float]:
         """Get mean epoch each loss in epoch"""
-        return self.statistics["losses"].mean
+        assert self._statistics is not None, self._not_init_msg
+        return self._statistics["loss"].mean

@@ -6,13 +6,14 @@ from typing import Dict, List
 
 import numpy as np
 
-from statistic import Statistic, STATISTICS_REGISTRY
+from .statistic import Statistic, STATISTICS_REGISTRY
 
 
 @STATISTICS_REGISTRY.register_module("Scalars")
 class ScalarStatistic(Statistic):
     """
-    General tracking of set of scalar statistics
+    General tracking of set of scalar statistics, these
+    are automatically added to the class.
     """
 
     def _register_statistics(self, keys: List[str]) -> None:

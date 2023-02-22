@@ -47,18 +47,16 @@ class DataloaderConfig(BaseConfig):
     drop_last: bool = True
 
     @classmethod
-    def from_config(cls, config: ExperimentInitConfig, mode: Mode):
-        dataset_cfg = config.data.dataset
-
-        if mode == Mode.train:
-            loader_cfg = deepcopy(config.data.train_loader)
-        elif mode in {Mode.val, Mode.test}:
-            loader_cfg = deepcopy(config.data.val_loader)
-        else:
-            raise RuntimeError("How did I get here?")
-
-        dataset = DATASET_REGISTRY[dataset_cfg.name].from_config(config)
-
+    def from_config(
+        cls, config: ExperimentInitConfig, dataset: DatasetConfig, mode: Mode
+    ):
+        match mode:
+            case Mode.train:
+                loader_cfg = deepcopy(config.data.train_loader)
+            case Mode.val | Mode.test:
+                loader_cfg = deepcopy(config.data.val_loader)
+            case _:
+                raise RuntimeError("How did I get here?")
         return cls(dataset=dataset, mode=mode, **loader_cfg.args)
 
     def get_instance(self, *args, **kwargs) -> Sequence:
@@ -89,21 +87,23 @@ def get_dataset_config(config: ExperimentInitConfig) -> DatasetConfig:
 
 
 def get_dataloder_config(
-    config: ExperimentInitConfig, mode: Mode | str
+    config: ExperimentInitConfig, dataset: DatasetConfig, mode: Mode | str
 ) -> DataloaderConfig:
     if isinstance(mode, str):
         mode = Mode[mode]
+    name_ = (
+        config.data.train_loader.name
+        if mode == Mode.train
+        else config.data.val_loader.name
+    )
+    return DATALOADER_REGISTRY[name_].from_config(config, dataset, mode)
 
-    if mode == Mode.train:
-        return DATALOADER_REGISTRY[config.data.train_loader.name].from_config(
-            config, mode
-        )
-    return DATALOADER_REGISTRY[config.data.val_loader.name].from_config(config, mode)
 
-
-def get_dataloader(config: ExperimentInitConfig, mode: Mode | str) -> Sequence:
+def get_dataloader(
+    config: ExperimentInitConfig, dataset: DatasetConfig, mode: Mode | str
+) -> Sequence:
     """"""
     if isinstance(mode, str):
         mode = Mode[mode]
 
-    return get_dataloder_config(config, mode).get_instance()
+    return get_dataloder_config(config, dataset, mode).get_instance()
