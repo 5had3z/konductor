@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Tuple
+import os
+from typing import Any, Dict, List, Tuple
 
 import torch
 from torch import optim, Tensor, nn
@@ -8,7 +9,10 @@ from torch.amp.autocast_mode import autocast
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.profiler import record_function
+from torch.nn.parallel import DistributedDataParallel
 
+
+from ..utilities import comm
 from ..metadata.statistics import PerfLogger
 from .trainer import BaseTrainer, TrainingModules, TrainingMangerConfig, MetadataManager
 
@@ -16,6 +20,7 @@ from .trainer import BaseTrainer, TrainingModules, TrainingMangerConfig, Metadat
 @dataclass
 class PytorchTrainingModules(TrainingModules):
     model: nn.Module
+    criterion: List[nn.Module]
     optimizer: optim.Optimizer
     grad_scaler: GradScaler | None = None
 
@@ -53,6 +58,22 @@ class PyTorchTrainer(BaseTrainer):
             self._validate = _amp_wrapper(self._validate, config.amp_kwargs)
 
         super().__init__(config, train_modules, data_manager)
+
+        if torch.cuda.is_available():
+            self._to_cuda()
+
+    def _to_cuda(self) -> None:
+        self.modules.model = self.modules.model.cuda()
+        for idx, crit in enumerate(self.modules.criterion):
+            self.modules.criterion[idx] = crit.cuda()
+
+        if comm.in_distributed_mode():
+            self.modules.model = DistributedDataParallel(
+                nn.SyncBatchNorm.convert_sync_batchnorm(self.modules.model),
+                device_ids=[torch.cuda.current_device()],
+                output_device=torch.cuda.current_device(),
+                find_unused_parameters=os.getenv("DDP_FIND_UNUSED", "False") == "True",
+            )
 
     def _accumulate_losses(self, losses: Dict[str, Tensor]) -> None:
         """Accumulate and backprop losses with optional grad scaler if enabled"""
@@ -165,7 +186,7 @@ class PyTorchTrainer(BaseTrainer):
         be skipped (if you don't want to log acc during training)
         """
         for statistic in logger.statistics_keys:
-            if statistic == "losses" and losses is not None:
+            if statistic == "loss" and losses is not None:
                 logger.log(statistic, {k: v.item() for k, v in losses.items()})
             elif preds is not None:
                 logger.log(statistic, preds, data)

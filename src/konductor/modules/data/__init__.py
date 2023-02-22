@@ -65,7 +65,7 @@ class DataloaderConfig(BaseConfig):
 
 try:
     import torch
-    from . import pytorch
+    from . import _pytorch
 except ImportError:
     print("pytorch data modules disabled")
 
@@ -77,7 +77,7 @@ except ImportError:
 
 try:
     import tensorflow
-    from . import tensorflow
+    from . import _tensorflow
 except ImportError:
     print("tensoflow data modules disabled")
 

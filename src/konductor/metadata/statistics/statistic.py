@@ -32,6 +32,7 @@ class Statistic(metaclass=ABCMeta):
         buffer_length: int,
         logger_name: str | None = None,
         reduce_batch: bool = True,
+        **kwargs,  # ignore additional
     ) -> None:
         super().__init__()
         self.reduce_batch = reduce_batch

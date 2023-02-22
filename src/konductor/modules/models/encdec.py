@@ -3,20 +3,27 @@ from dataclasses import dataclass
 
 from torch import nn
 
-from . import MODEL_REGISTRY, ENCODER_REGISTRY, DECODER_REGISTRY, POSTPROCESSOR_REGISTRY
+from . import (
+    MODEL_REGISTRY,
+    ENCODER_REGISTRY,
+    DECODER_REGISTRY,
+    POSTPROCESSOR_REGISTRY,
+    BaseConfig,
+    ExperimentInitConfig,
+)
 
 
 @dataclass
 @MODEL_REGISTRY.register_module("EncoderDecoder")
 class EncoderDecoderConfig:
-    encoder: Any
-    decoder: Any
-    postproc: Any | None = None
+    encoder: BaseConfig
+    decoder: BaseConfig
+    postproc: BaseConfig | None = None
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config: ExperimentInitConfig):
         """"""
-        model_args = config["model"]["args"]
+        model_args = config.model.args
         encoder = ENCODER_REGISTRY[model_args["encoder"]["name"]].from_config(config)
         decoder = DECODER_REGISTRY[model_args["decoder"]["name"]].from_config(config)
 

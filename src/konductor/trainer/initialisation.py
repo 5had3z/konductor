@@ -10,7 +10,7 @@ import hashlib
 from .trainer import BaseTrainer, TrainingMangerConfig, TrainingModules
 from ..modules import (
     get_model,
-    get_criterion_config,
+    get_criterion,
     get_optimizer,
     get_lr_scheduler,
     get_dataloader,
@@ -23,6 +23,7 @@ from ..metadata import (
     MetadataManager,
     Statistic,
 )
+from ..metadata.statistics.scalar_dict import ScalarStatistic
 
 
 def parser_add_common_args(parser: argparse.ArgumentParser) -> None:
@@ -148,18 +149,16 @@ def initialise_training_modules(
     train_loader = get_dataloader(exp_config, dataset_cfg, "train")
     val_loader = get_dataloader(exp_config, dataset_cfg, "val")
     model = get_model(exp_config, dataset_cfg)
-    criteron = get_criterion_config(exp_config)
+    criterion = get_criterion(exp_config)
     optim = get_optimizer(exp_config, model)
     scheduler = get_lr_scheduler(exp_config, optim)
 
     train_modules = TrainingModules(
-        model,
-        [c.get_instance() for c in criteron],
-        optim,
-        scheduler,
-        train_loader,
-        val_loader,
+        model, criterion, optim, scheduler, train_loader, val_loader
     )
+
+    # Add tracker for loss
+    statistics["loss"] = ScalarStatistic
 
     # Initialise metadata management engine
     log_config = PerfLoggerConfig(
