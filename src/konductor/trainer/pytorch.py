@@ -185,7 +185,7 @@ class PyTorchTrainer(BaseTrainer):
         to log loss during eval). If predictions are missing then accuracy logging will
         be skipped (if you don't want to log acc during training)
         """
-        for statistic in logger.statistics_keys:
+        for statistic in logger.logger_keys:
             if statistic == "loss" and losses is not None:
                 logger.log(statistic, {k: v.item() for k, v in losses.items()})
             elif preds is not None:

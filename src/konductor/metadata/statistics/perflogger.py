@@ -75,6 +75,11 @@ class PerfLogger:
         }
 
     @property
+    def logger_keys(self) -> List[str]:
+        assert self._statistics is not None, self._not_init_msg
+        return list(self._statistics.keys())
+
+    @property
     def statistics_keys(self) -> List[str]:
         keys: List[str] = []
         assert self._statistics is not None, self._not_init_msg

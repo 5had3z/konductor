@@ -4,7 +4,7 @@ from . import ModelConfig
 
 
 @dataclass
-class ModelConfig(ModelConfig):
+class TFModelConfig(ModelConfig):
     """
     Base Model configuration configuration, architectures should implement via this.
     """

@@ -1,0 +1,2 @@
+class Checkpointer:
+    raise NotImplementedError()

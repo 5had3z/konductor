@@ -139,7 +139,9 @@ def get_experiment_cfg(
 
 
 def initialise_training_modules(
-    exp_config: ExperimentInitConfig, statistics: Dict[str, Type[Statistic]]
+    exp_config: ExperimentInitConfig,
+    statistics: Dict[str, Type[Statistic]],
+    train_module_cls: Type[TrainingModules],
 ) -> Tuple[TrainingModules, MetadataManager]:
     """"""
     # Want to first "get_dataset" so I can get all its properties
@@ -153,7 +155,7 @@ def initialise_training_modules(
     optim = get_optimizer(exp_config, model)
     scheduler = get_lr_scheduler(exp_config, optim)
 
-    train_modules = TrainingModules(
+    train_modules = train_module_cls(
         model, criterion, optim, scheduler, train_loader, val_loader
     )
 
@@ -176,7 +178,9 @@ def initialise_training_modules(
 
 
 def initialise_training(
-    trainer: Type[BaseTrainer], statistics: Dict[str, type[Statistic]]
+    trainer_cls: Type[BaseTrainer],
+    train_module_cls: Type[TrainingModules],
+    statistics: Dict[str, type[Statistic]],
 ) -> BaseTrainer:
     """Parse cli arguments and initialize training module"""
     parser = get_training_parser()
@@ -189,5 +193,7 @@ def initialise_training(
         optimizer_interval=exp_config.optimizer.args.pop("step_interval", 1)
     )
 
-    train_modules, data_manager = initialise_training_modules(exp_config, statistics)
-    return trainer(train_conf, train_modules, data_manager)
+    train_modules, data_manager = initialise_training_modules(
+        exp_config, statistics, train_module_cls
+    )
+    return trainer_cls(train_conf, train_modules, data_manager)
