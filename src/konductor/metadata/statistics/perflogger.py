@@ -29,6 +29,9 @@ class PerfLoggerConfig:
     # List of named statistics to track
     statistics: Dict[str, Type[Statistic]]
 
+    # Interval to log training statistics
+    interval: int = 1
+
     # attributes from dataset which statistics may need
     dataset_properties: Dict[str, Any] = field(default_factory=dict)
 
@@ -53,13 +56,21 @@ class PerfLogger:
     def __init__(self, config: PerfLoggerConfig) -> None:
         self.is_training = False
         self.config = config
+        self._iteration = 0
         self._statistics: Dict[str, Statistic] | None = None
         self._logger = getLogger(type(self).__name__)
+
+    @property
+    def log_interval(self) -> int:
+        return self.config.interval
+
+    def set_iteration(self, it: int) -> None:
+        self._iteration = it
 
     def train(self) -> None:
         """Set logger in training mode"""
         self.is_training = True
-        buffer_length = self.config.train_buffer_length
+        buffer_length = self.config.train_buffer_length // self.log_interval
         self._statistics = {
             k: v.from_config(buffer_length, **self.config.dataset_properties)
             for k, v in self.config.statistics.items()
@@ -97,12 +108,21 @@ class PerfLogger:
 
     def flush(self) -> None:
         table = pa.Table.from_pandas(self.statistics_data)
+        if self.is_training:
+            _end = self._iteration + table.size[0] * self.log_interval
+            iter_keys = np.arange(self._iteration, _end, self.log_interval)
+        else:
+            iter_keys = np.full(table.size[0], self._iteration)
+        iter_table = pa.Table.from_arrays([iter_keys], names="iteration")
+        table = table.join(iter_table)
         with pq.ParquetWriter(self.config.write_path, self.statistics_keys) as writer:
             writer.write_table(table)
 
     def log(self, name: str, *args, **kwargs) -> None:
         assert self._statistics is not None, self._not_init_msg
-        self._statistics[name](*args, **kwargs)
+        # Log if testing or at training log interval
+        if not self.is_training or self._iteration % self.log_interval == 0:
+            self._statistics[name](*args, **kwargs)
 
     def epoch_loss(self) -> float:
         """Get mean loss of epoch"""

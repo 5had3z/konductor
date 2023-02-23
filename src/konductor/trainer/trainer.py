@@ -25,7 +25,6 @@ class TrainingMangerConfig:
     profile: Callable | None = None  # Enable Profiling
     pbar: Callable | None = None  # Enable Console Progress
     optimizer_interval: int = 1  # interval to call optimizer.step()
-    checkpoint_interval: int = 0  # Save extra checkpoints at interval
 
 
 class BaseTrainer(ABC):

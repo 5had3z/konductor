@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -52,6 +52,7 @@ class ExperimentInitConfig:
     scheduler: ModuleInitConfig
     work_dir: Path
     remote_sync: ModuleInitConfig | None = None
+    logger_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_yaml(cls, parsed_dict: Dict[str, Any]):
@@ -70,6 +71,7 @@ class ExperimentInitConfig:
             scheduler=ModuleInitConfig(**parsed_dict["scheduler"]),
             work_dir=parsed_dict["work_dir"],
             remote_sync=remote_sync,
+            logger_kwargs=parsed_dict.get("logger", {}),
         )
 
 

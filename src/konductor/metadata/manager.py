@@ -34,18 +34,52 @@ class MetadataManager:
 
     perflog: PerfLogger
     checkpointer: Checkpointer
+    extra_checkpoint_interval: int = 0
     remoteSync: _RemoteSyncrhoniser | None = None
-    remoteSyncInterval: float | None = None
+    remoteSyncInterval: float = 3600  # 1 hour
+    epoch: int = 0
+    iteration: int = 0
 
     def __post_init__(self) -> None:
-        if all(mod is not None for mod in [self.remoteSync, self.remoteSyncInterval]):
+        if self.remoteSync is not None:
             self.remote_timer = _Timer()
 
     def resume(self) -> Dict[str, Any] | None:
-        return self.checkpointer.resume()
+        self._remote_checkpoint_resume()
+
+        extras = self.checkpointer.resume()
+        if extras is not None:
+            self.epoch = extras["epoch"]
+            self.iteration = extras["iteration"]
+            self.perflog.set_iteration(self.iteration)
+
+        return extras
 
     def epoch_step(self) -> None:
         """Step every epoch"""
+        self.epoch += 1
+        ckpt_name = (
+            f"epoch_{self.epoch}.pt"
+            if self.extra_checkpoint_interval > 0
+            else "latest.pt"
+        )
+        self.checkpointer.save(ckpt_name, epoch=self.epoch, iteration=self.iteration)
+        self._remote_checkpoint_push()
 
     def iter_step(self) -> None:
         """Step every iteration"""
+        self.iteration += 1
+        self.perflog.set_iteration(self.iteration)
+
+    def _remote_checkpoint_push(self) -> None:
+        if self.remoteSync is None:
+            return
+        if self.remote_timer.elapsed() > self.remoteSyncInterval:
+            self.remoteSync.push_all()
+            self.remote_timer.reset()
+
+    def _remote_checkpoint_resume(self) -> None:
+        """Pulls checkpoints from remote"""
+        if self.remoteSync is None:
+            return
+        self.remoteSync.pull_select([".*\\.yaml", ".*\\.yml", "latest.pth"])

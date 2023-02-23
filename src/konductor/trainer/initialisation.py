@@ -141,7 +141,8 @@ def get_experiment_cfg(
 def initialise_training_modules(
     exp_config: ExperimentInitConfig,
     statistics: Dict[str, Type[Statistic]],
-    train_module_cls: Type[TrainingModules],
+    train_module_cls: Type[TrainingModules] = TrainingModules,
+    perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
 ) -> Tuple[TrainingModules, MetadataManager]:
     """"""
     # Want to first "get_dataset" so I can get all its properties
@@ -159,16 +160,17 @@ def initialise_training_modules(
         model, criterion, optim, scheduler, train_loader, val_loader
     )
 
-    # Add tracker for loss
+    # Add tracker for losses
     statistics["loss"] = ScalarStatistic
 
     # Initialise metadata management engine
-    log_config = PerfLoggerConfig(
+    log_config = perf_log_cfg_cls(
         exp_config.work_dir,
         len(train_loader),
         len(val_loader),
         statistics,
-        dataset_cfg.properties,
+        dataset_properties=dataset_cfg.properties,
+        **exp_config.logger_kwargs,
     )
     meta_manager = get_metadata_manager(
         exp_config, log_config, model=model, optim=optim, scheduler=scheduler
@@ -179,8 +181,9 @@ def initialise_training_modules(
 
 def initialise_training(
     trainer_cls: Type[BaseTrainer],
-    train_module_cls: Type[TrainingModules],
     statistics: Dict[str, type[Statistic]],
+    train_module_cls: Type[TrainingModules] = TrainingModules,
+    perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
 ) -> BaseTrainer:
     """Parse cli arguments and initialize training module"""
     parser = get_training_parser()
@@ -194,6 +197,6 @@ def initialise_training(
     )
 
     train_modules, data_manager = initialise_training_modules(
-        exp_config, statistics, train_module_cls
+        exp_config, statistics, train_module_cls, perf_log_cfg_cls
     )
     return trainer_cls(train_conf, train_modules, data_manager)

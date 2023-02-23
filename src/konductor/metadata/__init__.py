@@ -17,4 +17,4 @@ def get_metadata_manager(
         if exp_config.remote_sync is None
         else get_remote_config(exp_config).get_instance()
     )
-    return MetadataManager(perflogger, checkpointer, remote_sync)
+    return MetadataManager(perflogger, checkpointer, remoteSync=remote_sync)
