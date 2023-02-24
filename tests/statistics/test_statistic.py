@@ -45,27 +45,22 @@ def test_iteration_mean(scalar_statistic: ScalarStatistic):
     read_data = scalar_statistic.iteration_mean(0)
     assert random_mean == read_data["data"]
 
-    # Read iteration "0" and check equality
+    # Read iteration "1" check equality
     random_mean = np.mean(random_data_2)
     read_data = scalar_statistic.iteration_mean(1)
     assert random_mean == read_data["data"]
 
 
 def test_read_write(scalar_statistic: ScalarStatistic):
-    for i in range(1000):
+    nelem = 1251
+    for i in range(nelem):
         scalar_statistic(i, {"l2": i * 2, "mse": i * 10})
     scalar_statistic.flush()  # ensure flushed
 
     data = pq.read_table(scalar_statistic.writepath)
 
-    assert set(data.column_names) == {
-        "l2",
-        "mse",
-        "timestamp",
-        "iteration",
-    }, "Mismatch expected column names"
-    assert (
-        data["iteration"] == np.arange(1000)
-    ).all(), "Mismatch expected iteration data"
-    assert (data["l2"] == 2 * np.arange(1000)).all(), "Mismatch expected l2 data"
-    assert (data["mse"] == 10 * np.arange(1000)).all(), "Mismatch expected l2 data"
+    expected_names = {"l2", "mse", "timestamp", "iteration"}
+    assert set(data.column_names) == expected_names, "Mismatch expected column names"
+    assert (data["iteration"] == np.arange(nelem)).all(), "Mismatch expected iter data"
+    assert (data["l2"] == 2 * np.arange(nelem)).all(), "Mismatch expected l2 data"
+    assert (data["mse"] == 10 * np.arange(nelem)).all(), "Mismatch expected l2 data"
