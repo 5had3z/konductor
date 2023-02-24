@@ -17,6 +17,9 @@ def scalar_perf(tmp_path):
 
 
 def test_writing(scalar_perf: PerfLogger):
+    with pytest.raises(AssertionError):
+        scalar_perf.log("loss", {"blah": 0})
+
     scalar_perf.train()
     for i in range(100):
         scalar_perf.set_iteration(i)

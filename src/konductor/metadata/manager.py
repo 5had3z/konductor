@@ -66,6 +66,7 @@ class MetadataManager:
             else "latest.pt"
         )
         self.checkpointer.save(ckpt_name, epoch=self.epoch, iteration=self.iteration)
+        self.perflog.flush()
         self._remote_checkpoint_push()
 
     def iter_step(self) -> None:
