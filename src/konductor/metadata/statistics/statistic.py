@@ -100,7 +100,7 @@ class Statistic(metaclass=ABCMeta):
             for s in self._statistics:
                 gath_data = comm.all_gather(self._statistics[s][: self.size])
                 if self.reduce_batch:
-                    data_[s] = np.mean(np.stack(gath_data, axis=0), axis=0)
+                    data_[s] = np.nanmean(np.stack(gath_data, axis=0), axis=0)
                 else:
                     data_[s] = np.concatenate(gath_data, axis=0)
         else:
@@ -129,7 +129,7 @@ class Statistic(metaclass=ABCMeta):
             for s in self._statistics:
                 # Stack along axis and reduce gives "mean" of ddp batch
                 data_[s] = np.stack(comm.all_gather(self._statistics[s][self._end_idx]))
-                data_[s] = np.mean(data_[s], axis=0)
+                data_[s] = np.nanmean(data_[s], axis=0)
         else:
             data_ = {k: v[self._end_idx] for k, v in self._statistics.items()}
         return data_
@@ -137,7 +137,7 @@ class Statistic(metaclass=ABCMeta):
     @property
     def mean(self) -> Dict[str, float]:
         """Returns the average of each statistic in the current state"""
-        return {k: v.mean() for k, v in self.data.items()}
+        return {k: np.nanmean(v).item() for k, v in self.data.items()}
 
     def flush(self) -> None:
         """Writes valid data from memory to parquet file"""
