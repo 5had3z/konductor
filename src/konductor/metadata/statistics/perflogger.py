@@ -99,10 +99,7 @@ class PerfLogger:
         Pathname function should genereally be callablee that inserts the
         statistic name to create: folder/{split}_{stat}.pq
         """
-
-        if self._statistics is not None:  # write any valid data
-            map(lambda s: s.flush(), self._statistics.values())
-
+        self.flush()
         self._statistics = {
             k: v.from_config(
                 buffer_sz, pathname_fn(k), **self.config.dataset_properties
@@ -130,6 +127,11 @@ class PerfLogger:
         for name, statistic in self._statistics.items():
             data.update({f"{name}/{k}": v for k, v in statistic.data.items()})
         return df(data)
+
+    def flush(self) -> None:
+        """flush all statistics to ensure written to disk"""
+        if self._statistics is not None:  # write any valid data
+            map(lambda s: s.flush(), self._statistics.values())
 
     def log(self, name: str, *args, **kwargs) -> None:
         assert self._statistics is not None, self._not_init_msg
