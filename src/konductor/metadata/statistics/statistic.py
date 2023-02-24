@@ -1,8 +1,13 @@
 from abc import ABCMeta, abstractmethod
 import logging
 from typing import Callable, Dict, List, Tuple
+import time
+from pathlib import Path
 
 import numpy as np
+import pyarrow as pa
+from pyarrow import parquet as pq
+from pandas import DataFrame as df
 
 from ...utilities import comm
 from ...modules.registry import Registry
@@ -24,32 +29,55 @@ class Statistic(metaclass=ABCMeta):
     sort_fn: Dict[str, Callable[[float, float], bool]] = {}
 
     @classmethod
-    def from_config(cls, buffer_length: int, **kwargs):
-        return cls(buffer_length, **kwargs)
+    def from_config(cls, buffer_length: int, writepath: Path, **kwargs):
+        return cls(buffer_length, writepath, **kwargs)
 
     def __init__(
         self,
         buffer_length: int,
+        writepath: Path,
         logger_name: str | None = None,
         reduce_batch: bool = True,
         **kwargs,  # ignore additional
     ) -> None:
         super().__init__()
+        self.writepath = writepath
         self.reduce_batch = reduce_batch
-        self._end_idx = 0
+        self._end_idx = -1
         self._buffer_length = buffer_length
         self._statistics: Dict[str, np.ndarray] = {}
+        self._current_it = 0
+        self._timestamp_key = np.empty(self._buffer_length, dtype=np.int64)
+        self._iteration_key = np.empty(self._buffer_length, dtype=np.int32)
         self._logger = logging.getLogger(
             logger_name if logger_name is not None else type(self).__name__
         )
 
     @abstractmethod
-    def __call__(self, *args, **kwargs) -> None:
+    def __call__(self, it: int, *args, **kwargs) -> None:
         """
+        Call this super before logging to delegate management of indexing/flushing.
         Interface for logging the statistics, gives flexibility of either logging a scalar
         directly to a dictionary or calculate the statistic with data and predictions.
+        Call this after logging to increment the size and any other auxiliary things that would
+        be potentially needed in the future.
         """
-        raise NotImplementedError()
+        if self.full:
+            self._logger.info("Statistical data full, flushing buffer")
+            self.flush()
+
+        self._end_idx += 1
+        self._current_it = it
+
+    @property
+    def size(self) -> int:
+        """Number of elements currently saved"""
+        return self._end_idx + 1
+
+    @property
+    def capacity(self) -> int:
+        """Capacity of buffers"""
+        return self._buffer_length
 
     @property
     def keys(self) -> List[str]:
@@ -58,11 +86,11 @@ class Statistic(metaclass=ABCMeta):
     @property
     def full(self) -> bool:
         """True if any statistic buffer is full"""
-        return any(self._end_idx == d.shape[0] for d in self._statistics.values())
+        return self.size == self.capacity
 
     @property
     def empty(self) -> bool:
-        return self._end_idx == 0
+        return self._end_idx == -1
 
     @property
     def data(self) -> Dict[str, np.ndarray]:
@@ -70,40 +98,40 @@ class Statistic(metaclass=ABCMeta):
         if comm.in_distributed_mode():
             data_ = {}
             for s in self._statistics:
-                data_[s] = np.concatenate(comm.all_gather(self._statistics[s]))
-        else:
-            data_ = self._statistics
-        return {s: v[: self._end_idx % self._buffer_length] for s, v in data_.items()}
-
-    @property
-    def state(self) -> Tuple[int, Dict[str, np.ndarray]]:
-        """Return the state of the statistic logger i.e last_step and data"""
-        if comm.in_distributed_mode():
-            data_ = {}
-            for s in self._statistics:
-                # Stack along axis and reduce gives "mean" of ddp batch
+                gath_data = comm.all_gather(self._statistics[s][: self.size])
                 if self.reduce_batch:
-                    data_[s] = np.stack(comm.all_gather(self._statistics[s]))
-                    data_[s] = np.mean(data_[s], axis=-1)
+                    data_[s] = np.mean(np.stack(gath_data, axis=0), axis=0)
                 else:
-                    data_[s] = np.concatenate(comm.all_gather(self._statistics[s]))
+                    data_[s] = np.concatenate(gath_data, axis=0)
         else:
-            data_ = self._statistics
-        return self._end_idx, data_
+            data_ = dict(**self._statistics)
+
+        if not self.reduce_batch and comm.in_distributed_mode():
+            data_["iteration"] = np.concatenate(
+                comm.all_gather(self._iteration_key[: self.size]), axis=0
+            )
+            data_["timestamp"] = np.concatenate(
+                comm.all_gather(self._timestamp_key[: self.size]), axis=0
+            )
+        else:
+            data_["iteration"] = self._iteration_key[: self.size]
+            data_["timestamp"] = self._timestamp_key[: self.size]
+
+        return data_
 
     @property
     def last(self) -> Dict[str, float]:
-        """Return the last logged statistics"""
+        """
+        Return the last logged statistics, don't return iteration or timestamp data
+        """
         if comm.in_distributed_mode() and self.reduce_batch:
             data_ = {}
             for s in self._statistics:
                 # Stack along axis and reduce gives "mean" of ddp batch
-                data_[s] = np.stack(
-                    comm.all_gather(self._statistics[s][self._end_idx - 1])
-                )
+                data_[s] = np.stack(comm.all_gather(self._statistics[s][self._end_idx]))
                 data_[s] = np.mean(data_[s], axis=0)
         else:
-            data_ = {k: v[self._end_idx - 1] for k, v in self._statistics.items()}
+            data_ = {k: v[self._end_idx] for k, v in self._statistics.items()}
         return data_
 
     @property
@@ -111,9 +139,33 @@ class Statistic(metaclass=ABCMeta):
         """Returns the average of each statistic in the current state"""
         return {k: v.mean() for k, v in self.data.items()}
 
+    def flush(self) -> None:
+        """Writes valid data from memory to parquet file"""
+        if self.empty:
+            return
+
+        data = pa.Table.from_pandas(self.as_df())
+
+        if self.writepath.exists():
+            original_data = pq.read_table(
+                self.writepath, pre_buffer=False, memory_map=True, use_threads=True
+            )
+        else:
+            original_data = None
+
+        with pq.ParquetWriter(self.writepath, data.schema) as writer:
+            if original_data is not None:
+                writer.write_table(original_data)
+            writer.write_table(data)
+        self.reset()
+
+    def as_df(self) -> df:
+        """Get valid data as pandas dataframe"""
+        return df(self.data)
+
     def reset(self) -> None:
         """Empty the currently held data"""
-        self._end_idx = 0
+        self._end_idx = -1
         for s in self._statistics:
             self._statistics[s] = np.empty(self._buffer_length)
 
@@ -122,11 +174,19 @@ class Statistic(metaclass=ABCMeta):
         if isinstance(value, np.ndarray) and self.reduce_batch:
             value = value.mean(axis=0)  # assume batch dimension first
         self._statistics[name][self._end_idx] = value
+        # This will be redundant but whatever, it'll still be syncrhonised between
+        # all statistics correctly this has to be done this way because of batching
+        self._iteration_key[self._end_idx] = self._current_it
+        self._timestamp_key[self._end_idx] = int(time.time())
 
     def _append_batch(self, name: str, values: np.ndarray, sz: int) -> None:
         """Append a batch to the logging array"""
         assert sz == values.shape[0], f"{sz=}!={values.shape[0]=}"
         self._statistics[name][self._end_idx : self._end_idx + sz] = values
+        # This will be redundant but whatever, it'll still be syncrhonised between
+        # all statistics correctly this has to be done this way because of batching
+        self._iteration_key[self._end_idx : self._end_idx + sz] = self._current_it
+        self._timestamp_key[self._end_idx : self._end_idx + sz] = int(time.time())
 
 
 from . import scalar_dict

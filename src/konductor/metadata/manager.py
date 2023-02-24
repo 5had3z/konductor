@@ -52,6 +52,8 @@ class MetadataManager:
             self.epoch = extras["epoch"]
             self.iteration = extras["iteration"]
             self.perflog.set_iteration(self.iteration)
+        else:
+            self.perflog.set_iteration(0)
 
         return extras
 

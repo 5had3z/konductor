@@ -26,9 +26,9 @@ class ScalarStatistic(Statistic):
 
         self._logger.info(logstr.removesuffix(", "))
 
-    def __call__(self, data: Dict[str, float]) -> None:
+    def __call__(self, it: int, data: Dict[str, float]) -> None:
+        super().__call__(it)
         if len(self._statistics) == 0:
             self._register_statistics(list(data.keys()))
         for name, value in data.items():
             self._append_sample(name, value)
-        self._end_idx += 1

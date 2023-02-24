@@ -1,12 +1,10 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Type, Set
+from typing import Any, Callable, Dict, List, Type, Set
 from logging import getLogger
 
 import numpy as np
-import pyarrow as pa
 from pandas import DataFrame as df
-from pyarrow import parquet as pq
 from tensorboard.summary import Writer
 
 from .statistic import Statistic, STATISTICS_REGISTRY
@@ -64,7 +62,7 @@ class PerfLogger:
     def __init__(self, config: PerfLoggerConfig) -> None:
         self.is_training = False
         self.config = config
-        self._iteration = 0
+        self._iteration = -1
         self._statistics: Dict[str, Statistic] | None = None
         self._logger = getLogger(type(self).__name__)
 
@@ -83,18 +81,32 @@ class PerfLogger:
     def train(self) -> None:
         """Set logger in training mode"""
         self.is_training = True
-        buffer_length = self.config.train_buffer_length // self.log_interval
-        self._statistics = {
-            k: v.from_config(buffer_length, **self.config.dataset_properties)
-            for k, v in self.config.statistics.items()
-        }
+        buffer_sz = min(self.config.train_buffer_length // self.log_interval, 1000)
+        pathname_fn = lambda k: self.config.write_path / f"train_{k}.parquet"
+        self._reset_statistics(buffer_sz, pathname_fn)
 
     def eval(self) -> None:
         """Set logger in validation mode"""
         self.is_training = False
-        buffer_length = self.config.validation_buffer_length
+        buffer_sz = min(self.config.validation_buffer_length, 1000)
+        pathname_fn = lambda k: self.config.write_path / f"val_{k}.parquet"
+        self._reset_statistics(buffer_sz, pathname_fn)
+
+    def _reset_statistics(
+        self, buffer_sz: int, pathname_fn: Callable[[str], Path]
+    ) -> None:
+        """
+        Pathname function should genereally be callablee that inserts the
+        statistic name to create: folder/{split}_{stat}.pq
+        """
+
+        if self._statistics is not None:  # write any valid data
+            map(lambda s: s.flush(), self._statistics.values())
+
         self._statistics = {
-            k: v.from_config(buffer_length, **self.config.dataset_properties)
+            k: v.from_config(
+                buffer_sz, pathname_fn(k), **self.config.dataset_properties
+            )
             for k, v in self.config.statistics.items()
         }
 
@@ -119,25 +131,15 @@ class PerfLogger:
             data.update({f"{name}/{k}": v for k, v in statistic.data.items()})
         return df(data)
 
-    def flush(self) -> None:
-        table = pa.Table.from_pandas(self.statistics_data)
-        if self.is_training:
-            _end = self._iteration + table.size[0] * self.log_interval
-            iter_keys = np.arange(self._iteration, _end, self.log_interval)
-        else:
-            iter_keys = np.full(table.size[0], self._iteration)
-        iter_table = pa.Table.from_arrays([iter_keys], names="iteration")
-        table = table.join(iter_table)
-        with pq.ParquetWriter(
-            self.config.write_path / "statistics.pq", self.statistics_keys
-        ) as writer:
-            writer.write_table(table)
-
     def log(self, name: str, *args, **kwargs) -> None:
         assert self._statistics is not None, self._not_init_msg
+        assert (
+            self._iteration >= 0
+        ), "Perflogger.set_iteration never called, this is required for logging properly"
+
         # Log if testing or at training log interval
         if not self.is_training or self._iteration % self.log_interval == 0:
-            self._statistics[name](*args, **kwargs)
+            self._statistics[name](self._iteration, *args, **kwargs)
             if name in self.config.write_tboard or "all" in self.config.write_tboard:
                 self._write_tboard(name)
 
@@ -146,8 +148,11 @@ class PerfLogger:
         assert self._statistics is not None, self._not_init_msg
         assert self.tboard_writer is not None, "Tensorboard isn't initialized"
 
+        split = "train" if self.is_training else "val"
         for stat, value in self._statistics[name].last.items():
-            self.tboard_writer.add_scalar(f"{name}/{stat}", value, self._iteration)
+            self.tboard_writer.add_scalar(
+                f"{split}/{name}/{stat}", value, self._iteration
+            )
 
     def epoch_loss(self) -> float:
         """Get mean loss of epoch"""
