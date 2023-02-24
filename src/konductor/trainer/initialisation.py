@@ -194,18 +194,19 @@ def initialise_data_manager(
 
 
 def initialise_training(
+    cli_args: argparse.Namespace,
     trainer_cls: Type[BaseTrainer],
     trainer_config: TrainingMangerConfig,
     statistics: Dict[str, type[Statistic]],
     train_module_cls: Type[TrainingModules] = TrainingModules,
     perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
 ) -> BaseTrainer:
-    """Parse cli arguments and initialize training manager"""
-    parser = get_training_parser()
-    args = parser.parse_args()
-    exp_config = get_experiment_cfg(args.workspace, args.config_file, args.run_hash)
-    exp_config.data.val_loader.args["workers"] = args.workers
-    exp_config.data.train_loader.args["workers"] = args.workers
+    """Initialize training manager class"""
+    exp_config = get_experiment_cfg(
+        cli_args.workspace, cli_args.config_file, cli_args.run_hash
+    )
+    exp_config.data.val_loader.args["workers"] = cli_args.workers
+    exp_config.data.train_loader.args["workers"] = cli_args.workers
 
     trainer_config.optimizer_interval = exp_config.optimizer.args.pop(
         "step_interval", 1
