@@ -104,7 +104,7 @@ class Statistic(metaclass=ABCMeta):
                 else:
                     data_[s] = np.concatenate(gath_data, axis=0)
         else:
-            data_ = dict(**self._statistics)
+            data_ = {k: v[: self.size] for k, v in self._statistics.items()}
 
         if not self.reduce_batch and comm.in_distributed_mode():
             data_["iteration"] = np.concatenate(
@@ -134,10 +134,19 @@ class Statistic(metaclass=ABCMeta):
             data_ = {k: v[self._end_idx] for k, v in self._statistics.items()}
         return data_
 
-    @property
-    def mean(self) -> Dict[str, float]:
+    def iteration_mean(self, it: int) -> Dict[str, float]:
         """Returns the average of each statistic in the current state"""
-        return {k: np.nanmean(v).item() for k, v in self.data.items()}
+        self.flush()  # flush all held data
+
+        data = pq.read_table(
+            self.writepath,
+            pre_buffer=False,
+            memory_map=True,
+            use_threads=True,
+            filters=[("iteration", "=", it)],
+        )
+
+        return {k: np.nanmean(data[k]) for k in self.keys}
 
     def flush(self) -> None:
         """Writes valid data from memory to parquet file"""

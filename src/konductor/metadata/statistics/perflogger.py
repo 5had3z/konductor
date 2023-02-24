@@ -142,7 +142,13 @@ class PerfLogger:
         # Log if testing or at training log interval
         if not self.is_training or self._iteration % self.log_interval == 0:
             self._statistics[name](self._iteration, *args, **kwargs)
-            if name in self.config.write_tboard or "all" in self.config.write_tboard:
+
+            # Write to tensorbard at each iteration when training
+            if (
+                name in self.config.write_tboard
+                or "all" in self.config.write_tboard
+                and self.is_training
+            ):
                 self._write_tboard(name)
 
     def _write_tboard(self, name: str) -> None:
@@ -159,13 +165,12 @@ class PerfLogger:
             )
 
     def epoch_loss(self) -> float:
-        """Get mean loss of epoch"""
-        assert self._statistics is not None, self._not_init_msg
-        losses = self._statistics["loss"].mean
+        """Get mean loss of last iteration"""
+        losses = self.epoch_losses()
         mean_loss = sum(losses.values()) / len(losses)
         return mean_loss
 
     def epoch_losses(self) -> Dict[str, float]:
-        """Get mean epoch each loss in epoch"""
+        """Get mean for each loss of last iteration"""
         assert self._statistics is not None, self._not_init_msg
-        return self._statistics["loss"].mean
+        return self._statistics["loss"].iteration_mean(self._iteration)

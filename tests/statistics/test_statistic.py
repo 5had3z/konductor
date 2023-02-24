@@ -28,6 +28,29 @@ def test_statefullness(scalar_statistic: ScalarStatistic):
     assert scalar_statistic.capacity == 100
 
 
+def test_iteration_mean(scalar_statistic: ScalarStatistic):
+    """Test if data stamped with an iteration's mean works correctly"""
+
+    # Write random data at two "iteration" steps
+    random_data_1 = np.random.normal(0, 3, size=142)
+    for data in random_data_1:
+        scalar_statistic(0, {"data": data})
+
+    random_data_2 = np.random.normal(10, 3, size=155)
+    for data in random_data_2:
+        scalar_statistic(1, {"data": data})
+
+    # Read iteration "0" and check equality
+    random_mean = np.mean(random_data_1)
+    read_data = scalar_statistic.iteration_mean(0)
+    assert random_mean == read_data["data"]
+
+    # Read iteration "0" and check equality
+    random_mean = np.mean(random_data_2)
+    read_data = scalar_statistic.iteration_mean(1)
+    assert random_mean == read_data["data"]
+
+
 def test_read_write(scalar_statistic: ScalarStatistic):
     for i in range(1000):
         scalar_statistic(i, {"l2": i * 2, "mse": i * 10})
