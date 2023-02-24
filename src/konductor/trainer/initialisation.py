@@ -2,7 +2,7 @@
 Initialisation methods for Training/Validation etc.
 """
 import argparse
-from typing import Dict, Type, Tuple
+from typing import Dict, Type
 from pathlib import Path
 import yaml
 import hashlib
@@ -140,14 +140,13 @@ def get_experiment_cfg(
 
 def initialise_training_modules(
     exp_config: ExperimentInitConfig,
-    statistics: Dict[str, Type[Statistic]],
     train_module_cls: Type[TrainingModules] = TrainingModules,
-    perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
-) -> Tuple[TrainingModules, MetadataManager]:
-    """"""
-    # Want to first "get_dataset" so I can get all its properties
-    # the loaders then get a train and test variant of it, model
-    # can the read properies, and so can meta manager
+) -> TrainingModules:
+    """
+    Initialise training modules from experiment init config
+    optional custom init modules available.
+    """
+
     dataset_cfg = get_dataset_config(exp_config)
     train_loader = get_dataloader(exp_config, dataset_cfg, "train")
     val_loader = get_dataloader(exp_config, dataset_cfg, "val")
@@ -156,9 +155,21 @@ def initialise_training_modules(
     optim = get_optimizer(exp_config, model)
     scheduler = get_lr_scheduler(exp_config, optim)
 
-    train_modules = train_module_cls(
+    return train_module_cls(
         model, criterion, optim, scheduler, train_loader, val_loader
     )
+
+
+def initialise_data_manager(
+    exp_config: ExperimentInitConfig,
+    train_modules: TrainingModules,
+    statistics: Dict[str, Type[Statistic]],
+    perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
+) -> MetadataManager:
+    """
+    Initialise the data manager that handles statistics and checkpoints
+    """
+    dataset_cfg = get_dataset_config(exp_config)
 
     # Add tracker for losses
     statistics["loss"] = ScalarStatistic
@@ -166,37 +177,43 @@ def initialise_training_modules(
     # Initialise metadata management engine
     log_config = perf_log_cfg_cls(
         exp_config.work_dir,
-        len(train_loader),
-        len(val_loader),
+        len(train_modules.trainloader),
+        len(train_modules.valloader),
         statistics,
         dataset_properties=dataset_cfg.properties,
         **exp_config.logger_kwargs,
     )
-    meta_manager = get_metadata_manager(
-        exp_config, log_config, model=model, optim=optim, scheduler=scheduler
-    )
 
-    return train_modules, meta_manager
+    return get_metadata_manager(
+        exp_config,
+        log_config,
+        model=train_modules.model,
+        optim=train_modules.optimizer,
+        scheduler=train_modules.scheduler,
+    )
 
 
 def initialise_training(
     trainer_cls: Type[BaseTrainer],
+    trainer_config: TrainingMangerConfig,
     statistics: Dict[str, type[Statistic]],
     train_module_cls: Type[TrainingModules] = TrainingModules,
     perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
 ) -> BaseTrainer:
-    """Parse cli arguments and initialize training module"""
+    """Parse cli arguments and initialize training manager"""
     parser = get_training_parser()
     args = parser.parse_args()
     exp_config = get_experiment_cfg(args.workspace, args.config_file, args.run_hash)
     exp_config.data.val_loader.args["workers"] = args.workers
     exp_config.data.train_loader.args["workers"] = args.workers
 
-    train_conf = TrainingMangerConfig(
-        optimizer_interval=exp_config.optimizer.args.pop("step_interval", 1)
+    trainer_config.optimizer_interval = exp_config.optimizer.args.pop(
+        "step_interval", 1
     )
 
-    train_modules, data_manager = initialise_training_modules(
-        exp_config, statistics, train_module_cls, perf_log_cfg_cls
+    train_modules = initialise_training_modules(exp_config, train_module_cls)
+    data_manager = initialise_data_manager(
+        exp_config, train_modules, statistics, perf_log_cfg_cls
     )
-    return trainer_cls(train_conf, train_modules, data_manager)
+
+    return trainer_cls(trainer_config, train_modules, data_manager)

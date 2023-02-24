@@ -53,11 +53,9 @@ class BaseTrainer(ABC):
             self._logger.info(f"Unable to load checkpont, starting from scatch")
 
         if config.pbar is not None:
-            self._train_epoch = config.pbar(
-                self._train_epoch, total=len(self.modules.trainloader)
-            )
-            self._validate_epoch = config.pbar(
-                self._validate_epoch, total=len(self.modules.valloader)
+            self._train = config.pbar(self._train, total=len(self.modules.trainloader))
+            self._validate = config.pbar(
+                self._validate, total=len(self.modules.valloader)
             )
 
     def run_epoch(self) -> None:

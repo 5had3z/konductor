@@ -100,7 +100,7 @@ class PyTorchTrainer(BaseTrainer):
 
             self.modules.optimizer.zero_grad()
 
-    def _train(self) -> None:
+    def _train(self, pbar=None) -> None:
         """Train for one epoch over the dataset"""
         self.modules.model.train()
         self.data_manager.perflog.train()
@@ -113,6 +113,8 @@ class PyTorchTrainer(BaseTrainer):
             self._accumulate_losses(losses)
             self._maybe_step_optimiser(idx)
             self.data_manager.iter_step()
+            if pbar is not None:
+                pbar.update(1)
 
     @staticmethod
     def train_step(
@@ -138,7 +140,7 @@ class PyTorchTrainer(BaseTrainer):
         return losses, pred
 
     @no_grad()
-    def _validate(self) -> None:
+    def _validate(self, pbar=None) -> None:
         self.modules.model.eval()
         self.data_manager.perflog.eval()
 
@@ -147,6 +149,8 @@ class PyTorchTrainer(BaseTrainer):
                 data, self.modules.model, self.modules.criterion
             )
             self.log_step(self.data_manager.perflog, preds, data, losses)
+            if pbar is not None:
+                pbar.update(1)
 
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):
             self.modules.scheduler.step(self.data_manager.perflog.epoch_loss())

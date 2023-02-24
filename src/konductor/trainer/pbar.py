@@ -41,7 +41,7 @@ class ProgressBar(Thread):
         self,
         total: int,
         ncols: int | None = None,
-        frequency: float = 15,
+        frequency: float = 10,
         progress_style: List[str] | int | None = None,
     ) -> None:
         super().__init__()
@@ -77,6 +77,8 @@ class ProgressBar(Thread):
 
     def estimated(self) -> timedelta:
         """Estimated completion time"""
+        if self.iter == 0:
+            return timedelta(hours=999)
         time_per_iter = self.elapsed() / self.iter
         return time_per_iter * (self.total - self.iter)
 
