@@ -130,6 +130,15 @@ def get_experiment_cfg(
         train_hash = hashlib.md5(str(exp_cfg).encode("utf-8")).hexdigest()
         exp_path: Path = workspace / train_hash
 
+        if not exp_path.exists():
+            print(f"Creating experiment directory {exp_path}")
+            exp_path.mkdir(parents=True)
+
+        # Ensure the experiment configuration exists in the target directory
+        if not (exp_path / "train_config.yml").exists():
+            with open(exp_path / "train_config.yml", "w", encoding="utf-8") as f:
+                yaml.safe_dump(exp_cfg, f)
+
     else:
         raise RuntimeError("Either --train_hash or --train_config are required")
 

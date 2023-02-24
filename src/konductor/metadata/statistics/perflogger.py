@@ -1,12 +1,13 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Type, Set
 from logging import getLogger
 
 import numpy as np
 import pyarrow as pa
 from pandas import DataFrame as df
 from pyarrow import parquet as pq
+from tensorboard.summary import Writer
 
 from .statistic import Statistic, STATISTICS_REGISTRY
 
@@ -41,6 +42,13 @@ class PerfLoggerConfig:
     # collects loss statistics during validation
     collect_validation_loss: bool = True
 
+    # List of statistics to also write to a tensorboard
+    write_tboard: Set[str] = field(default_factory=set)
+
+    def __post_init__(self):
+        if isinstance(self.write_tboard, list):
+            self.write_tboard = set(self.write_tboard)
+
 
 class PerfLogger:
     """
@@ -59,6 +67,11 @@ class PerfLogger:
         self._iteration = 0
         self._statistics: Dict[str, Statistic] | None = None
         self._logger = getLogger(type(self).__name__)
+
+        if len(self.config.write_tboard) > 0 or "all" in self.config.write_tboard:
+            self.tboard_writer = Writer(str(config.write_path))
+        else:
+            self.tboard_writer = None  # Don't create useless tboard file
 
     @property
     def log_interval(self) -> int:
@@ -115,7 +128,9 @@ class PerfLogger:
             iter_keys = np.full(table.size[0], self._iteration)
         iter_table = pa.Table.from_arrays([iter_keys], names="iteration")
         table = table.join(iter_table)
-        with pq.ParquetWriter(self.config.write_path, self.statistics_keys) as writer:
+        with pq.ParquetWriter(
+            self.config.write_path / "statistics.pq", self.statistics_keys
+        ) as writer:
             writer.write_table(table)
 
     def log(self, name: str, *args, **kwargs) -> None:
@@ -123,6 +138,16 @@ class PerfLogger:
         # Log if testing or at training log interval
         if not self.is_training or self._iteration % self.log_interval == 0:
             self._statistics[name](*args, **kwargs)
+            if name in self.config.write_tboard or "all" in self.config.write_tboard:
+                self._write_tboard(name)
+
+    def _write_tboard(self, name: str) -> None:
+        """Writes last log to tensorboard scalar"""
+        assert self._statistics is not None, self._not_init_msg
+        assert self.tboard_writer is not None, "Tensorboard isn't initialized"
+
+        for stat, value in self._statistics[name].last.items():
+            self.tboard_writer.add_scalar(f"{name}/{stat}", value, self._iteration)
 
     def epoch_loss(self) -> float:
         """Get mean loss of epoch"""

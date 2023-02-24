@@ -67,14 +67,12 @@ class Statistic(metaclass=ABCMeta):
     @property
     def data(self) -> Dict[str, np.ndarray]:
         """Return a dictonary of statistic key and vector pairs of currently valid data"""
-
         if comm.in_distributed_mode():
             data_ = {}
             for s in self._statistics:
                 data_[s] = np.concatenate(comm.all_gather(self._statistics[s]))
         else:
             data_ = self._statistics
-
         return {s: v[: self._end_idx % self._buffer_length] for s, v in data_.items()}
 
     @property
@@ -91,8 +89,22 @@ class Statistic(metaclass=ABCMeta):
                     data_[s] = np.concatenate(comm.all_gather(self._statistics[s]))
         else:
             data_ = self._statistics
-
         return self._end_idx, data_
+
+    @property
+    def last(self) -> Dict[str, float]:
+        """Return the last logged statistics"""
+        if comm.in_distributed_mode() and self.reduce_batch:
+            data_ = {}
+            for s in self._statistics:
+                # Stack along axis and reduce gives "mean" of ddp batch
+                data_[s] = np.stack(
+                    comm.all_gather(self._statistics[s][self._end_idx - 1])
+                )
+                data_[s] = np.mean(data_[s], axis=0)
+        else:
+            data_ = {k: v[self._end_idx - 1] for k, v in self._statistics.items()}
+        return data_
 
     @property
     def mean(self) -> Dict[str, float]:
