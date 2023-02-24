@@ -26,9 +26,13 @@ class ScalarStatistic(Statistic):
 
         self._logger.info(logstr.removesuffix(", "))
 
-    def __call__(self, it: int, data: Dict[str, float]) -> None:
-        super().__call__(it)
+    def __call__(self, it: int, data: Dict[str, float | int]) -> None:
         if len(self._statistics) == 0:
             self._register_statistics(list(data.keys()))
+
+        if set(data) != set(self.keys):
+            raise KeyError(f"unexpected keys {set(data).difference(set(self.keys))}")
+
+        super().__call__(it)
         for name, value in data.items():
             self._append_sample(name, value)

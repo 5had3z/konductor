@@ -10,6 +10,25 @@ def scalar_statistic(tmp_path):
     return ScalarStatistic(100, tmp_path / "scalar.parquet")
 
 
+def test_statefullness(scalar_statistic: ScalarStatistic):
+    assert scalar_statistic.empty == True
+    scalar_statistic(0, {"some_data": 10})
+    assert scalar_statistic.empty == False
+    assert "some_data" in scalar_statistic.keys
+    assert "other" not in scalar_statistic.keys
+
+    with pytest.raises(KeyError):
+        scalar_statistic(1, {"other_data": 100})
+
+    last_data = scalar_statistic.last
+    assert last_data["some_data"] == 10
+    assert last_data["iteration"] == 0
+
+    scalar_statistic(1, {"some_data": 20})
+    assert scalar_statistic.size == 2
+    assert scalar_statistic.capacity == 100
+
+
 def test_read_write(scalar_statistic: ScalarStatistic):
     for i in range(1000):
         scalar_statistic(i, {"l2": i * 2, "mse": i * 10})

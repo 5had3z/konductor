@@ -59,8 +59,8 @@ class Statistic(metaclass=ABCMeta):
         Call this super before logging to delegate management of indexing/flushing.
         Interface for logging the statistics, gives flexibility of either logging a scalar
         directly to a dictionary or calculate the statistic with data and predictions.
-        Call this after logging to increment the size and any other auxiliary things that would
-        be potentially needed in the future.
+
+        param: it - global iteration index, ties logged data to iteration
         """
         if self.full:
             self._logger.info("Statistical data full, flushing buffer")
