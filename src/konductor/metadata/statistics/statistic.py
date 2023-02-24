@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import logging
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, List
 import time
 from pathlib import Path
 
@@ -167,7 +167,7 @@ class Statistic(metaclass=ABCMeta):
         """Empty the currently held data"""
         self._end_idx = -1
         for s in self._statistics:
-            self._statistics[s] = np.empty(self._buffer_length)
+            self._statistics[s] = np.full(self._buffer_length, np.nan)
 
     def _append_sample(self, name: str, value: float | np.ndarray) -> None:
         """Add a single scalar to the logging array"""

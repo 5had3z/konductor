@@ -152,6 +152,8 @@ class PerfLogger:
 
         split = "train" if self.is_training else "val"
         for stat, value in self._statistics[name].last.items():
+            if not np.isfinite(value):
+                continue  # Skip nans which are used as padding
             self.tboard_writer.add_scalar(
                 f"{split}/{name}/{stat}", value, self._iteration
             )

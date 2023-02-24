@@ -100,6 +100,8 @@ class PyTorchTrainer(BaseTrainer):
 
             self.modules.optimizer.zero_grad()
 
+            self.data_manager.iter_step()
+
     def _train(self, pbar=None) -> None:
         """Train for one epoch over the dataset"""
         self.modules.model.train()
@@ -112,7 +114,7 @@ class PyTorchTrainer(BaseTrainer):
             self.log_step(self.data_manager.perflog, data, preds, losses)
             self._accumulate_losses(losses)
             self._maybe_step_optimiser(idx)
-            self.data_manager.iter_step()
+
             if pbar is not None:
                 pbar.update(1)
 

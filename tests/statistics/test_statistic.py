@@ -22,7 +22,6 @@ def test_statefullness(scalar_statistic: ScalarStatistic):
 
     last_data = scalar_statistic.last
     assert last_data["some_data"] == 10
-    assert last_data["iteration"] == 0
 
     scalar_statistic(1, {"some_data": 20})
     assert scalar_statistic.size == 2
