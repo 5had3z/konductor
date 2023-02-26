@@ -45,13 +45,24 @@ class Statistic(metaclass=ABCMeta):
         self.reduce_batch = reduce_batch
         self._end_idx = -1
         self._buffer_length = buffer_length
-        self._statistics: Dict[str, np.ndarray] = {}
-        self._current_it = 0
-        self._timestamp_key = np.empty(self._buffer_length, dtype=np.int64)
-        self._iteration_key = np.empty(self._buffer_length, dtype=np.int32)
+
         self._logger = logging.getLogger(
             logger_name if logger_name is not None else type(self).__name__
         )
+
+        if self.writepath.exists():
+            schema = pq.read_schema(self.writepath)
+            self._statistics = {
+                n: np.empty(0)
+                for n in schema.names
+                if n not in {"iteration", "timestamp"}
+            }
+        else:
+            self._statistics: Dict[str, np.ndarray] = {}
+
+        self._current_it = 0
+        self._timestamp_key = np.empty(self._buffer_length, dtype=np.int64)
+        self._iteration_key = np.empty(self._buffer_length, dtype=np.int32)
 
     @abstractmethod
     def __call__(self, it: int, *args, **kwargs) -> None:
@@ -166,6 +177,7 @@ class Statistic(metaclass=ABCMeta):
             if original_data is not None:
                 writer.write_table(original_data)
             writer.write_table(data)
+
         self.reset()
 
     def as_df(self) -> df:

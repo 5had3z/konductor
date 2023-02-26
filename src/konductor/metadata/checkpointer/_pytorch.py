@@ -35,10 +35,10 @@ class Checkpointer:
             extras[k] = v
 
         if not rootdir.exists():
-            self.logger.info(f"Creating directory at {rootdir}")
+            self.logger.info(f"Creating checkpoint folder: {rootdir}")
             rootdir.mkdir(parents=True)
-        self.rootdir = rootdir
 
+        self.rootdir = rootdir
         self.logger.info(f"Saving checkpoint data at {rootdir}")
 
     def add_checkpointable(self, key: str, checkpointable: Any) -> None:

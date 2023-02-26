@@ -66,6 +66,10 @@ class PerfLogger:
         self._statistics: Dict[str, Statistic] | None = None
         self._logger = getLogger(type(self).__name__)
 
+        if not config.write_path.exists():
+            self._logger.info(f"Creating logging folder: {config.write_path}")
+            config.write_path.mkdir(parents=True)
+
         if len(self.config.write_tboard) > 0 or "all" in self.config.write_tboard:
             self.tboard_writer = Writer(str(config.write_path))
         else:
@@ -130,8 +134,11 @@ class PerfLogger:
 
     def flush(self) -> None:
         """flush all statistics to ensure written to disk"""
-        if self._statistics is not None:  # write any valid data
-            map(lambda s: s.flush(), self._statistics.values())
+        if self._statistics is None:
+            return  # no data to flush
+
+        for stat in self._statistics.values():
+            stat.flush()  # write any valid data
 
     def log(self, name: str, *args, **kwargs) -> None:
         assert self._statistics is not None, self._not_init_msg
@@ -165,12 +172,20 @@ class PerfLogger:
             )
 
     def epoch_loss(self) -> float:
-        """Get mean loss of last iteration"""
+        """Get mean validation loss of last iteration,
+        particularly useful for plateau schedulers"""
         losses = self.epoch_losses()
         mean_loss = sum(losses.values()) / len(losses)
         return mean_loss
 
     def epoch_losses(self) -> Dict[str, float]:
-        """Get mean for each loss of last iteration"""
+        """Get mean validation for each loss of last iteration"""
         assert self._statistics is not None, self._not_init_msg
-        return self._statistics["loss"].iteration_mean(self._iteration)
+        self.flush()  # Ensure flushed so data is on disk to read
+
+        _filename = self.config.write_path / "val_loss.parquet"
+        if not _filename.exists():
+            raise RuntimeError("Loss not tracked in validation")
+
+        _val_loss = self.config.statistics["loss"](0, _filename)
+        return _val_loss.iteration_mean(self._iteration)

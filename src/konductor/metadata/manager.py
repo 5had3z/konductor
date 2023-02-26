@@ -35,13 +35,14 @@ class MetadataManager:
     perflog: PerfLogger
     checkpointer: Checkpointer
     extra_checkpoint_interval: int = 0
-    remoteSync: _RemoteSyncrhoniser | None = None
-    remoteSyncInterval: float = 3600  # 1 hour
+    remote_sync: _RemoteSyncrhoniser | None = None
+    sync_interval: float = 3600.0  # 1 hour
     epoch: int = 0
     iteration: int = 0
 
     def __post_init__(self) -> None:
-        if self.remoteSync is not None:
+        self.perflog.set_iteration(0)
+        if self.remote_sync is not None:
             self.remote_timer = _Timer()
 
     def resume(self) -> Dict[str, Any] | None:
@@ -52,8 +53,6 @@ class MetadataManager:
             self.epoch = extras["epoch"]
             self.iteration = extras["iteration"]
             self.perflog.set_iteration(self.iteration)
-        else:
-            self.perflog.set_iteration(0)
 
         return extras
 
@@ -75,14 +74,14 @@ class MetadataManager:
         self.perflog.set_iteration(self.iteration)
 
     def _remote_checkpoint_push(self) -> None:
-        if self.remoteSync is None:
+        if self.remote_sync is None:
             return
-        if self.remote_timer.elapsed() > self.remoteSyncInterval:
-            self.remoteSync.push_all()
+        if self.remote_timer.elapsed() > self.sync_interval:
+            self.remote_sync.push_all()
             self.remote_timer.reset()
 
     def _remote_checkpoint_resume(self) -> None:
         """Pulls checkpoints from remote"""
-        if self.remoteSync is None:
+        if self.remote_sync is None:
             return
-        self.remoteSync.pull_select([".*\\.yaml", ".*\\.yml", "latest.pth"])
+        self.remote_sync.pull_select([".*\\.yaml", ".*\\.yml", "latest.pth"])

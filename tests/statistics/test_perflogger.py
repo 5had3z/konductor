@@ -1,12 +1,13 @@
 import pytest
 from random import randint
 
-from konductor.metadata.statistics.scalar_dict import ScalarStatistic
 from konductor.metadata import PerfLogger, PerfLoggerConfig
+from konductor.metadata.statistics.scalar_dict import ScalarStatistic
 
 
 @pytest.fixture
 def scalar_perf(tmp_path):
+    """Basic perf logger with "loss" and "accuracy" statistics"""
     config = PerfLoggerConfig(
         write_path=tmp_path / "perf.parquet",
         train_buffer_length=100,

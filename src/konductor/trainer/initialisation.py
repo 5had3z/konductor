@@ -19,6 +19,7 @@ from ..modules import (
 )
 from ..metadata import (
     get_metadata_manager,
+    get_remote_config,
     PerfLoggerConfig,
     MetadataManager,
     Statistic,
@@ -193,9 +194,16 @@ def initialise_data_manager(
         **exp_config.logger_kwargs,
     )
 
+    remote_sync = (
+        None
+        if exp_config.remote_sync is None
+        else get_remote_config(exp_config).get_instance()
+    )
+
     return get_metadata_manager(
         exp_config,
         log_config,
+        remote_sync=remote_sync,
         model=train_modules.model,
         optim=train_modules.optimizer,
         scheduler=train_modules.scheduler,
