@@ -62,6 +62,11 @@ class PyTorchTrainer(BaseTrainer):
         if torch.cuda.is_available():
             self._to_cuda()
 
+        if isinstance(self.modules.scheduler, ReduceLROnPlateau):
+            self._logger.warn(
+                "Using ReduceLROnPlateau scheduler, ensure you calculate loss during validation"
+            )
+
     def _to_cuda(self) -> None:
         self.modules.model = self.modules.model.cuda()
         for idx, crit in enumerate(self.modules.criterion):
@@ -97,10 +102,8 @@ class PyTorchTrainer(BaseTrainer):
                 self.modules.grad_scaler.update()
             else:
                 self.modules.optimizer.step()
-
-            self.modules.optimizer.zero_grad()
-
             self.data_manager.iter_step()
+            self.modules.optimizer.zero_grad()
 
     def _train(self, pbar=None) -> None:
         """Train for one epoch over the dataset"""
@@ -171,10 +174,17 @@ class PyTorchTrainer(BaseTrainer):
             Losses: description of losses for logging purposes
             Predictions: predictions dict
         """
+         [data, label] = [x.cuda() for x in batch_data]
+         
         with record_function("eval_inference"):
-            pred = model(batch_data[0].cuda())
+            pred = model(data)
 
-        return None, pred
+        with record_function("criterion"):
+            losses = {}
+            for criterion in criterion:
+                losses.update(criterion(pred, label))
+
+        return losses, pred
 
     @staticmethod
     @no_grad()
