@@ -174,8 +174,8 @@ class PyTorchTrainer(BaseTrainer):
             Losses: description of losses for logging purposes
             Predictions: predictions dict
         """
-         [data, label] = [x.cuda() for x in batch_data]
-         
+        [data, label] = [x.cuda() for x in batch_data]
+
         with record_function("eval_inference"):
             pred = model(data)
 
