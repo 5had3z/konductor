@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 class Checkpointer:
-    def __init__(self, model: Any, rootdir: Path = Path.cwd(), **extras) -> None:
+    def __init__(self, rootdir: Path = Path.cwd(), **extras) -> None:
         raise NotImplementedError()
 
     def add_checkpointable(self, key: str, checkpointable: Any) -> None:

@@ -1,24 +1,23 @@
 # Example configuration with MNIST
 model:
-  name: resnet50
-  args: {}
-data:
-  dataset:
-    name: MNIST
+  - type: resnet50
     args: {}
-  loader:
-    name: PYTORCH_V1
-    args:
-      batch_size: 8
+    optimizer:
+      type: adam
+      args:
+        lr: 1.e-6
+      scheduler:
+        type: linear
+        args:
+          max_iter: 10
+dataset:
+  - type: MNIST
+    args: {}
+    loader:
+      type: PYTORCH_V1
+      args:
+        batch_size: 8
 criterion:
-  - name: bce
+  - type: bce
     args:
       weight: 1.0
-optimizer:
-  name: adam
-  args:
-    lr: 1.e-6
-scheduler:
-  name: linear
-  args:
-    max_iter: 10

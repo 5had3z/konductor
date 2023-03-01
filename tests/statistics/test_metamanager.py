@@ -24,7 +24,7 @@ class DummyModel:
 @pytest.fixture
 def empty_checkpointer(tmp_path):
     """Basic checkpointer with nothing to save"""
-    return Checkpointer(DummyModel(), tmp_path)
+    return Checkpointer(tmp_path, model=DummyModel())
 
 
 @pytest.fixture
