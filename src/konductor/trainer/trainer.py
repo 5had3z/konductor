@@ -17,6 +17,15 @@ class TrainingModules:
     trainloader: Sequence
     valloader: Sequence
 
+    def __post_init__(self):
+        # Remove list wrapper if only one model/dataset etc
+        for field in self.__dataclass_fields__:
+            if field == "criterion":
+                continue  # don't unwrap criterion
+            obj = getattr(self, field)
+            if isinstance(obj, list) and len(obj) == 1:
+                setattr(self, field, obj[0])
+
 
 @dataclass
 class TrainingMangerConfig:

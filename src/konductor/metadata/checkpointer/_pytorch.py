@@ -16,23 +16,30 @@ class Checkpointer:
     Otherwise, use any filename and a "latest.pth" will link to it.
     """
 
-    def __init__(self, model: nn.Module, rootdir: Path = Path.cwd(), **extras) -> None:
+    def __init__(self, rootdir: Path = Path.cwd(), **extras) -> None:
         """
         Args:
         """
         self.logger = logging.getLogger(type(self).__name__)
-        self.model = (
-            model.module
-            if isinstance(model, (DistributedDataParallel, DataParallel))
-            else model
-        )
 
-        self.extras: Dict[str, nn.Module] = {}
+        self._ckpts: Dict[str, nn.Module] = {}
+
+        # Unpack any lists of modules
+        for k in list(extras.keys()):
+            if isinstance(extras[k], list):
+                if len(extras[k]) > 1:
+                    # unpack list into dictionary
+                    self.logger.info(f"Unpacking {k} into checkpointable list")
+                    extras.update(
+                        {f"{k}_{i}": extras[k][i] for i in range(len(extras[k]))}
+                    )
+                    del extras[k]
+                else:
+                    # remove list dimension
+                    extras[k] = extras[k][0]
+
         for k, v in extras.items():
-            assert hasattr(
-                v, "state_dict"
-            ), f"Checkpointable {k} does not have state_dict method"
-            extras[k] = v
+            self.add_checkpointable(k, v)
 
         if not rootdir.exists():
             self.logger.info(f"Creating checkpoint folder: {rootdir}")
@@ -46,14 +53,18 @@ class Checkpointer:
         Add checkpointable for logging, requres state_dict method.
         """
         assert (
-            key not in self.extras
+            key not in self._ckpts
         ), f"{key} already in dict of checkpointables, can't add another"
 
         assert hasattr(
             checkpointable, "state_dict"
         ), f"Checkpointable {key} does not have state_dict method"
 
-        self.extras[key] = checkpointable
+        # Unwrap data parallel
+        if isinstance(checkpointable, (DistributedDataParallel, DataParallel)):
+            checkpointable = checkpointable.module
+
+        self._ckpts[key] = checkpointable
 
     def save(self, filename: str = "latest.pth", **extras) -> None:
         """
@@ -65,9 +76,7 @@ class Checkpointer:
             filename += ".pth"
         _path = self.rootdir / filename
 
-        data = {"model": self.model.state_dict()}
-        for k, v in self.extras.items():
-            data[k] = v.state_dict()
+        data = {k: v.state_dict() for k, v in self._ckpts.items()}
         data.update(extras)
 
         torch.save(data, _path)
@@ -87,12 +96,9 @@ class Checkpointer:
             filename += ".pth"
         _path = self.rootdir / filename
         checkpoint = torch.load(_path)
-        incompat = self.model.load_state_dict(checkpoint.pop("model"), strict=False)
-        if incompat is not None:
-            self.logger.info(f"Skipped incompatible keys: {incompat}")
 
-        for key in self.extras:
-            self.extras[key].load_state_dict(checkpoint.pop("key"))
+        for key in self._ckpts:
+            self._ckpts[key].load_state_dict(checkpoint.pop(key))
 
         # Return any extra data
         return checkpoint

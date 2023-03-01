@@ -14,7 +14,7 @@ class TorchModelConfig(ModelConfig):
     Pytorch Model configuration that also includes helper for batchnorm and pretrained management.
     """
 
-    def apply_extra(self, model: nn.Module) -> nn.Module:
+    def _apply_extra(self, model: nn.Module) -> nn.Module:
         if self.bn_momentum != 0.1:
             for module in model.modules():
                 if isinstance(module, nn.BatchNorm2d):

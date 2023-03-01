@@ -1,9 +1,8 @@
 """Popular Learning Rate Schedulers"""
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 from functools import partial
 import math
-from typing import Any, Dict
 
 from torch.optim.lr_scheduler import (
     _LRScheduler,
@@ -17,7 +16,7 @@ from torch.optim.lr_scheduler import (
 from torch.optim import Optimizer
 
 
-from . import REGISTRY, SchedulerConfig, ExperimentInitConfig
+from . import REGISTRY, SchedulerConfig
 
 
 @dataclass
@@ -31,11 +30,6 @@ class PolyLRConfig(SchedulerConfig):
         """Polynomal decay until maximum iteration (constant afterward)"""
         return (1.0 - min(index, max_iter - 1) / max_iter) ** power
 
-    @classmethod
-    def from_config(cls, config: ExperimentInitConfig):
-        """"""
-        return cls(**config.scheduler.args)
-
     def get_instance(self, optimizer: Optimizer):
         return LambdaLR(
             optimizer,
@@ -46,7 +40,6 @@ class PolyLRConfig(SchedulerConfig):
 @dataclass
 @REGISTRY.register_module("cosine")
 class CosineLRConfig(SchedulerConfig):
-    optimizer: Optimizer
     max_iter: int
 
     @staticmethod
@@ -54,14 +47,9 @@ class CosineLRConfig(SchedulerConfig):
         """Cosine decay until maximum iteration (constant afterward)"""
         return (1.0 + math.cos(math.pi * index / max_iter)) / 2
 
-    @classmethod
-    def from_config(cls, config: ExperimentInitConfig, optimizer: Optimizer):
-        """"""
-        return cls(optimizer, **config.scheduler.args)
-
-    def get_instance(self):
+    def get_instance(self, optimizer: Optimizer):
         return LambdaLR(
-            self.optimizer,
+            optimizer,
             partial(self._cosine_lr_lambda, max_iter=self.max_iter),
         )
 
@@ -69,68 +57,33 @@ class CosineLRConfig(SchedulerConfig):
 @dataclass
 @REGISTRY.register_module("reduceOnPlateau")
 class ReduceLROnPlateauConfig(SchedulerConfig):
-    kwargs: Dict[str, Any]
-
-    @classmethod
-    def from_config(cls, config: ExperimentInitConfig):
-        """"""
-        return cls(kwargs=config.scheduler.args)
-
     def get_instance(self, optimizer):
-        return ReduceLROnPlateau(optimizer, **self.kwargs)
+        return ReduceLROnPlateau(optimizer, **asdict(self))
 
 
 @dataclass
 @REGISTRY.register_module("linear")
 class LinearLRConfig(SchedulerConfig):
-    kwargs: Dict[str, Any]
-
-    @classmethod
-    def from_config(cls, config: ExperimentInitConfig):
-        """"""
-        return cls(kwargs=config.scheduler.args)
-
     def get_instance(self, optimizer):
-        return LinearLR(optimizer, **self.kwargs)
+        return LinearLR(optimizer, **asdict(self))
 
 
 @dataclass
 @REGISTRY.register_module("constant")
 class ConstantLRConfig(SchedulerConfig):
-    kwargs: Dict[str, Any]
-
-    @classmethod
-    def from_config(cls, config: ExperimentInitConfig):
-        """"""
-        return cls(kwargs=config.scheduler.args)
-
     def get_instance(self, optimizer):
-        return ConstantLR(optimizer, **self.kwargs)
+        return ConstantLR(optimizer, **asdict(self))
 
 
 @dataclass
 @REGISTRY.register_module("step")
 class StepLRConfig(SchedulerConfig):
-    kwargs: Dict[str, Any]
-
-    @classmethod
-    def from_config(cls, config: ExperimentInitConfig):
-        """"""
-        return cls(kwargs=config.scheduler.args)
-
     def get_instance(self, optimizer) -> _LRScheduler:
-        return StepLR(optimizer, **self.kwargs)
+        return StepLR(optimizer, **asdict(self))
 
 
 @dataclass
 @REGISTRY.register_module("multistep")
 class MultiStepLRConfig(SchedulerConfig):
-    kwargs: Dict[str, Any]
-
-    @classmethod
-    def from_config(cls, config: ExperimentInitConfig):
-        """"""
-        return cls(kwargs=config.scheduler.args)
-
     def get_instance(self, optimizer) -> _LRScheduler:
-        return MultiStepLR(optimizer, **self.kwargs)
+        return MultiStepLR(optimizer, **asdict(self))

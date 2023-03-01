@@ -1,10 +1,10 @@
 import math
-from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Tuple
+from dataclasses import dataclass, asdict
+from typing import Iterable, Tuple
 
 import torch
 
-from . import REGISTRY, OptimizerConfig, ExperimentInitConfig
+from . import REGISTRY, OptimizerConfig
 
 
 class LAMB(torch.optim.Optimizer):
@@ -151,12 +151,5 @@ class LAMB(torch.optim.Optimizer):
 @dataclass
 @REGISTRY.register_module("LAMB")
 class LAMBConfig(OptimizerConfig):
-    kwargs: Dict[str, Any]
-
-    @classmethod
-    def from_config(cls, config: ExperimentInitConfig):
-        return super().from_config(config, kwargs=config.optimizer.args)
-
     def get_instance(self, model: torch.nn.Module):
-        optim, params = super().get_instance(LAMB, model)
-        return optim(params, self.lr)
+        return self._apply_extra(LAMB, model, **asdict(self))

@@ -2,11 +2,13 @@
 Learning rate schedulers
 """
 from dataclasses import dataclass
+from typing import Any, NewType, Sequence
 
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler, ReduceLROnPlateau
+from ..registry import Registry, BaseConfig
+from ..init import ModelInitConfig, ExperimentInitConfig
 
-from ..registry import Registry, BaseConfig, ExperimentInitConfig
+SchedulerT = NewType("Scheduler", Sequence)
+OptimizerT = NewType("Optimizer", Any)
 
 REGISTRY = Registry("scheduler")
 
@@ -17,20 +19,18 @@ class SchedulerConfig(BaseConfig):
     def from_config(cls, config: ExperimentInitConfig, *args, **kwargs):
         return super().from_config(config, *args, **kwargs)
 
-    def get_instance(self, optimizer) -> _LRScheduler | ReduceLROnPlateau:
+    def get_instance(self, optimizer: Any) -> SchedulerT:
         raise NotImplementedError()
 
 
 from . import common
 
 
-def get_scheduler_config(config: ExperimentInitConfig) -> SchedulerConfig:
-    return REGISTRY[config.scheduler.name].from_config(config)
+def get_scheduler_config(config: ModelInitConfig) -> SchedulerConfig:
+    return REGISTRY[config.type].from_config(config)
 
 
-def get_lr_scheduler(
-    config: ExperimentInitConfig, optimizer: Optimizer
-) -> _LRScheduler | ReduceLROnPlateau:
+def get_lr_scheduler(config: ModelInitConfig, optimizer: Any) -> SchedulerT:
     """Get learning rate scheduler for training"""
     lr_scheduler = get_scheduler_config(config)
     return lr_scheduler.get_instance(optimizer)
@@ -40,20 +40,25 @@ def main() -> None:
     """Quick plot to show LR Scheduler config in action"""
     import matplotlib.pyplot as plt
     import numpy as np
+    from torch.optim import Optimizer
     from torch.nn import Conv2d
+    from torch.optim.lr_scheduler import PolynomialLR
     from pathlib import Path
     from konductor.modules import (
         ExperimentInitConfig,
         ModuleInitConfig,
-        DataInitConfig,
+        DatasetInitConfig,
+        ModelInitConfig,
     )
 
     iters = 600
     empty_cfg = ModuleInitConfig("", {})
     scheduler_config = ExperimentInitConfig(
-        scheduler=ModuleInitConfig(name="poly", args={"power": 0.5, "max_iter": iters}),
+        scheduler=ModelInitConfig(
+            type="poly", args={"power": 0.5, "max_iter": iters}, optimizer=None
+        ),
         model=empty_cfg,
-        data=DataInitConfig(
+        data=DatasetInitConfig(
             dataset=empty_cfg, val_loader=empty_cfg, train_loader=empty_cfg
         ),
         optimizer=empty_cfg,
@@ -61,7 +66,7 @@ def main() -> None:
         work_dir=Path.cwd(),
     )
 
-    lr_scheduler = get_lr_scheduler(
+    lr_scheduler: PolynomialLR = get_lr_scheduler(
         scheduler_config,
         Optimizer(params=Conv2d(3, 3, 3).parameters(), default={"lr": 1}),
     )

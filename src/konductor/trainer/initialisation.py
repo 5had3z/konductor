@@ -9,10 +9,11 @@ import hashlib
 
 from .trainer import BaseTrainer, TrainingMangerConfig, TrainingModules
 from ..modules import (
-    get_model,
+    get_training_model,
     get_criterion,
     get_optimizer,
     get_lr_scheduler,
+    get_dataset_properties,
     get_dataloader,
     get_dataset_config,
     ExperimentInitConfig,
@@ -157,16 +158,23 @@ def initialise_training_modules(
     optional custom init modules available.
     """
 
-    dataset_cfg = get_dataset_config(exp_config)
-    train_loader = get_dataloader(exp_config, dataset_cfg, "train")
-    val_loader = get_dataloader(exp_config, dataset_cfg, "val")
-    model = get_model(exp_config, dataset_cfg)
+    dataset_cfgs = [
+        get_dataset_config(exp_config, idx) for idx in range(len(exp_config.data))
+    ]
+    train_loaders = [get_dataloader(cfg, "train") for cfg in dataset_cfgs]
+    val_loaders = [get_dataloader(cfg, "val") for cfg in dataset_cfgs]
+
+    modules = [
+        get_training_model(exp_config, idx) for idx in range(len(exp_config.model))
+    ]
+    models = [m[0] for m in modules]
+    optims = [m[1] for m in modules]
+    scheds = [m[2] for m in modules]
+
     criterion = get_criterion(exp_config)
-    optim = get_optimizer(exp_config, model)
-    scheduler = get_lr_scheduler(exp_config, optim)
 
     return train_module_cls(
-        model, criterion, optim, scheduler, train_loader, val_loader
+        models, criterion, optims, scheds, train_loaders, val_loaders
     )
 
 
@@ -179,8 +187,6 @@ def initialise_data_manager(
     """
     Initialise the data manager that handles statistics and checkpoints
     """
-    dataset_cfg = get_dataset_config(exp_config)
-
     # Add tracker for losses
     statistics["loss"] = ScalarStatistic
 
@@ -190,7 +196,7 @@ def initialise_data_manager(
         len(train_modules.trainloader),
         len(train_modules.valloader),
         statistics,
-        dataset_properties=dataset_cfg.properties,
+        dataset_properties=get_dataset_properties(exp_config),
         **exp_config.logger_kwargs,
     )
 
@@ -222,10 +228,11 @@ def initialise_training(
     exp_config = get_experiment_cfg(
         cli_args.workspace, cli_args.config_file, cli_args.run_hash
     )
-    exp_config.data.val_loader.args["workers"] = cli_args.workers
-    exp_config.data.train_loader.args["workers"] = cli_args.workers
+    for data in exp_config.data:
+        data.val_loader.args["workers"] = cli_args.workers // len(exp_config.data)
+        data.train_loader.args["workers"] = cli_args.workers // len(exp_config.data)
 
-    trainer_config.optimizer_interval = exp_config.optimizer.args.pop(
+    trainer_config.optimizer_interval = exp_config.model[0].optimizer.args.pop(
         "step_interval", 1
     )
 

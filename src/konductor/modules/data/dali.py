@@ -20,4 +20,6 @@ class DaliLoaderConfig(DataloaderConfig):
             mode=self.mode, random_shuffle=self.mode == Mode.train, **pipe_kwargs
         )
 
-        return DALIGenericIterator(dali_pipe, out_map, reader_name=reader_name)
+        return DALIGenericIterator(
+            dali_pipe, out_map, reader_name=reader_name, auto_reset=True
+        )

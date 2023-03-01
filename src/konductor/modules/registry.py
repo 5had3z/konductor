@@ -12,7 +12,7 @@ import inspect
 from logging import getLogger
 from typing import Any, Dict, Type
 
-from . import ExperimentInitConfig
+from .init import ExperimentInitConfig
 
 
 @dataclass
