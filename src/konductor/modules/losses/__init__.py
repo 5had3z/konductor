@@ -24,6 +24,9 @@ class LossConfig(BaseConfig):
     names: List[str]  # Names of losses returned by the module
     weight: float = 1.0
 
+    def __post_init__(self):
+        assert len(self.names) == len(set(self.names)), f"Duplicate names {self.names}"
+
     @classmethod
     def from_config(cls, config: ExperimentInitConfig, idx: int, **kwargs):
         return cls(**config.criterion[idx].args, **kwargs)
