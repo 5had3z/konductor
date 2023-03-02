@@ -31,7 +31,7 @@ def get_tag() -> str:
 def main():
     try:
         version = get_tag()
-    except subprocess.SubprocessError:
+    except subprocess.CalledProcessError:
         # if current commit
         version = f"{get_last_tag()}+git{get_sha()}"
     setup(version=version)
