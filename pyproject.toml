@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "konductor"
-version = "0.0.1"
 authors = [
   { name="Bryce Ferenczi", email="frenzi@hotmail.com.au" },
 ]
+dynamic = ["version"]
 description = "Framework for training generic ml models"
 readme = "README.md"
 license = { file="LICENSE" }
