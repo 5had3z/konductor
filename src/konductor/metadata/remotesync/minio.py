@@ -4,6 +4,7 @@ Synchronise workspace with minio s3 bucket
 import os
 from dataclasses import dataclass
 from typing import Any, Dict, List
+
 from minio import Minio, S3Error
 
 from . import REGISTRY, RemoteConfig, ExperimentInitConfig

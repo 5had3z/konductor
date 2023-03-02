@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "konductor"
 version = "0.0.1"
 authors = [
-  { name="Bryce Ferenczi", email="frenzi@hotmail.com" },
+  { name="Bryce Ferenczi", email="frenzi@hotmail.com.au" },
 ]
 description = "Framework for training generic ml models"
 readme = "README.md"
@@ -14,7 +14,7 @@ license = { file="LICENSE" }
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache 2 License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
 
