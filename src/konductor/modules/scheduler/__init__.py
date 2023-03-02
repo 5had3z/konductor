@@ -23,7 +23,12 @@ class SchedulerConfig(BaseConfig):
         raise NotImplementedError()
 
 
-from . import common
+try:
+    import torch
+except ImportError:
+    print("Unable to import torch, not using torch schedulers")
+else:
+    from . import _pytorch
 
 
 def get_scheduler_config(config: ModelInitConfig) -> SchedulerConfig:

@@ -3,13 +3,13 @@ model:
   - type: resnet50
     args: {}
     optimizer:
-      type: adam
+      type: Adam
       args:
         lr: 1.e-6
       scheduler:
         type: linear
         args:
-          max_iter: 10
+          total_iters: 10
 dataset:
   - type: MNIST
     args: {}

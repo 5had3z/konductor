@@ -58,6 +58,9 @@ class Registry:
     def module_dict(self):
         return self._module_dict
 
+    def __contains__(self, name: str) -> bool:
+        return name in self._module_dict
+
     def _register_module(
         self, module: Any, name: str | None = None, force_override: bool = False
     ):

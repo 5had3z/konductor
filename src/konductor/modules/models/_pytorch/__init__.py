@@ -5,7 +5,7 @@ import os
 
 from torch import nn, load
 
-from . import ModelConfig
+from ...models import ModelConfig
 
 
 @dataclass
@@ -46,3 +46,6 @@ class TorchModelConfig(ModelConfig):
                 )
 
         return model
+
+
+from . import encdec, torchvision

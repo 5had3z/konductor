@@ -228,7 +228,8 @@ def initialise_training(
     exp_config = get_experiment_cfg(
         cli_args.workspace, cli_args.config_file, cli_args.run_hash
     )
-    for data in exp_config.data:
+
+    for data in exp_config.data:  # Divide workers evenly among datasets
         data.val_loader.args["workers"] = cli_args.workers // len(exp_config.data)
         data.train_loader.args["workers"] = cli_args.workers // len(exp_config.data)
 

@@ -4,7 +4,8 @@ from typing import Iterable, Tuple
 
 import torch
 
-from . import REGISTRY, OptimizerConfig
+from ...optimizers import REGISTRY
+from .base import PytorchOptimizer
 
 
 class LAMB(torch.optim.Optimizer):
@@ -150,6 +151,6 @@ class LAMB(torch.optim.Optimizer):
 
 @dataclass
 @REGISTRY.register_module("LAMB")
-class LAMBConfig(OptimizerConfig):
+class LAMBConfig(PytorchOptimizer):
     def get_instance(self, model: torch.nn.Module):
         return self._apply_extra(LAMB, model, **asdict(self))

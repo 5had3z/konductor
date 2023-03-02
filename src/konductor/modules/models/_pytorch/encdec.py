@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from torch import nn
 
-from . import (
+from .. import (
     MODEL_REGISTRY,
     ENCODER_REGISTRY,
     DECODER_REGISTRY,
@@ -21,16 +21,20 @@ class EncoderDecoderConfig:
     postproc: BaseConfig | None = None
 
     @classmethod
-    def from_config(cls, config: ExperimentInitConfig):
+    def from_config(cls, config: ExperimentInitConfig, idx: int):
         """"""
-        model_args = config.model.args
-        encoder = ENCODER_REGISTRY[model_args["encoder"]["name"]].from_config(config)
-        decoder = DECODER_REGISTRY[model_args["decoder"]["name"]].from_config(config)
+        model_args = config.model[idx].args
+        encoder = ENCODER_REGISTRY[model_args["encoder"]["type"]].from_config(
+            config, idx
+        )
+        decoder = DECODER_REGISTRY[model_args["decoder"]["type"]].from_config(
+            config, idx
+        )
 
         if "postproc" in model_args:
             postproc = POSTPROCESSOR_REGISTRY[
-                model_args["postproc"]["name"]
-            ].from_config(config)
+                model_args["postproc"]["type"]
+            ].from_config(config, idx)
         else:
             postproc = None
 

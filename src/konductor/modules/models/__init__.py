@@ -50,3 +50,11 @@ def get_model(config: ExperimentInitConfig, idx: int = 0) -> Any:
 def get_training_model(config: ExperimentInitConfig, idx: int = 0) -> Any:
     """Returns model with optimizer and lr scheduler"""
     return get_model_config(config, idx).get_training_modules()
+
+
+try:
+    import torch
+except ImportError:
+    print("Unable to import torch, not adding default models")
+else:
+    from . import _pytorch

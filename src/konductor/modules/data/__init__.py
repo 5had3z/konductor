@@ -21,7 +21,13 @@ class Mode(enum.Enum):
 
 @dataclass
 class DatasetConfig(BaseConfig):
-    """Base dataset configuration class"""
+    """Base dataset configuration class, since multiple datasets can be used in an
+    experiment, this configuration is given as a list and an argument of which dataset
+    to configure is the second argument.
+
+        :raises NotImplementedError: This is a base class that you should inherit from
+        :return: Creates a new dataset configuration to instanciate a dataset
+    """
 
     train_loader: ModuleInitConfig
     val_loader: ModuleInitConfig
@@ -29,6 +35,12 @@ class DatasetConfig(BaseConfig):
 
     @classmethod
     def from_config(cls, config: ExperimentInitConfig, idx: int = 0):
+        """Create a dataset configuration from the global experiment initialisation configuration
+
+        :param config: Experiment Configuration that configures the dataset to be loaded.
+        :param idx: Index of the dataset to be configured, defaults to 0
+        :return: Returns a dataset configuration.
+        """
         data_cfg = config.data[idx]
         return cls(
             train_loader=data_cfg.train_loader,
@@ -38,7 +50,11 @@ class DatasetConfig(BaseConfig):
 
     @property
     def properties(self) -> Dict[str, Any]:
-        """Properties about the dataset such as number of classes and their names etc"""
+        """Useful properties about the dataset's configuration. Can include things
+        such as number of classes and their names etc.
+
+        :return: Dictionary of strings and whatever properties.
+        """
         return {}
 
     @abc.abstractmethod
@@ -48,6 +64,12 @@ class DatasetConfig(BaseConfig):
 
 @dataclass
 class DataloaderConfig(BaseConfig):
+    """
+    The dataloader configuration doesn't really have much to do with the rest
+    of the experiment configuration, configuration dependencies should be made
+    at the dataset level.
+    """
+
     dataset: DatasetConfig
     mode: Mode
     batch_size: int
@@ -91,7 +113,7 @@ except ImportError:
 
 
 def get_dataset_config(config: ExperimentInitConfig, idx: int = 0) -> DatasetConfig:
-    return DATASET_REGISTRY[config.data[idx].dataset.type].from_config(config)
+    return DATASET_REGISTRY[config.data[idx].dataset.type].from_config(config, idx)
 
 
 def get_dataloder_config(dataset: DatasetConfig, mode: Mode | str) -> DataloaderConfig:

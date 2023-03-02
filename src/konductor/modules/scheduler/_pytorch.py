@@ -64,6 +64,8 @@ class ReduceLROnPlateauConfig(SchedulerConfig):
 @dataclass
 @REGISTRY.register_module("linear")
 class LinearLRConfig(SchedulerConfig):
+    total_iters: int = 5
+
     def get_instance(self, optimizer):
         return LinearLR(optimizer, **asdict(self))
 
