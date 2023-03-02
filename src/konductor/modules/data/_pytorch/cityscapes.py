@@ -18,7 +18,7 @@ class CityscapesConfig(DatasetConfig):
         """Initialise module with config"""
         return Cityscapes(
             str(self.basepath),
-            split=mode.name,
+            split=str(mode.name),
             target_type="semantic",
             transform=DeepLabV3_ResNet50_Weights.DEFAULT.value.transforms(),
             target_transform=ToTensor(),
