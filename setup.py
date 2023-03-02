@@ -8,30 +8,32 @@ from setuptools import setup
 
 
 def get_cmd(cmd: List[str]) -> str:
-    try:
-        return (
-            subprocess.check_output(cmd, cwd=Path(__file__).parent)
-            .decode("ascii")
-            .strip()
-        )
-    except Exception:
-        return ""
+    return (
+        subprocess.check_output(cmd, cwd=Path(__file__).parent).decode("ascii").strip()
+    )
 
 
 def get_sha() -> str:
-    """Get git short"""
-    return get_cmd(["git", "rev-parse", "--short", "head"])
+    """Get current git commit short"""
+    return get_cmd(["git", "rev-parse", "--short", "HEAD"])
+
+
+def get_last_tag() -> str:
+    """Get the last most recent git tag"""
+    return get_cmd(["git", "describe", "--tags", "--abbrev=0"])
 
 
 def get_tag() -> str:
-    """Get last git tag"""
+    """Get the current git tag, will throw exception if it isn't tagged"""
     return get_cmd(["git", "describe", "--tags", "--exact"])
 
 
 def main():
-    if (version := get_tag()) == "":
-        version = f"git+{get_sha()}"
-    assert version != "", "Unable to get tag or sha"
+    try:
+        version = get_tag()
+    except subprocess.SubprocessError:
+        # if current commit
+        version = f"{get_last_tag()}+git{get_sha()}"
     setup(version=version)
 
 
