@@ -7,6 +7,8 @@ Yes, there is no documentation at the moment, its not really intended as useable
 Konductor
 =========
 
+.. class:: center
+
 |version| |python| |license| |ci| |coverage| |codestyle|
 
 .. |version| image:: https://img.shields.io/pypi/v/konductor
