@@ -9,7 +9,7 @@ authors = [
 ]
 dynamic = ["version"]
 description = "Framework for training generic ml models"
-readme = "README.md"
+readme = "README.rst"
 license = { file="LICENSE" }
 requires-python = ">=3.10"
 classifiers = [
