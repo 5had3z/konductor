@@ -39,3 +39,11 @@ def get_optimizer_config(init_config: OptimizerInitConfig) -> OptimizerConfig:
 def get_optimizer(cfg: OptimizerInitConfig, model: Any) -> Any:
     """Return an initialised optimizer according to the configmap"""
     return get_optimizer_config(cfg).get_instance(model)
+
+
+try:
+    import torch
+except ImportError:
+    pass
+else:
+    from . import _pytorch
