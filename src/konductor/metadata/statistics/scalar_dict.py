@@ -2,6 +2,7 @@
 Statistic which contains a simple dictionary of scalars.
 This is particularly useful for tracking a bunch of scalars such as losses.
 """
+from dataclasses import dataclass
 from typing import Dict, List
 
 import numpy as np
@@ -9,12 +10,16 @@ import numpy as np
 from .statistic import Statistic, STATISTICS_REGISTRY
 
 
+@dataclass
 @STATISTICS_REGISTRY.register_module("Scalars")
 class ScalarStatistic(Statistic):
     """
     General tracking of set of scalar statistics, these
     are automatically added to the class.
     """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
     def _register_statistics(self, keys: List[str]) -> None:
         """Add each of the keys to the tracked statistics"""

@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import torch
 from nvidia.dali.plugin.pytorch import DALIGenericIterator
 
@@ -5,6 +7,7 @@ from . import DataloaderConfig, DATALOADER_REGISTRY, Mode
 from ...utilities.comm import get_rank, get_world_size
 
 
+@dataclass
 @DATALOADER_REGISTRY.register_module("DALI")
 class DaliLoaderConfig(DataloaderConfig):
     def get_instance(self, *args):

@@ -9,6 +9,7 @@ import hashlib
 
 from .trainer import BaseTrainer, TrainingMangerConfig, TrainingModules
 from ..modules import (
+    get_model,
     get_training_model,
     get_criterion,
     get_optimizer,

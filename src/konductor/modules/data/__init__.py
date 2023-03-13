@@ -1,6 +1,6 @@
 import abc
 import enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
 from typing import Any, Dict, Sequence
@@ -29,9 +29,11 @@ class DatasetConfig(BaseConfig):
         :return: Creates a new dataset configuration to instanciate a dataset
     """
 
-    train_loader: ModuleInitConfig
-    val_loader: ModuleInitConfig
-    basepath: Path = Path(os.environ.get("DATAPATH", "/data"))
+    train_loader: ModuleInitConfig = field(kw_only=True)
+    val_loader: ModuleInitConfig = field(kw_only=True)
+    basepath: Path = field(
+        default=Path(os.environ.get("DATAPATH", "/data")), kw_only=True
+    )
 
     @classmethod
     def from_config(cls, config: ExperimentInitConfig, idx: int = 0):

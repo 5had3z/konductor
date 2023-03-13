@@ -53,7 +53,7 @@ class Statistic(metaclass=ABCMeta):
         if self.writepath.exists():
             schema = pq.read_schema(self.writepath)
             self._statistics = {
-                n: np.empty(0)
+                n: np.empty(self._buffer_length)
                 for n in schema.names
                 if n not in {"iteration", "timestamp"}
             }
@@ -166,12 +166,13 @@ class Statistic(metaclass=ABCMeta):
 
         data = pa.Table.from_pandas(self.as_df())
 
-        if self.writepath.exists():
-            original_data = pq.read_table(
+        original_data = (
+            pq.read_table(
                 self.writepath, pre_buffer=False, memory_map=True, use_threads=True
             )
-        else:
-            original_data = None
+            if self.writepath.exists()
+            else None
+        )
 
         with pq.ParquetWriter(self.writepath, data.schema) as writer:
             if original_data is not None:

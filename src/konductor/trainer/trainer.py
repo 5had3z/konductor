@@ -74,6 +74,10 @@ class BaseTrainer(ABC):
         self.data_manager.epoch_step()
 
     @abstractmethod
+    def data_transform(data: Any) -> Any:
+        """Apply any post motifications to data after loading"""
+
+    @abstractmethod
     def _accumulate_losses(self, losses: Dict[str, Any]) -> Any:
         """Accumulate losses into single number hook, good idea to put a
         grad scaler here if using amp"""

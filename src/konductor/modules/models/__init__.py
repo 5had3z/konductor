@@ -43,7 +43,8 @@ def get_model_config(config: ExperimentInitConfig, idx: int = 0) -> ModelConfig:
 
 
 def get_model(config: ExperimentInitConfig, idx: int = 0) -> Any:
-    """Returns standalone model"""
+    """Returns standalone model, use get_training_model
+    to also get optimizer and lr scheduler"""
     return get_model_config(config, idx).get_instance()
 
 
