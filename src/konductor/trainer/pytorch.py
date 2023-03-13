@@ -9,10 +9,8 @@ from torch.amp.autocast_mode import autocast
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.profiler import record_function
-from torch.nn.parallel import DistributedDataParallel
 
 
-from ..utilities import comm
 from ..metadata.statistics import PerfLogger
 from .trainer import BaseTrainer, TrainingModules, TrainingMangerConfig, MetadataManager
 
@@ -59,25 +57,9 @@ class PyTorchTrainer(BaseTrainer):
 
         super().__init__(config, train_modules, data_manager)
 
-        if torch.cuda.is_available():
-            self._to_cuda()
-
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):
             self._logger.warn(
                 "Using ReduceLROnPlateau scheduler, ensure you calculate loss during validation"
-            )
-
-    def _to_cuda(self) -> None:
-        self.modules.model = self.modules.model.cuda()
-        for idx, crit in enumerate(self.modules.criterion):
-            self.modules.criterion[idx] = crit.cuda()
-
-        if comm.in_distributed_mode():
-            self.modules.model = DistributedDataParallel(
-                nn.SyncBatchNorm.convert_sync_batchnorm(self.modules.model),
-                device_ids=[torch.cuda.current_device()],
-                output_device=torch.cuda.current_device(),
-                find_unused_parameters=os.getenv("DDP_FIND_UNUSED", "False") == "True",
             )
 
     def _accumulate_losses(self, losses: Dict[str, Tensor]) -> None:
@@ -136,15 +118,17 @@ class PyTorchTrainer(BaseTrainer):
         self.modules.model.train()
         self.data_manager.perflog.train()
 
-        for idx, data in enumerate(self.modules.trainloader):
+        gidx = len(self.modules.trainloader) * self.data_manager.epoch
+        for data in self.modules.trainloader:
             data = self.data_transform(data)
             losses, preds = self.train_step(
                 data, self.modules.model, self.modules.criterion
             )
             self.log_step(self.data_manager.perflog, data, preds, losses)
             self._accumulate_losses(losses)
-            self._maybe_step_optimiser(idx)
+            self._maybe_step_optimiser(gidx)
 
+            gidx += 1
             if pbar is not None:
                 pbar.update(1)
 

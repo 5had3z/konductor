@@ -83,6 +83,9 @@ def get_training_parser() -> argparse.ArgumentParser:
         default=0,
         help="Number of dataloader workers",
     )
+    parser.add_argument(
+        "-e", "--epochs", type=int, default=1, help="Max epoch to train to"
+    )
 
     # Configruation for torch.distributed training
     parser.add_argument("-g", "--gpu", type=int, required=False, default=0)

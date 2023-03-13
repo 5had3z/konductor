@@ -12,8 +12,8 @@ class Checkpointer:
     """
     Checkpointer that saves/loads model and checkpointables
     Inspired from fvcore and diverged from there.
-    Use "latest.pth" as your checkpoint filename to prevent accumulations.
-    Otherwise, use any filename and a "latest.pth" will link to it.
+    Use "latest.pt" as your checkpoint filename to prevent accumulations.
+    Otherwise, use any filename and a "latest.pt" will link to it.
     """
 
     def __init__(self, rootdir: Path = Path.cwd(), **extras) -> None:
@@ -66,14 +66,14 @@ class Checkpointer:
 
         self._ckpts[key] = checkpointable
 
-    def save(self, filename: str = "latest.pth", **extras) -> None:
+    def save(self, filename: str = "latest.pt", **extras) -> None:
         """
         Saves checkpointables with extra scalar data kwargs
-        Use latest.pth if you don't want to accumulate checkponts.
-        Otherwise the new file will be saved and latest.pth will link to it.
+        Use latest.pt if you don't want to accumulate checkponts.
+        Otherwise the new file will be saved and latest.pt will link to it.
         """
-        if not filename.endswith(".pth"):
-            filename += ".pth"
+        if not filename.endswith(".pt"):
+            filename += ".pt"
         _path = self.rootdir / filename
 
         data = {k: v.state_dict() for k, v in self._ckpts.items()}
@@ -81,19 +81,19 @@ class Checkpointer:
 
         torch.save(data, _path)
 
-        # If the path name is not 'latest.pth' create a symlink to it
-        # using 'latest.pth' prevents the accumulation of checkpoints.
-        if _path.name != "latest.pth":
+        # If the path name is not 'latest.pt' create a symlink to it
+        # using 'latest.pt' prevents the accumulation of checkpoints.
+        if _path.name != "latest.pt":
             try:
-                (self.rootdir / "latest.pth").symlink_to(_path)
+                (self.rootdir / "latest.pt").symlink_to(_path)
             except OSError:
                 # make copy if symlink is unsupported
-                shutil.copy(_path, self.rootdir / "latest.pth")
+                shutil.copy(_path, self.rootdir / "latest.pt")
 
     def load(self, filename: str) -> Dict[str, Any]:
         """Load checkpoint and return any previously saved scalar kwargs"""
-        if not filename.endswith(".pth"):
-            filename += ".pth"
+        if not filename.endswith(".pt"):
+            filename += ".pt"
         _path = self.rootdir / filename
         checkpoint = torch.load(_path)
 
@@ -104,7 +104,7 @@ class Checkpointer:
         return checkpoint
 
     def resume(self) -> Dict[str, Any] | None:
-        """Resumes from checkpoint linked with latest.pth"""
-        if (self.rootdir / "latest.pth").exists():
-            return self.load("latest.pth")
+        """Resumes from checkpoint linked with latest.pt"""
+        if (self.rootdir / "latest.pt").exists():
+            return self.load("latest.pt")
         return None
