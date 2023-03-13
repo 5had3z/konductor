@@ -1,6 +1,19 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+markers = [
+  "remote: remote sync functionality",
+  "statistics: logging training statistics/metadata"
+]
+
+[tool.setuptools_scm]
+
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 
 [project]
 name = "konductor"

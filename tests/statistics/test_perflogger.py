@@ -1,6 +1,8 @@
 import pytest
 from random import randint
 
+pytestmark = pytest.mark.statistics
+
 from konductor.metadata import PerfLogger, PerfLoggerConfig
 from konductor.metadata.statistics.scalar_dict import ScalarStatistic
 

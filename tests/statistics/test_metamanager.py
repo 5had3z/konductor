@@ -13,6 +13,8 @@ from konductor.metadata import (
 )
 from konductor.metadata.statistics.scalar_dict import ScalarStatistic
 
+pytestmark = pytest.mark.statistics
+
 
 class DummyModel:
     some_data = 1

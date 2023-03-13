@@ -4,6 +4,8 @@ import numpy as np
 from pyarrow import parquet as pq
 from konductor.metadata.statistics.scalar_dict import ScalarStatistic
 
+pytestmark = pytest.mark.statistics
+
 
 @pytest.fixture
 def scalar_statistic(tmp_path):
