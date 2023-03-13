@@ -46,8 +46,7 @@ dependencies = [
 [project.optional-dependencies]
 FULL = [
   "paramiko",
-  "minio",
-  "nvidia-dali-cuda120 @ https://developer.download.nvidia.com/compute/redist"
+  "minio"
 ]
 
 [project.urls]
