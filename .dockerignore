@@ -163,3 +163,5 @@ dmypy.json
 
 # VSCode
 .vscode
+src/*.egg-info
+Dockerfile*
