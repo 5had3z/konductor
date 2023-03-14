@@ -38,9 +38,10 @@ dependencies = [
   "numpy",
   "pyarrow",
   "pandas",
-  "tensorboard",
+  "tensorboard>=1.14",
   "tqdm",
-  "colorama"
+  "colorama",
+  "pyyaml"
 ]
 
 [project.optional-dependencies]

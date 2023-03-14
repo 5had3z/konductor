@@ -69,8 +69,11 @@ class BaseTrainer(ABC):
 
     def run_epoch(self) -> None:
         """Complete one epoch with training and validation epoch"""
+        self._logger.info(f"Training epoch {self.data_manager.epoch}")
         self._train()
+        self._logger.info(f"Validating epoch {self.data_manager.epoch}")
         self._validate()
+        self._logger.info(f"Epoch {self.data_manager.epoch} complete")
         self.data_manager.epoch_step()
 
     @abstractmethod
