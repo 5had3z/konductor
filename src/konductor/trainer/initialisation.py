@@ -18,6 +18,7 @@ from ..modules import (
     get_dataloader,
     get_dataset_config,
     ExperimentInitConfig,
+    ModuleInitConfig,
 )
 from ..metadata import (
     get_metadata_manager,
@@ -231,10 +232,7 @@ def cli_init_config(cli_args: argparse.Namespace):
     if cli_args.remote:
         with open(cli_args.remote, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
-        assert all(
-            k in cfg for k in ["type", "args"]
-        ), "invalid remote config, does not contain [type, args]"
-        exp_config.remote_sync = cfg
+        exp_config.remote_sync = ModuleInitConfig(**cfg)
 
     for data in exp_config.data:  # Divide workers evenly among datasets
         data.val_loader.args["workers"] = cli_args.workers // len(exp_config.data)

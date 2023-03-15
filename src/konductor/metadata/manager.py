@@ -84,4 +84,4 @@ class MetadataManager:
         """Pulls checkpoints from remote"""
         if self.remote_sync is None:
             return
-        self.remote_sync.pull_select([".*\\.yaml", ".*\\.yml", "latest.pth"])
+        self.remote_sync.pull_select([".*\\.yaml", ".*\\.yml", "latest.pt"])
