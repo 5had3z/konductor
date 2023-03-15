@@ -66,8 +66,10 @@ class PyTorchTrainer(BaseTrainer):
         with record_function("backward"):
             loss = []
             for loss_ in losses:
-                if not torch.isfinite(losses[loss_]):
-                    raise RuntimeError(f"Not finite loss detected for {loss_}")
+                # "not torch.isfinite() uses .item() which stalls everything
+                # this should be make opt-in for debugging only for better perf.
+                # if not torch.isfinite(losses[loss_]):
+                #     raise RuntimeError(f"Not finite loss detected for {loss_}")
                 if self.modules.grad_scaler is not None:
                     loss.append(self.modules.grad_scaler.scale(losses[loss_]))
                 else:
