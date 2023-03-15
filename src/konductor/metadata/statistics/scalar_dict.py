@@ -3,9 +3,24 @@ Statistic which contains a simple dictionary of scalars.
 This is particularly useful for tracking a bunch of scalars such as losses.
 """
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import numpy as np
+
+try:
+    import torch
+except ImportError:
+
+    def _scalar_checker(data: Any) -> int | float:
+        return data
+
+else:
+
+    def _scalar_checker(data: Any) -> int | float:
+        if isinstance(data, torch.Tensor):
+            return data.item()
+        return data
+
 
 from .statistic import Statistic, STATISTICS_REGISTRY
 
@@ -40,4 +55,4 @@ class ScalarStatistic(Statistic):
 
         super().__call__(it)
         for name, value in data.items():
-            self._append_sample(name, value)
+            self._append_sample(name, _scalar_checker(value))

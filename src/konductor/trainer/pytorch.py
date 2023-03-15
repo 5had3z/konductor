@@ -106,12 +106,16 @@ class PyTorchTrainer(BaseTrainer):
         be skipped (if you don't want to log acc during training)
         """
         with record_function("statistics"):
+            if losses is not None:
+                logger.log("loss", losses)
+
+            if preds is None:
+                return
+
             for statistic in logger.keys:
                 if statistic == "loss":
-                    if losses is not None:
-                        logger.log(statistic, {k: v.item() for k, v in losses.items()})
-                elif preds is not None:
-                    logger.log(statistic, preds, data)
+                    continue
+                logger.log(statistic, preds, data)
 
     def _train(self, pbar=None, profiler: profile | None = None) -> None:
         """Train for one epoch over the dataset"""
