@@ -153,7 +153,7 @@ def get_experiment_cfg(
     return ExperimentInitConfig.from_yaml(exp_cfg)
 
 
-def initialise_training_modules(
+def init_training_modules(
     exp_config: ExperimentInitConfig,
     train_module_cls: Type[TrainingModules] = TrainingModules,
 ) -> TrainingModules:
@@ -182,7 +182,7 @@ def initialise_training_modules(
     )
 
 
-def initialise_data_manager(
+def init_data_manager(
     exp_config: ExperimentInitConfig,
     train_modules: TrainingModules,
     statistics: Dict[str, Type[Statistic]],
@@ -220,8 +220,31 @@ def initialise_data_manager(
     )
 
 
-def initialise_training(
-    cli_args: argparse.Namespace,
+def cli_init_config(cli_args: argparse.Namespace):
+    """
+    Parse cli args to generate the experiment configuration
+    """
+    exp_config = get_experiment_cfg(
+        cli_args.workspace, cli_args.config_file, cli_args.run_hash
+    )
+
+    if cli_args.remote:
+        with open(cli_args.remote, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        assert all(
+            k in cfg for k in ["type", "args"]
+        ), "invalid remote config, does not contain [type, args]"
+        exp_config.remote_sync = cfg
+
+    for data in exp_config.data:  # Divide workers evenly among datasets
+        data.val_loader.args["workers"] = cli_args.workers // len(exp_config.data)
+        data.train_loader.args["workers"] = cli_args.workers // len(exp_config.data)
+
+    return exp_config
+
+
+def init_training(
+    exp_config: ExperimentInitConfig,
     trainer_cls: Type[BaseTrainer],
     trainer_config: TrainingMangerConfig,
     statistics: Dict[str, type[Statistic]],
@@ -229,20 +252,13 @@ def initialise_training(
     perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
 ) -> BaseTrainer:
     """Initialize training manager class"""
-    exp_config = get_experiment_cfg(
-        cli_args.workspace, cli_args.config_file, cli_args.run_hash
-    )
-
-    for data in exp_config.data:  # Divide workers evenly among datasets
-        data.val_loader.args["workers"] = cli_args.workers // len(exp_config.data)
-        data.train_loader.args["workers"] = cli_args.workers // len(exp_config.data)
 
     trainer_config.optimizer_interval = exp_config.model[0].optimizer.args.pop(
         "step_interval", 1
     )
 
-    train_modules = initialise_training_modules(exp_config, train_module_cls)
-    data_manager = initialise_data_manager(
+    train_modules = init_training_modules(exp_config, train_module_cls)
+    data_manager = init_data_manager(
         exp_config, train_modules, statistics, perf_log_cfg_cls
     )
 
