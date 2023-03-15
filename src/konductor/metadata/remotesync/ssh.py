@@ -60,7 +60,9 @@ class SSHRemote(RemoteConfig):
             raise KeyError(f"Missing Remote configuration {args}")
 
         return cls(
-            host_path=config.work_dir, pk_cfg=pk_cfg, remote_path=args["remote_path"]
+            host_path=config.work_dir,
+            pk_cfg=pk_cfg,
+            remote_path=args["remote_path"] / config.work_dir.name,
         )
 
     def get_instance(self):
