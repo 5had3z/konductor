@@ -212,7 +212,6 @@ def init_data_manager(
     )
 
     return get_metadata_manager(
-        exp_config,
         log_config,
         remote_sync=remote_sync,
         model=train_modules.model,

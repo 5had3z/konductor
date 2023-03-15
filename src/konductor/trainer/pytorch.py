@@ -7,7 +7,7 @@ from torch.autograd.grad_mode import no_grad
 from torch.amp.autocast_mode import autocast
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.profiler import record_function
+from torch.profiler import record_function, profile, ProfilerAction
 
 
 from ..metadata.statistics import PerfLogger
@@ -63,28 +63,29 @@ class PyTorchTrainer(BaseTrainer):
 
     def _accumulate_losses(self, losses: Dict[str, Tensor]) -> None:
         """Accumulate and backprop losses with optional grad scaler if enabled"""
-        loss = torch.zeros(1).cuda()
-        for loss_ in losses:
-            if not torch.isfinite(losses[loss_]):
-                raise RuntimeError(f"Not finite loss detected for {loss_}")
-            if self.modules.grad_scaler is not None:
-                loss += self.modules.grad_scaler.scale(losses[loss_])
-            else:
-                loss += losses[loss_]
-
-        loss /= self._config.optimizer_interval
-        loss.backward()
+        with record_function("backward"):
+            loss = []
+            for loss_ in losses:
+                if not torch.isfinite(losses[loss_]):
+                    raise RuntimeError(f"Not finite loss detected for {loss_}")
+                if self.modules.grad_scaler is not None:
+                    loss.append(self.modules.grad_scaler.scale(losses[loss_]))
+                else:
+                    loss.append(losses[loss_])
+            loss = torch.stack(loss).sum() / self._config.optimizer_interval
+            loss.backward()
 
     def _maybe_step_optimiser(self, iter_: int) -> None:
-        """"""
-        if iter_ % self._config.optimizer_interval == 0:
-            if self.modules.grad_scaler is not None:
-                self.modules.grad_scaler.step(self.modules.optimizer)
-                self.modules.grad_scaler.update()
-            else:
-                self.modules.optimizer.step()
-            self.data_manager.iter_step()
-            self.modules.optimizer.zero_grad()
+        """Step optimizer if modulo the interval"""
+        with record_function("optimizer"):
+            if iter_ % self._config.optimizer_interval == 0:
+                if self.modules.grad_scaler is not None:
+                    self.modules.grad_scaler.step(self.modules.optimizer)
+                    self.modules.grad_scaler.update()
+                else:
+                    self.modules.optimizer.step()
+                self.data_manager.iter_step()
+                self.modules.optimizer.zero_grad()
 
     @staticmethod
     def data_transform(data: Any) -> Any:
@@ -92,7 +93,6 @@ class PyTorchTrainer(BaseTrainer):
 
     @staticmethod
     @no_grad()
-    @record_function("statistics")
     def log_step(
         logger: PerfLogger,
         data: Dict[str, Tensor],
@@ -105,14 +105,15 @@ class PyTorchTrainer(BaseTrainer):
         to log loss during eval). If predictions are missing then accuracy logging will
         be skipped (if you don't want to log acc during training)
         """
-        for statistic in logger.keys:
-            if statistic == "loss":
-                if losses is not None:
-                    logger.log(statistic, {k: v.item() for k, v in losses.items()})
-            elif preds is not None:
-                logger.log(statistic, preds, data)
+        with record_function("statistics"):
+            for statistic in logger.keys:
+                if statistic == "loss":
+                    if losses is not None:
+                        logger.log(statistic, {k: v.item() for k, v in losses.items()})
+                elif preds is not None:
+                    logger.log(statistic, preds, data)
 
-    def _train(self, pbar=None) -> None:
+    def _train(self, pbar=None, profiler: profile | None = None) -> None:
         """Train for one epoch over the dataset"""
         self.modules.model.train()
         self.data_manager.perflog.train()
@@ -130,6 +131,13 @@ class PyTorchTrainer(BaseTrainer):
             gidx += 1
             if pbar is not None:
                 pbar.update(1)
+            if profiler is not None:
+                profiler.step()
+                if (
+                    profiler.schedule(profiler.step_num)
+                    == ProfilerAction.RECORD_AND_SAVE
+                ):
+                    break
 
     @staticmethod
     def train_step(
@@ -153,7 +161,7 @@ class PyTorchTrainer(BaseTrainer):
         return losses, pred
 
     @no_grad()
-    def _validate(self, pbar=None) -> None:
+    def _validate(self, pbar=None, profiler: profile | None = None) -> None:
         self.modules.model.eval()
         self.data_manager.perflog.eval()
 
@@ -165,6 +173,13 @@ class PyTorchTrainer(BaseTrainer):
             self.log_step(self.data_manager.perflog, data, preds, losses)
             if pbar is not None:
                 pbar.update(1)
+            if profiler is not None:
+                profiler.step()
+                if (
+                    profiler.schedule(profiler.step_num)
+                    == ProfilerAction.RECORD_AND_SAVE
+                ):
+                    break
 
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):
             self.modules.scheduler.step(self.data_manager.perflog.epoch_loss())

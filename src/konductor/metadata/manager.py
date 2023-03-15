@@ -4,6 +4,7 @@
 
 from datetime import datetime, timedelta
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict
 
 from .checkpointer import Checkpointer
@@ -45,6 +46,17 @@ class MetadataManager:
         self.perflog.set_iteration(0)
         if self.remote_sync is not None:
             self.remote_timer = _Timer()
+
+    @property
+    def workspace(self):
+        """Directory where data is stored"""
+        return self.checkpointer.rootdir
+
+    @workspace.setter
+    def workspace(self, path: Path):
+        assert path.exists(), f"New workspace folder does not exist: {path}"
+        self.checkpointer.rootdir = path
+        self.perflog.config.write_path = path
 
     def resume(self) -> Dict[str, Any] | None:
         """Resume if available, pull from remote if necessary"""

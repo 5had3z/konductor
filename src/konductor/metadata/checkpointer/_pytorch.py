@@ -21,8 +21,14 @@ class Checkpointer:
         Args:
         """
         self.logger = logging.getLogger(type(self).__name__)
-
+        self.rootdir = rootdir
         self._ckpts: Dict[str, nn.Module] = {}
+
+        if not rootdir.exists():
+            self.logger.info(f"Creating checkpoint folder: {rootdir}")
+            rootdir.mkdir(parents=True)
+        else:
+            self.logger.info(f"Using checkpoint folder: {rootdir}")
 
         # Unpack any lists of modules
         for k in list(extras.keys()):
@@ -40,13 +46,6 @@ class Checkpointer:
 
         for k, v in extras.items():
             self.add_checkpointable(k, v)
-
-        if not rootdir.exists():
-            self.logger.info(f"Creating checkpoint folder: {rootdir}")
-            rootdir.mkdir(parents=True)
-
-        self.rootdir = rootdir
-        self.logger.info(f"Saving checkpoint data at {rootdir}")
 
     def add_checkpointable(self, key: str, checkpointable: Any) -> None:
         """
@@ -95,7 +94,7 @@ class Checkpointer:
         if not filename.endswith(".pt"):
             filename += ".pt"
         _path = self.rootdir / filename
-        checkpoint = torch.load(_path)
+        checkpoint = torch.load(_path, map_location="cpu")
 
         for key in self._ckpts:
             self._ckpts[key].load_state_dict(checkpoint.pop(key))

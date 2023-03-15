@@ -4,6 +4,7 @@ from pathlib import Path
 
 class Checkpointer:
     def __init__(self, rootdir: Path = Path.cwd(), **extras) -> None:
+        self.rootdir = rootdir
         raise NotImplementedError()
 
     def add_checkpointable(self, key: str, checkpointable: Any) -> None:
