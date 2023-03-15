@@ -85,9 +85,12 @@ class MetadataManager:
             elif comm.get_local_rank() == 0:  # Rank0 of dist machines push logs
                 self.remote_sync.push_select([r".*\.parquet", "events.out.tfevents.*"])
             self.remote_timer.reset()
+        comm.synchronize()
 
     def _remote_resume(self) -> None:
         """Pulls latest checkpoint and configuration files from remote"""
-        if self.remote_sync is None or comm.get_local_rank() != 0:
+        if self.remote_sync is None:
             return
-        self.remote_sync.pull_select([r".*\.yaml", r".*\.yml", "latest.pt"])
+        if comm.get_local_rank() == 0:
+            self.remote_sync.pull_select([r".*\.yaml", r".*\.yml", "latest.pt"])
+        comm.synchronize()
