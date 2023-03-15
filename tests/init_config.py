@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 
-from konductor.trainer.initialisation import get_experiment_cfg
+from konductor.trainer.init import get_experiment_cfg
 
 
 @pytest.fixture

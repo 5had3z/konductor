@@ -7,11 +7,26 @@ import logging
 import os
 import pickle
 from typing import Any, Dict, List
+from datetime import timedelta
 
 import numpy as np
 from torch import Tensor
 import torch
 import torch.distributed as dist
+
+
+def initialize(timeout: timedelta = timedelta(minutes=5)) -> None:
+    """
+    Initialise distributed communications, automatically uses
+    modern pytorch env vars to setup, assumses NVIDIA GPU training
+    """
+    assert torch.cuda.is_available(), "NVIDIA GPUs required for distributed training"
+
+    torch.cuda.set_device(f"cuda:{os.environ.get('LOCAL_RANK', 0)}")
+
+    # If all of these non-defaulted args are specified, we must be doing DDP
+    if dist.is_available() and int(os.environ.get("WORLD_SIZE", 1)) > 1:
+        dist.init_process_group(backend="nccl", timeout=timeout)
 
 
 def in_distributed_mode() -> bool:

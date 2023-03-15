@@ -28,6 +28,7 @@ from ..metadata import (
     Statistic,
 )
 from ..metadata.statistics.scalar_dict import ScalarStatistic
+from ..utilities import comm
 
 
 def parser_add_common_args(parser: argparse.ArgumentParser) -> None:
@@ -162,7 +163,6 @@ def init_training_modules(
     Initialise training modules from experiment init config
     optional custom init modules available.
     """
-
     dataset_cfgs = [
         get_dataset_config(exp_config, idx) for idx in range(len(exp_config.data))
     ]
@@ -249,7 +249,8 @@ def init_training(
     train_module_cls: Type[TrainingModules] = TrainingModules,
     perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
 ) -> BaseTrainer:
-    """Initialize training manager class"""
+    """Initialize training manager class + distributed setup"""
+    comm.initialize()
 
     trainer_config.optimizer_interval = exp_config.model[0].optimizer.args.pop(
         "step_interval", 1
