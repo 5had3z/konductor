@@ -59,6 +59,9 @@ class SSHRemote(RemoteConfig):
         else:
             raise KeyError(f"Missing Remote configuration {args}")
 
+        if not isinstance(args["remote_path"], Path):
+            args["remote_path"] = Path(args["remote_path"])
+
         return cls(
             host_path=config.work_dir,
             pk_cfg=pk_cfg,
