@@ -2,13 +2,14 @@
 
 """
 
-import time
+from datetime import datetime, timedelta
 from dataclasses import dataclass
 from typing import Any, Dict
 
 from .checkpointer import Checkpointer
 from .statistics.perflogger import PerfLogger
 from .remotesync import _RemoteSyncrhoniser
+from ..utilities import comm
 
 
 class _Timer:
@@ -17,15 +18,15 @@ class _Timer:
     """
 
     def __init__(self):
-        self.start_time = time.time()
+        self.start_time = datetime.now()
 
     def elapsed(self):
         """Returns the elapsed time since the timer was created or last reset"""
-        return time.time() - self.start_time
+        return datetime.now() - self.start_time
 
     def reset(self):
         """Resets the Timer"""
-        self.start_time = time.time()
+        self.start_time = datetime.now()
 
 
 @dataclass
@@ -34,9 +35,9 @@ class MetadataManager:
 
     perflog: PerfLogger
     checkpointer: Checkpointer
-    extra_checkpoint_interval: int = 0
+    checkpoint_interval: int = 0
     remote_sync: _RemoteSyncrhoniser | None = None
-    sync_interval: float = 3600.0  # 1 hour
+    sync_interval: timedelta = timedelta(hours=1)
     epoch: int = 0
     iteration: int = 0
 
@@ -46,8 +47,8 @@ class MetadataManager:
             self.remote_timer = _Timer()
 
     def resume(self) -> Dict[str, Any] | None:
-        self._remote_checkpoint_resume()
-
+        """Resume if available, pull from remote if necessary"""
+        self._remote_resume()
         extras = self.checkpointer.resume()
         if extras is not None:
             self.epoch = extras["epoch"]
@@ -59,29 +60,34 @@ class MetadataManager:
     def epoch_step(self) -> None:
         """Step every epoch"""
         self.epoch += 1
-        ckpt_name = (
-            f"epoch_{self.epoch}.pt"
-            if self.extra_checkpoint_interval > 0
-            else "latest.pt"
-        )
+
+        if self.checkpoint_interval > 0 and self.epoch % self.checkpoint_interval == 0:
+            ckpt_name = f"epoch_{self.epoch}.pt"
+        else:
+            ckpt_name = "latest.pt"
+
         self.checkpointer.save(ckpt_name, epoch=self.epoch, iteration=self.iteration)
         self.perflog.flush()
-        self._remote_checkpoint_push()
+        self._remote_push()
 
     def iter_step(self) -> None:
         """Step every iteration"""
         self.iteration += 1
         self.perflog.set_iteration(self.iteration)
 
-    def _remote_checkpoint_push(self) -> None:
+    def _remote_push(self) -> None:
+        """Push latest checkpoint and metadata to remote"""
         if self.remote_sync is None:
             return
         if self.remote_timer.elapsed() > self.sync_interval:
-            self.remote_sync.push_all()
+            if comm.is_main_process():  # Main rank pushes all data (logs + weights)
+                self.remote_sync.push_all()
+            elif comm.get_local_rank() == 0:  # Rank0 of dist machines push logs
+                self.remote_sync.push_select([r".*\.parquet", "events.out.tfevents.*"])
             self.remote_timer.reset()
 
-    def _remote_checkpoint_resume(self) -> None:
-        """Pulls checkpoints from remote"""
-        if self.remote_sync is None:
+    def _remote_resume(self) -> None:
+        """Pulls latest checkpoint and configuration files from remote"""
+        if self.remote_sync is None or comm.get_local_rank() != 0:
             return
-        self.remote_sync.pull_select([".*\\.yaml", ".*\\.yml", "latest.pt"])
+        self.remote_sync.pull_select([r".*\.yaml", r".*\.yml", "latest.pt"])

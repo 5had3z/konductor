@@ -3,7 +3,8 @@ Synchronise workspace with minio s3 bucket
 """
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict
+from pathlib import Path
 
 from minio import Minio, S3Error
 
@@ -73,7 +74,7 @@ class MinioSync(_RemoteSyncrhoniser):
         self.bucket_name = self._host_path.name if bucket_name is None else bucket_name
 
         self.logger.info("Checking bucket existance %s", self.bucket_name)
-        if not self.client.bucket_exists(self.bucket_name) and is_main_process():
+        if is_main_process() and not self.client.bucket_exists(self.bucket_name):
             self.logger.info("Creating bucket %s", self.bucket_name)
             self.client.make_bucket(self.bucket_name)
 
@@ -116,9 +117,6 @@ class MinioSync(_RemoteSyncrhoniser):
         # Doesn't seem like I can change last modified on object?
         # local_modified = (self._host_path / filename).stat().st_mtime
 
-    def push_select(self, regex_: List[str]) -> None:
-        raise NotImplementedError()
-
     def push_all(self, force: bool = False) -> None:
         super().push_all(force)
         for filename in self.file_list:
@@ -144,11 +142,16 @@ class MinioSync(_RemoteSyncrhoniser):
     def remote_existance(self) -> bool:
         return self.client.bucket_exists(self.bucket_name)
 
-    def get_file(self, remote_src: str, host_dest: str) -> None:
+    def get_file(self, remote_src: str, host_dest: Path | None = None) -> None:
+        if host_dest is None:
+            host_dest = self._host_path / remote_src
+            self.logger.info(
+                "get_file destination unspecified, writing to %s", str(host_dest)
+            )
+
         self.client.fget_object(self.bucket_name, remote_src, host_dest)
 
     def _generate_file_list_from_remote(self) -> None:
-        super()._generate_file_list_from_remote()
-        minio_obj = self.client.list_objects(self.bucket_name)
-        for obj in minio_obj:
-            self.file_list.add(obj.object_name)
+        self.file_list = set(
+            o.object_name for o in self.client.list_objects(self.bucket_name)
+        )

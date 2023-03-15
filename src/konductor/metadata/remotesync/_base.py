@@ -1,5 +1,4 @@
-"""
-Abstract Base remote syncrhonisation that defines
+"""Abstract Base remote syncrhonisation that defines
 interfaces required for remote synchronisation.
 """
 from abc import ABCMeta, abstractmethod
@@ -10,8 +9,7 @@ from typing import List, Set
 
 
 class _RemoteSyncrhoniser(metaclass=ABCMeta):
-    """
-    Synchronises set of files(objects) between host and remote
+    """Synchronises set of files(objects) between host and remote
     data source.
     """
 
@@ -25,14 +23,17 @@ class _RemoteSyncrhoniser(metaclass=ABCMeta):
     def push(self, filename: str) -> None:
         """Copies file from the host to the remote"""
 
-    @abstractmethod
     def push_select(self, regex_: List[str]) -> None:
         """Copies files that match list of regex to remote"""
+        self._generate_file_list_from_host()
+        for filename in self.file_list:
+            if any(re.match(exp_, filename) for exp_ in regex_):
+                self.logger.info("Pushing matched object %s", filename)
+                self.push(filename)
 
     @abstractmethod
     def push_all(self, force: bool = False) -> None:
-        """
-        Copies files from the host to the remote.
+        """Copies files from the host to the remote.
         Force pushes files even if last modified time is older.
         """
         self._generate_file_list_from_host()
@@ -54,8 +55,7 @@ class _RemoteSyncrhoniser(metaclass=ABCMeta):
 
     @abstractmethod
     def pull_all(self, force: bool = False) -> None:
-        """
-        Copies files from the remote to the host
+        """Copies files from the remote to the host
         Force pulls files even if last modified time is older.
         """
         self._generate_file_list_from_remote()
@@ -78,27 +78,16 @@ class _RemoteSyncrhoniser(metaclass=ABCMeta):
         """Check if some previous experiment data is on the remote"""
 
     @abstractmethod
-    def get_file(self, remote_src: str, host_dest: str) -> None:
+    def get_file(self, remote_src: str, host_dest: str | None = None) -> None:
         """Get a file from the remote"""
-        raise NotImplementedError()
 
     def _generate_file_list_from_host(self) -> None:
-        """
-        Generates the file list to be published to remote dependent on
-        what files are contained within the host directory and where
-        it should be publishing to the remote.
-        """
-        self.file_list = set()
-        for filename in self._host_path.iterdir():
-            self.file_list.add(filename.name)
+        """Generates the file list to be syncrhonised based on files in the host directory."""
+        self.file_list = set(f.name for f in self._host_path.iterdir() if f.is_file())
 
         assert len(self.file_list) > 0, "No files to synchronise from host"
         self.logger.info("%d files found on host to synchronise", len(self.file_list))
 
     @abstractmethod
     def _generate_file_list_from_remote(self) -> None:
-        """
-        Generates the file list to be pulled from the remote dependent
-        on what wiles are contained within the remote directory.
-        """
-        self.file_list = set()
+        """Generates the file list to be syncrhonised based on files on the remote."""

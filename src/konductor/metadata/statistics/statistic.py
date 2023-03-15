@@ -103,10 +103,14 @@ class Statistic(metaclass=ABCMeta):
     def empty(self) -> bool:
         return self._end_idx == -1
 
-    @property
-    def data(self) -> Dict[str, np.ndarray]:
-        """Return a dictonary of statistic key and vector pairs of currently valid data"""
-        if comm.in_distributed_mode():
+    def data(self, all_gather: bool = False) -> Dict[str, np.ndarray]:
+        """Get valid in-memory data, gather from other ranks if necessary
+
+        :param all_gather: Gather data from all ranks if in distributed
+            mode, defaults to False
+        :return: Dict[str, np.ndarray] key value pairs of statistic and valid data
+        """
+        if comm.in_distributed_mode() and all_gather:
             data_ = {}
             for s in self._statistics:
                 gath_data = comm.all_gather(self._statistics[s][: self.size])
@@ -117,7 +121,7 @@ class Statistic(metaclass=ABCMeta):
         else:
             data_ = {k: v[: self.size] for k, v in self._statistics.items()}
 
-        if not self.reduce_batch and comm.in_distributed_mode():
+        if not self.reduce_batch and comm.in_distributed_mode() and all_gather:
             data_["iteration"] = np.concatenate(
                 comm.all_gather(self._iteration_key[: self.size]), axis=0
             )
@@ -129,6 +133,11 @@ class Statistic(metaclass=ABCMeta):
             data_["timestamp"] = self._timestamp_key[: self.size]
 
         return data_
+
+    def as_df(self, all_gather: bool = False) -> df:
+        """Get valid data as pandas dataframe, option to gather
+        from all ranks if in distributed mode"""
+        return df(self.data(all_gather))
 
     @property
     def last(self) -> Dict[str, float]:
@@ -147,7 +156,7 @@ class Statistic(metaclass=ABCMeta):
 
     def iteration_mean(self, it: int) -> Dict[str, float]:
         """Returns the average of each statistic in the current state"""
-        self.flush()  # flush all held data
+        self.flush()  # flush all currently held data
 
         data = pq.read_table(
             self.writepath,
@@ -157,7 +166,15 @@ class Statistic(metaclass=ABCMeta):
             filters=[("iteration", "=", it)],
         )
 
-        return {k: np.nanmean(data[k]) for k in self.keys}
+        # Reduce per worker first so you don't have to send as much data
+        data = {k: np.nanmean(data[k]) for k in self.keys}
+
+        if comm.in_distributed_mode():  # reduce over workers
+            data = {
+                k: np.concatenate(comm.all_gather(v)).mean() for k, v in data.items()
+            }
+
+        return data
 
     def flush(self) -> None:
         """Writes valid data from memory to parquet file"""
@@ -180,10 +197,6 @@ class Statistic(metaclass=ABCMeta):
             writer.write_table(data)
 
         self.reset()
-
-    def as_df(self) -> df:
-        """Get valid data as pandas dataframe"""
-        return df(self.data)
 
     def reset(self) -> None:
         """Empty the currently held data"""

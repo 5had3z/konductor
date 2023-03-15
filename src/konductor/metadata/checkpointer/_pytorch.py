@@ -66,7 +66,7 @@ class Checkpointer:
 
         self._ckpts[key] = checkpointable
 
-    def save(self, filename: str = "latest.pt", **extras) -> None:
+    def save(self, filename: str, **extras) -> None:
         """
         Saves checkpointables with extra scalar data kwargs
         Use latest.pt if you don't want to accumulate checkponts.

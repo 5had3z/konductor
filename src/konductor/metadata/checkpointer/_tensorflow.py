@@ -9,7 +9,7 @@ class Checkpointer:
     def add_checkpointable(self, key: str, checkpointable: Any) -> None:
         pass
 
-    def save(self, filename: str = "latest.pth", **extras) -> None:
+    def save(self, filename: str, **extras) -> None:
         pass
 
     def load(self, filename: str) -> Dict[str, Any]:

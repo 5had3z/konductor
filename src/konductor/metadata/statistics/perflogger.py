@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Type, Set
+from typing import Any, Dict, List, Type, Set
 from logging import getLogger
 
 import numpy as np
-from pandas import DataFrame as df
 from tensorboard.summary import Writer
 
 from .statistic import Statistic, STATISTICS_REGISTRY
+from ...utilities import comm
 
 
 @dataclass
@@ -86,23 +86,24 @@ class PerfLogger:
         """Set logger in training mode"""
         self.is_training = True
         buffer_sz = min(self.config.train_buffer_length // self.log_interval, 1000)
-        pathname_fn = lambda k: self.config.write_path / f"train_{k}.parquet"
-        self._reset_statistics(buffer_sz, pathname_fn)
+        self._reset_statistics(buffer_sz)
 
     def eval(self) -> None:
         """Set logger in validation mode"""
         self.is_training = False
         buffer_sz = min(self.config.validation_buffer_length, 1000)
-        pathname_fn = lambda k: self.config.write_path / f"val_{k}.parquet"
-        self._reset_statistics(buffer_sz, pathname_fn)
+        self._reset_statistics(buffer_sz)
 
-    def _reset_statistics(
-        self, buffer_sz: int, pathname_fn: Callable[[str], Path]
-    ) -> None:
-        """
-        Pathname function should genereally be callablee that inserts the
-        statistic name to create: folder/{split}_{stat}.pq
-        """
+    def _reset_statistics(self, buffer_sz: int) -> None:
+        """Flush buffers and reset to new file"""
+
+        def pathname_fn(name: str):
+            """Create logging file with naming convention
+            {split}_{stat}_{rank}_{start_iter}"""
+            split = "train" if self.is_training else "val"
+            filename = f"{split}_{name}_{comm.get_rank()}_{self._iteration}.parquet"
+            return self.config.write_path / filename
+
         self.flush()
         self._statistics = {
             k: v.from_config(
@@ -112,25 +113,10 @@ class PerfLogger:
         }
 
     @property
-    def logger_keys(self) -> List[str]:
+    def keys(self) -> List[str]:
+        """Names of the statistics being logged"""
         assert self._statistics is not None, self._not_init_msg
         return list(self._statistics.keys())
-
-    @property
-    def statistics_keys(self) -> List[str]:
-        keys: List[str] = []
-        assert self._statistics is not None, self._not_init_msg
-        for name, statistic in self._statistics.items():
-            keys.extend([f"{name}/{k}" for k in statistic.keys])
-        return keys
-
-    @property
-    def statistics_data(self) -> df:
-        data: Dict[str, np.ndarray] = {}
-        assert self._statistics is not None, self._not_init_msg
-        for name, statistic in self._statistics.items():
-            data.update({f"{name}/{k}": v for k, v in statistic.data.items()})
-        return df(data)
 
     def flush(self) -> None:
         """flush all statistics to ensure written to disk"""
@@ -142,9 +128,7 @@ class PerfLogger:
 
     def log(self, name: str, *args, **kwargs) -> None:
         assert self._statistics is not None, self._not_init_msg
-        assert (
-            self._iteration >= 0
-        ), "Perflogger.set_iteration never called, this is required for logging properly"
+        assert self._iteration >= 0, "Iteration for perflogger not set"
 
         # Log if testing or at training log interval
         if not self.is_training or self._iteration % self.log_interval == 0:
@@ -183,9 +167,20 @@ class PerfLogger:
         assert self._statistics is not None, self._not_init_msg
         self.flush()  # Ensure flushed so data is on disk to read
 
-        _filename = self.config.write_path / "val_loss.parquet"
-        if not _filename.exists():
-            raise RuntimeError("Loss not tracked in validation")
+        # Get last iteration of val loss
+        try:
+            _filename = max(
+                [
+                    f
+                    for f in self.config.write_path.iterdir()
+                    if f"val_loss_{comm.get_rank()}_" in f.stem
+                ],
+                key=lambda x: int(x.stem.split("_")[-1]),
+            )
+        except ValueError:  # If max gets empty sequence
+            raise RuntimeError(
+                f"No validation loss log found in directory {self.config.write_path}"
+            )
 
         _val_loss = self.config.statistics["loss"](0, _filename)
         return _val_loss.iteration_mean(self._iteration)

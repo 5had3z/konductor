@@ -5,7 +5,7 @@ Synchonise workspace with folder of remote machine
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 from getpass import getpass
 
 import paramiko
@@ -131,9 +131,6 @@ class SshSync(_RemoteSyncrhoniser):
 
         stfp_session.close()
 
-    def push_select(self, regex_: List[str]) -> None:
-        raise NotImplementedError()
-
     def push_all(self, force: bool = False) -> None:
         super().push_all(force)
         stfp_session = self._session.open_sftp()
@@ -197,16 +194,15 @@ class SshSync(_RemoteSyncrhoniser):
         stfp_session.close()
 
     def _generate_file_list_from_remote(self) -> None:
-        super()._generate_file_list_from_remote()
         remote_path = str(self._remote_path)
 
         # List files on remote
         _, stdout, stderr = self._session.exec_command(f"ls {remote_path}")
-        for line in stdout:
-            self.file_list.add(line.strip("\n"))
 
         for line in stderr:
             self.logger.error(line.strip("\n"))
+
+        self.file_list = set(line.strip("\n") for line in stdout)
 
         # Create directory on remote of err out (resultant
         # from folder/path) not existing on remote.
@@ -220,11 +216,17 @@ class SshSync(_RemoteSyncrhoniser):
             return False
         return True
 
-    def get_file(self, remote_src: str, host_dest: str) -> None:
+    def get_file(self, remote_src: str, host_dest: Path | None = None) -> None:
         """
         Gets an individual remote file and copies to host.\n
         Needs to be full path including filename for both remote and host.
         """
+        if host_dest is None:
+            host_dest = self._host_path / Path(remote_src).name
+            self.logger.info(
+                "get_file destination unspecified, writing to %s", str(host_dest)
+            )
+
         stfp_session = self._session.open_sftp()
-        stfp_session.get(remote_src, host_dest)
+        stfp_session.get(remote_src, str(host_dest))
         stfp_session.close()
