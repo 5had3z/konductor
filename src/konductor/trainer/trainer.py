@@ -76,9 +76,10 @@ class BaseTrainer(ABC):
         self._logger.info(f"Epoch {self.data_manager.epoch} complete")
         self.data_manager.epoch_step()
 
-    @abstractmethod
-    def data_transform(data: Any) -> Any:
-        """Apply any post motifications to data after loading"""
+    def data_transform(self, data: Any) -> Any:
+        """Apply any post motifications to data after loading
+        before being passed to [train|val]_step, no-op by default"""
+        return data
 
     @abstractmethod
     def _accumulate_losses(self, losses: Dict[str, Any]) -> Any:

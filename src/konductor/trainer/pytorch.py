@@ -61,6 +61,13 @@ class PyTorchTrainer(BaseTrainer):
                 "Using ReduceLROnPlateau scheduler, ensure you calculate loss during validation"
             )
 
+        # Warn user if they're on ampere or above and do not have tensor cores enabled
+        if not (
+            torch.backends.cuda.matmul.allow_tf32 and torch.backends.cudnn.allow_tf32
+        ):
+            if torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
+                self._logger.warn("Tensor Cores not Enabled")
+
     def _accumulate_losses(self, losses: Dict[str, Tensor]) -> None:
         """Accumulate and backprop losses with optional grad scaler if enabled"""
         with record_function("backward"):
@@ -88,10 +95,6 @@ class PyTorchTrainer(BaseTrainer):
                     self.modules.optimizer.step()
                 self.data_manager.iter_step()
                 self.modules.optimizer.zero_grad()
-
-    @staticmethod
-    def data_transform(data: Any) -> Any:
-        return data
 
     @staticmethod
     @no_grad()

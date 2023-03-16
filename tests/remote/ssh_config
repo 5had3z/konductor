@@ -1,4 +1,4 @@
-Host Foo
+Host TestRemote
 HostName 127.0.0.1
-User bar
+User worker 
 IdentityFile /workspace/.ssh/ssh-privatekey

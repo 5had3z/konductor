@@ -32,6 +32,9 @@ def _parse_ssh_config(filepath: Path, hostname: str) -> paramiko.SSHConfigDict:
         config.parse(ssh_cfg)
     parsed_cfg = config.lookup(hostname)
 
+    if not all(k in parsed_cfg for k in ["hostname", "user", "identityfile"]):
+        raise LookupError(f"{hostname} not found in {filepath}")
+
     parsed_keys = set(parsed_cfg.keys())
     for key in parsed_keys:
         data = parsed_cfg.pop(key)
