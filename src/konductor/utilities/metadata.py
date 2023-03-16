@@ -1,9 +1,10 @@
 """Extra cli utilities for metadata management"""
 
-from argparse import ArgumentParser
+import typer
 from pathlib import Path
-from logging import getLogger
 import re
+import os
+from colorama import Fore, Style
 from typing import List, Dict
 
 from pyarrow import parquet as pq
@@ -12,7 +13,20 @@ from pandas import DataFrame as df
 _PQ_SHARD_RE = r"\A(train|val)_[a-zA-Z0-9-]+_[0-9]+_[0-9]+.parquet\Z"
 _PQ_REDUCED_RE = r"\A(train|val)_[a-zA-Z0-9-]+.parquet\Z"
 
-_logger = getLogger(__name__)
+app = typer.Typer()
+
+
+def chunk(iterable, size):
+    """Iterate return non-overlapping chunks of data"""
+    data = []
+    for sample in iterable:
+        data.append(sample)
+        if len(data) == size:
+            yield data
+            data = []
+
+    if len(data) > 0:
+        yield data
 
 
 def summarize_log(path: Path) -> None:
@@ -23,20 +37,32 @@ def summarize_log(path: Path) -> None:
     last_iter = data["iteration"].max()
     average = data[data["iteration"] == last_iter].mean()
 
-    print(f"{path.stem}\n last iteration: {last_iter}")
+    print(
+        f"{Fore.GREEN}{Style.BRIGHT}\n{path.stem}\n\t{Fore.BLUE}Last Iteration: {Style.RESET_ALL}{last_iter}\n"
+    )
     labels = [lbl for lbl in average.index if lbl not in {"iteration", "timestamp"}]
-    for label in labels:
-        print(f"{label}: {average[label]}")
+
+    max_lbl = len(max(labels, key=lambda x: len(x)))
+    print_strs = [
+        f"{Style.BRIGHT}{Fore.BLUE}{label:{max_lbl}}: {Style.RESET_ALL}{average[label]:.3f}"
+        for label in labels
+    ]
+    n_cols = os.get_terminal_size().columns // (max_lbl + 10) - 1
+    for printstr in chunk(print_strs, n_cols):
+        print("".join(f"   {d}" for d in printstr))
+    print(f"\n{Style.BRIGHT}" + "=" * os.get_terminal_size().columns + Style.RESET_ALL)
 
 
-def run_describe(path: Path) -> None:
+@app.command()
+def describe(path: Path = typer.Option(Path.cwd(), "--path")) -> None:
     """Describe the performance statistics of a run"""
     # Find all sharded files
     logs = [p for p in path.iterdir() if re.match(_PQ_REDUCED_RE, p.name)]
 
     if len(logs) == 0:
-        _logger.warn(
-            "Unable to find logs, ensure you reduce shards first %s", path.name
+        print(
+            f"{Fore.RED}{Style.BRIGHT}Unable to find logs, ensure"
+            f"you reduce shards first: {path.name}{Style.RESET_ALL}"
         )
 
     for log in logs:
@@ -56,7 +82,7 @@ def get_reduced_path(path: Path) -> Path:
 def reduce_shard(shards: List[Path]) -> None:
     """Reduce shards into single parquet file"""
     target = get_reduced_path(shards[0])
-    _logger.info("Grouping for %s", target.name)
+    print(f"{Fore.BLUE}{Style.BRIGHT}Grouping for {target.name}{Style.RESET_ALL}")
     schema = pq.read_schema(shards[0])
 
     pq_kwargs = dict(pre_buffer=False, memory_map=True, use_threads=True)
@@ -67,20 +93,30 @@ def reduce_shard(shards: List[Path]) -> None:
             writer.write_table(data)
 
         for shard in shards:
-            _logger.info("Copying %s", shard.name)
+            print(f"Moving {shard.name}")
             data = pq.read_table(shard, **pq_kwargs)
             writer.write_table(data)
             shard.unlink()
 
 
-def run_reduce(path: Path) -> None:
+@app.command()
+def reduce(path: Path = typer.Option(Path.cwd(), "--path")) -> None:
     """Collate parquet epoch/worker shards into singular file.
-    This reduces them to singular {train|val}_{name}.parquet files.
+    This reduces them to singular {train|val}_{name}.parquet file.
     """
     # Find all sharded files
     shards = [p for p in path.iterdir() if re.match(_PQ_SHARD_RE, p.name)]
-    for shard in shards:
-        _logger.info("Discovered shard %s", shard.name)
+    if len(shards) == 0:
+        print(
+            f"{Fore.RED}{Style.BRIGHT}No shards found"
+            f" in directory: {path}{Style.RESET_ALL}"
+        )
+        return
+
+    print(
+        f"{Fore.BLUE}{Style.BRIGHT}Discovered shards: {Style.RESET_ALL}"
+        f"{' '.join(shard.name for shard in shards)}"
+    )
 
     # Group shards to same split and name
     grouped: Dict[str, List[Path]] = {}
@@ -95,33 +131,5 @@ def run_reduce(path: Path) -> None:
         reduce_shard(shard_list)
 
 
-def cli_parser() -> ArgumentParser:
-    parser = ArgumentParser()
-    subs = parser.add_subparsers(help="Metadata command to run", dest="cmd")
-
-    collate_parser = subs.add_parser(
-        "reduce", help="Collates metadata parquet files into a singular one"
-    )
-    collate_parser.add_argument("--path", type=Path, help="Path to experiment")
-
-    describer_parser = subs.add_parser(
-        "describe", help="Print out summary statistics of experiment"
-    )
-    describer_parser.add_argument("--path", type=Path, help="Path to experiment")
-
-    return parser
-
-
-def main():
-    args = cli_parser().parse_args()
-
-    if args.cmd == "reduce":
-        run_reduce(args.path)
-    elif args.cmd == "describe":
-        run_describe(args.path)
-    else:
-        raise NotImplementedError()
-
-
 if __name__ == "__main__":
-    main()
+    app()

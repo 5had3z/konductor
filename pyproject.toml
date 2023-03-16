@@ -41,8 +41,12 @@ dependencies = [
   "tensorboard>=1.14",
   "tqdm",
   "colorama",
-  "pyyaml"
+  "pyyaml",
+  "typer"
 ]
+
+[project.scripts]
+konduct-metadata = "konductor.utilities.metadata:app"
 
 [project.optional-dependencies]
 FULL = [
