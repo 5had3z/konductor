@@ -1,6 +1,7 @@
 # Run this app with `python app.py` and
 # visit http://127.0.0.1:8050/ in your web browser.
 
+from argparse import ArgumentParser
 from pathlib import Path
 from typing import List
 
@@ -18,26 +19,27 @@ except ImportError:
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
-def get_experiments() -> List[Experiment]:
-    root_dir = Path("/media/bryce/2TB_Seagate/mp-planner")
-
+def get_experiments(root_dir: Path) -> List[Experiment]:
     experiments = []
     for p in root_dir.iterdir():
         e = Experiment.from_path(p)
         if e is not None:
             experiments.append(e)
-
     return experiments
 
 
 def get_option_tree(exp: List[Experiment]) -> OptionTree:
     tree = OptionTree.make_root()
-    for s in list(s for e in experiments for s in e.stats):
+    for s in list(s for e in exp for s in e.stats):
         tree.add(s)
     return tree
 
 
-experiments = get_experiments()
+parser = ArgumentParser()
+parser.add_argument("--root", type=Path, default=Path.cwd())
+args = parser.parse_args()
+
+experiments = get_experiments(args.root)
 stat_tree = get_option_tree(experiments)
 exp_hashes = list(e.name for e in experiments)
 
@@ -49,9 +51,7 @@ app.layout = html.Div(
                 dbc.Col(
                     [
                         dbc.ModalTitle("Split"),
-                        dcc.Dropdown(
-                            stat_tree.keys, stat_tree.keys[0], id="stat-split"
-                        ),
+                        dcc.Dropdown(stat_tree.keys, id="stat-split"),
                     ]
                 ),
                 dbc.Col([dbc.ModalTitle("Group"), dcc.Dropdown(id="stat-group")]),
@@ -61,9 +61,7 @@ app.layout = html.Div(
         dbc.Row(
             [
                 dbc.ModalTitle("Select Runs"),
-                html.Div(
-                    dcc.Dropdown(exp_hashes, exp_hashes, id="enable-exp", multi=True)
-                ),
+                html.Div(dcc.Dropdown(exp_hashes, id="enable-exp", multi=True)),
             ]
         ),
         dcc.Graph(id="line-graph"),
@@ -116,7 +114,7 @@ def filter_experiments(split: str, group: str, name: str):
     Input("stat-name", "value"),
 )
 def update_graph(exp_list: List[str], split: str, group: str, name: str):
-    if not (split and group and name):
+    if not (split and group and name and exp_list):
         raise PreventUpdate
 
     stat_path = "/".join([split, group, name])
