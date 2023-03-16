@@ -43,9 +43,9 @@ class Experiment:
     def __getitem__(self, stat: str) -> pd.Series:
         """Read from disk {split}/{statistic}/{key} and average by iteration for plotting"""
         split, name, key = stat.split("/")
-        filename = f"{split}_{name}.parquet"
+        filename = self.root / f"{split}_{name}.parquet"
         data: pd.DataFrame = pq.read_table(
-            self.root / filename, pre_buffer=False, memory_map=True, use_threads=True
+            filename, pre_buffer=False, memory_map=True, use_threads=True
         ).to_pandas()
         return data.groupby("iteration")[key].mean()
 

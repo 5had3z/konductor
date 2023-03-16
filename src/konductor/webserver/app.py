@@ -4,16 +4,18 @@
 from pathlib import Path
 from typing import List
 
+import pandas as pd
 from dash import Dash, html, dcc, Input, Output
 from dash.exceptions import PreventUpdate
-import plotly.express as px
+import dash_bootstrap_components as dbc
+import plotly.graph_objects as go
 
 try:
     from .utils import Experiment, OptionTree
 except ImportError:
     from utils import Experiment, OptionTree
 
-app = Dash(__name__)
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 
 def get_experiments() -> List[Experiment]:
@@ -42,12 +44,28 @@ exp_hashes = list(e.name for e in experiments)
 app.layout = html.Div(
     children=[
         html.H1(children="Konduct-Review"),
-        html.Div(
-            ["Split", dcc.Dropdown(stat_tree.keys, stat_tree.keys[0], id="stat-split")]
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        dbc.ModalTitle("Split"),
+                        dcc.Dropdown(
+                            stat_tree.keys, stat_tree.keys[0], id="stat-split"
+                        ),
+                    ]
+                ),
+                dbc.Col([dbc.ModalTitle("Group"), dcc.Dropdown(id="stat-group")]),
+                dbc.Col([dbc.ModalTitle("Statistic"), dcc.Dropdown(id="stat-name")]),
+            ],
         ),
-        html.Div(["Group", dcc.Dropdown(id="stat-group")]),
-        html.Div(["Statistic", dcc.Dropdown(id="stat-name")]),
-        dcc.Checklist(exp_hashes, exp_hashes, id="enable-exp"),
+        dbc.Row(
+            [
+                dbc.ModalTitle("Select Runs"),
+                html.Div(
+                    dcc.Dropdown(exp_hashes, exp_hashes, id="enable-exp", multi=True)
+                ),
+            ]
+        ),
         dcc.Graph(id="line-graph"),
     ]
 )
@@ -59,6 +77,8 @@ app.layout = html.Div(
     Input("stat-split", "value"),
 )
 def update_stat_group(split: str):
+    if not split:
+        return [], None
     return stat_tree[split].keys, None  # Deselect
 
 
@@ -88,16 +108,33 @@ def filter_experiments(split: str, group: str, name: str):
     raise PreventUpdate  # Don't deselect/mess with things
 
 
-# @app.callback(
-#     Output("line-graph", "figure"),
-#     Input("enable-exp", "value"),
-#     Input("stat-split", "value"),
-#     Input("stat-group", "value"),
-#     Input("stat-name", "value"),
-# )
-# def update_graph():
-#     fig = px.line(df, x="iteration", y="focal")
-#     return fig
+@app.callback(
+    Output("line-graph", "figure"),
+    Input("enable-exp", "value"),
+    Input("stat-split", "value"),
+    Input("stat-group", "value"),
+    Input("stat-name", "value"),
+)
+def update_graph(exp_list: List[str], split: str, group: str, name: str):
+    if not (split and group and name):
+        raise PreventUpdate
+
+    stat_path = "/".join([split, group, name])
+    exps: List[pd.Series] = [
+        e[stat_path].rename(e.name).sort_index()
+        for e in experiments
+        if e.name in exp_list and stat_path in e
+    ]
+    if len(exps) == 0:
+        raise PreventUpdate
+
+    fig = go.Figure()
+    for exp in exps:
+        fig.add_trace(
+            go.Scatter(x=exp.index, y=exp.values, mode="lines", name=exp.name)
+        )
+
+    return fig
 
 
 if __name__ == "__main__":

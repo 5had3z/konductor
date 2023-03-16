@@ -5,7 +5,8 @@ build-backend = "setuptools.build_meta"
 [tool.pytest.ini_options]
 markers = [
   "remote: remote sync functionality",
-  "statistics: logging training statistics/metadata"
+  "statistics: logging training statistics/metadata",
+  "webui: webui components" 
 ]
 
 [tool.setuptools_scm]
@@ -49,9 +50,14 @@ dependencies = [
 konduct-metadata = "konductor.utilities.metadata:app"
 
 [project.optional-dependencies]
-FULL = [
+REMOTE = [
   "paramiko",
   "minio"
+]
+WEBUI = [
+  "dash",
+  "plotly",
+  "dash_bootstrap_components"
 ]
 
 [project.urls]

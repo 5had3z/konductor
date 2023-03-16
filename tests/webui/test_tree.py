@@ -2,7 +2,7 @@ import pytest
 
 from konductor.webserver import utils
 
-pytestmark = pytest.mark.web
+pytestmark = pytest.mark.webui
 
 
 def test_parse():
