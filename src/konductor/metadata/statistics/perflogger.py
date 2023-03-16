@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Type, Set
 from logging import getLogger
+import re
 
 import numpy as np
 from tensorboard.summary import Writer
@@ -46,6 +47,11 @@ class PerfLoggerConfig:
     def __post_init__(self):
         if isinstance(self.write_tboard, list):
             self.write_tboard = set(self.write_tboard)
+
+        for stat in self.statistics:
+            assert re.match(
+                r"\A[a-zA-Z0-9-]+\Z", stat
+            ), f"Invalid character in name {stat}"
 
 
 class PerfLogger:
