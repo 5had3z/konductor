@@ -37,6 +37,15 @@ class ProgressBar(Thread):
 
     pbar_style = [["\\", "|", "/", "-"], ["▖", "▘", "▝", "▗"]]
 
+    # The amount of the terminal string that's just formatting
+    # This increases the "string length" but not its display length
+    # So it has to be compensated for
+    _fmt_len = len(
+        f"{Fore.GREEN}{Fore.YELLOW}{Fore.RED}{Fore.RESET}"
+        f"{Fore.YELLOW}{Fore.RESET}{Fore.YELLOW}{Fore.RESET}"
+        f"{Fore.GREEN}{Fore.YELLOW}{Fore.RED}{Fore.RESET}"
+    )
+
     def __init__(
         self,
         total: int,
@@ -90,20 +99,20 @@ class ProgressBar(Thread):
         n_digits = len(str(self.total))
 
         for i in itertools.cycle(self.style):
-            start_str = f"\r{Fore.GREEN}{self.iter:0{n_digits}}{Fore.YELLOW}/{Fore.RED}{self.total}{Fore.RESET}"
+            start_str = f"{Fore.GREEN}{self.iter:0{n_digits}}{Fore.YELLOW}/{Fore.RED}{self.total}{Fore.RESET}"
             end_str = (
                 f"Elapsed: {Fore.YELLOW}{self.elapsed_str()}{Fore.RESET} "
                 f"Est: {Fore.YELLOW}{self.estimated_str()}{Fore.RESET}"
             )
 
             ncols = os.get_terminal_size().columns if self.ncols is None else self.ncols
-            # not sure why doesn't fill full console
-            ncols -= len(start_str) + len(end_str) + 1
-            done_bars = ncols * self.iter / self.total
+            print(" " * (ncols - 2), end="\r")  # Clear the terminal
+            ncols -= len(start_str) + len(end_str) - self._fmt_len // 2
+            done_bars = ncols * self.iter // self.total
 
-            bar_str = f"{Fore.GREEN}{'█'*int(done_bars)}{Fore.YELLOW}{i}{Fore.RED}{'-'*int(ncols - done_bars)}{Fore.RESET}"
+            bar_str = f"{Fore.GREEN}{'█'*done_bars}{Fore.YELLOW}{i}{Fore.RED}{'-'*(ncols - done_bars)}{Fore.RESET}"
 
-            print(start_str, bar_str, end_str, end="")
+            print(start_str, bar_str, end_str, end="\r")
 
             if self.iter >= self.total or self.stop.is_set():
                 print()
