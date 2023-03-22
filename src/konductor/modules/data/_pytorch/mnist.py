@@ -8,10 +8,13 @@ from torchvision.datasets import MNIST
 
 
 @dataclass
-@DATASET_REGISTRY.register_module()
+@DATASET_REGISTRY.register_module("MNIST")
 class MNISTConfig(DatasetConfig):
     """Wrapper to use torchvision dataset"""
 
     def get_instance(self, mode: Mode) -> Any:
-        MNIST(os.environ.get("DATA_ROOT", "/data"), train=mode == Mode.train)
-        return super().get_instance(mode)
+        return MNIST(
+            os.environ.get("DATA_ROOT", "/data"),
+            train=mode == Mode.train,
+            download=True,
+        )

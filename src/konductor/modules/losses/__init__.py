@@ -32,6 +32,14 @@ class LossConfig(BaseConfig):
         return cls(**config.criterion[idx].args, **kwargs)
 
 
+try:
+    import torch
+except ImportError:
+    pass
+else:
+    from . import _pytorch
+
+
 def get_criterion_config(config: ExperimentInitConfig) -> List[LossConfig]:
     """Get list of loss configs from experiment configuration"""
     return [

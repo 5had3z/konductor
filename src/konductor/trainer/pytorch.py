@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
+from threading import Thread, Event, Lock
 
 import torch
 from torch import optim, Tensor, nn
@@ -15,7 +16,7 @@ from .trainer import BaseTrainer, TrainingModules, TrainingMangerConfig, Metadat
 
 
 @dataclass
-class PytorchTrainingModules(TrainingModules):
+class PyTorchTrainingModules(TrainingModules):
     model: nn.Module
     criterion: List[nn.Module]
     optimizer: optim.Optimizer
@@ -34,10 +35,55 @@ def _amp_wrapper(func, amp_kwargs: Dict[str, Any] | None = None):
     return with_amp
 
 
+class AsyncFiniteMonitor(Thread):
+    """tensor.item() is a blocking call, this screws up our pipeline
+    therefore, we should do this async"""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stop_token = Event()
+        self.is_ready = Event()
+        self.lk = Lock()
+        self.data: Dict[str, Tensor] = {}
+        self.err = None
+
+    def run(self) -> None:
+        try:
+            while not self.stop_token.is_set():
+                self.is_ready.wait()
+                with self.lk:
+                    for key, data in self.data.items():
+                        assert torch.isfinite(data), f"Invalid loss found in {key}"
+                    self.is_ready.clear()
+        except AssertionError as err:
+            self.err = err
+
+    def validate(self, data: Dict[str, Tensor]):
+        """Added items to validate finiteness"""
+        if not self.is_alive():
+            raise RuntimeError("Finite value monitor not started")
+        if self.err is not None:
+            raise self.err
+        with self.lk:
+            self.data = data
+            self.is_ready.set()
+
+    def stop(self):
+        self.stop_token.set()
+
+        with self.lk:
+            self.data = {}
+            self.is_ready.set()
+
+        self.join()
+        if self.err is not None:
+            raise self.err
+
+
 class PyTorchTrainer(BaseTrainer):
     """Training manager for pytorch based models"""
 
-    modules: PytorchTrainingModules
+    modules: PyTorchTrainingModules
 
     def __init__(
         self,
@@ -56,6 +102,8 @@ class PyTorchTrainer(BaseTrainer):
 
         super().__init__(config, train_modules, data_manager)
 
+        self.async_loss_monitor = AsyncFiniteMonitor()
+
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):
             self._logger.warn(
                 "Using ReduceLROnPlateau scheduler, ensure you calculate loss during validation"
@@ -71,18 +119,15 @@ class PyTorchTrainer(BaseTrainer):
     def _accumulate_losses(self, losses: Dict[str, Tensor]) -> None:
         """Accumulate and backprop losses with optional grad scaler if enabled"""
         with record_function("backward"):
-            loss = []
-            for loss_ in losses:
-                # "not torch.isfinite() uses .item() which stalls everything
-                # this should be make opt-in for debugging only for better perf.
-                # if not torch.isfinite(losses[loss_]):
-                #     raise RuntimeError(f"Not finite loss detected for {loss_}")
-                if self.modules.grad_scaler is not None:
-                    loss.append(self.modules.grad_scaler.scale(losses[loss_]))
-                else:
-                    loss.append(losses[loss_])
-            loss = torch.stack(loss).sum() / self._config.optimizer_interval
-            loss.backward()
+            self.async_loss_monitor.validate(losses)
+            all_loss = [
+                l
+                if self.modules.grad_scaler is None
+                else self.modules.grad_scaler.scale(l)
+                for l in losses.values()
+            ]
+            all_loss = torch.stack(all_loss).sum() / self._config.optimizer_interval
+            all_loss.backward()
 
     def _maybe_step_optimiser(self, iter_: int) -> None:
         """Step optimizer if modulo the interval"""
@@ -124,6 +169,7 @@ class PyTorchTrainer(BaseTrainer):
 
     def _train(self, pbar=None, profiler: profile | None = None) -> None:
         """Train for one epoch over the dataset"""
+        self.async_loss_monitor.start()
         self.modules.model.train()
         self.data_manager.perflog.train()
 
@@ -147,6 +193,7 @@ class PyTorchTrainer(BaseTrainer):
                     == ProfilerAction.RECORD_AND_SAVE
                 ):
                     break
+        self.async_loss_monitor.stop()
 
     @staticmethod
     def train_step(
