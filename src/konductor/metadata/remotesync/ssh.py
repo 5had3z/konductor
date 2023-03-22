@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 from getpass import getpass
+import subprocess
 
 import paramiko
 
@@ -113,6 +114,7 @@ class SshSync(_RemoteSyncrhoniser):
             self._session.connect(**pk_cfg, password=getpass())
 
         self._remote_path = remote_path
+        self.has_recursed = False
 
         if not self.remote_existance() and is_main_process():
             self.logger.info("Creating directory on remote %s", remote_path)
@@ -139,6 +141,16 @@ class SshSync(_RemoteSyncrhoniser):
         """Return local and remote path pair"""
         return self._host_path / filename, self._remote_path / filename
 
+    def _match_checksum(self, host: Path, remote: Path) -> bool:
+        """md5 checksum of host and remote files match"""
+        _, stdout, _ = self._session.exec_command(f"md5sum {str(remote)}")
+        remote_check = stdout.readline().strip("\n").split(" ")[0]
+
+        ret = subprocess.run(f"md5sum {str(host)}", capture_output=True)
+        host_check = ret.stdout.decode().split(" ")[0]
+
+        return remote_check == host_check
+
     def push(
         self,
         filename: str,
@@ -154,11 +166,24 @@ class SshSync(_RemoteSyncrhoniser):
 
         # Copy local to the remote
         self.logger.info("Pushing file to remote: %s", filename)
-        sftp_.put(str(local), str(remote))
+        tmp_remote = remote.with_suffix(".tmp")
+        sftp_.put(str(local), str(tmp_remote))
 
-        # Change remote time to local last modified
-        local_modified = local.stat().st_mtime
-        sftp_.utime(str(remote), (local_modified, local_modified))
+        if not self._match_checksum(local, tmp_remote):
+            if not self.has_recursed:
+                self.logger.warning("Retrying Push with Checksum error %s", filename)
+                self.has_recursed = True
+                self.push(filename, force, sftp_)
+                self.has_recursed = False
+            else:
+                raise OSError("Failed retry of pushing %s", filename)
+        else:
+            # If successfully pushed, rename to main target
+            sftp_.posix_rename(str(tmp_remote), str(remote))
+
+            # Change remote time to local last modified
+            local_modified = local.stat().st_mtime
+            sftp_.utime(str(remote), (local_modified, local_modified))
 
         if sftp is None:  # clean up if locally created
             sftp_.close()
@@ -187,13 +212,27 @@ class SshSync(_RemoteSyncrhoniser):
             self.logger.info("Pulling file from remote and overwriting: %s", filename)
         else:
             self.logger.info("Pulling new file from remote: %s", filename)
-        # Copy remote to local
-        sftp_.get(str(remote), str(local))
 
-        # Change local time to remote last modified
-        remote_modified = sftp_.stat(str(remote)).st_mtime
-        assert remote_modified is not None
-        os.utime(local, (remote_modified, remote_modified))
+        # Copy remote to local
+        tmp_local = local.with_suffix(".tmp")
+        sftp_.get(str(remote), str(tmp_local))
+
+        if not self._match_checksum(tmp_local, remote):
+            if not self.has_recursed:
+                self.logger.warning("Retrying Pull with Checksum error %s", filename)
+                self.has_recursed = True
+                self.pull(filename, force, sftp_)
+                self.has_recursed = False
+            else:
+                raise OSError("Failed retry of pulling %s", filename)
+        else:
+            # If successfully pushed, rename to main target
+            tmp_local.rename(local)
+
+            # Change local time to remote last modified
+            remote_modified = sftp_.stat(str(remote)).st_mtime
+            assert remote_modified is not None
+            os.utime(local, (remote_modified, remote_modified))
 
         if sftp is None:  # clean up if locally created
             sftp_.close()

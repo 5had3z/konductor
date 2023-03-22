@@ -142,7 +142,7 @@ def get_experiment_cfg(
             print(f"Creating experiment directory {exp_path}")
             exp_path.mkdir(parents=True)
         else:
-            print(f"Using experiment directory{exp_path}")
+            print(f"Using experiment directory {exp_path}")
 
         # Ensure the experiment configuration exists in the target directory
         if not (exp_path / "train_config.yml").exists():
