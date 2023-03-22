@@ -2,7 +2,7 @@
 Testing metadata manager
 """
 import pytest
-from typing import Dict
+from typing import Any, Dict
 
 import numpy as np
 from konductor.metadata import (
@@ -19,7 +19,7 @@ pytestmark = pytest.mark.statistics
 class DummyModel:
     some_data = 1
 
-    def state_dict(self) -> Dict[str, int]:
+    def state_dict(self) -> Dict[str, Any]:
         return {"some_data": self.some_data}
 
 

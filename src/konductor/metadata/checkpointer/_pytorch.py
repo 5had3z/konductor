@@ -71,6 +71,10 @@ class Checkpointer:
         Use latest.pt if you don't want to accumulate checkponts.
         Otherwise the new file will be saved and latest.pt will link to it.
         """
+        assert (
+            isinstance(filename, str) and len(filename) > 0
+        ), f"Filename should be a string of len > 0, got {filename}"
+
         if not filename.endswith(".pt"):
             filename += ".pt"
         _path = self.rootdir / filename
