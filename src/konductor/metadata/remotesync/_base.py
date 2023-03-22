@@ -20,43 +20,47 @@ class _RemoteSyncrhoniser(metaclass=ABCMeta):
         self._host_path = host_path
 
     @abstractmethod
-    def push(self, filename: str) -> None:
-        """Copies file from the host to the remote"""
+    def push(self, filename: str, force: bool = False) -> None:
+        """Copies file from the host to the remote
+        Will not copy if the remote last motified is newer unless force=True"""
 
-    def push_select(self, regex_: List[str]) -> None:
+    def push_select(self, regex_: List[str], force: bool = False) -> None:
         """Copies files that match list of regex to remote"""
         self._generate_file_list_from_host()
         for filename in self.file_list:
             if any(re.match(exp_, filename) for exp_ in regex_):
                 self.logger.info("Pushing matched object %s", filename)
-                self.push(filename)
+                self.push(filename, force)
 
     @abstractmethod
     def push_all(self, force: bool = False) -> None:
         """Copies files from the host to the remote.
         Force pushes files even if last modified time is older.
+        Call super().push_all() to generate file list
         """
         self._generate_file_list_from_host()
         if len(self.file_list) == 0:  # warn if still empty
             self.logger.warning("No files to push to remote")
 
     @abstractmethod
-    def pull(self, filename: str) -> None:
-        """Copies file from the remote to the host"""
+    def pull(self, filename: str, force: bool = False) -> None:
+        """Copies file from the remote to the host.
+        Will not copy if the host last motified is newer unless force=True"""
 
-    def pull_select(self, regex_: List[str]) -> None:
+    def pull_select(self, regex_: List[str], force: bool = False) -> None:
         """Copies files that match list of regex from remote"""
         self._generate_file_list_from_remote()
         self.logger.info("Pulling objects that match %s", regex_)
         for filename in self.file_list:
             if any(re.match(exp_, filename) for exp_ in regex_):
                 self.logger.info("Pulling matched object %s", filename)
-                self.pull(filename)
+                self.pull(filename, force)
 
     @abstractmethod
     def pull_all(self, force: bool = False) -> None:
         """Copies files from the remote to the host
         Force pulls files even if last modified time is older.
+        Call super().pull_all() to generate file list
         """
         self._generate_file_list_from_remote()
         if len(self.file_list) == 0:  # warn if still empty

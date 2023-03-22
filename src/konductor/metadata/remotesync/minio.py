@@ -78,38 +78,52 @@ class MinioSync(_RemoteSyncrhoniser):
             self.logger.info("Creating bucket %s", self.bucket_name)
             self.client.make_bucket(self.bucket_name)
 
-    def pull(self, filename: str) -> None:
-        self.client.fget_object(
-            self.bucket_name, filename, str(self._host_path / filename)
-        )
+    def _local_is_newer(self, filename: str) -> bool:
+        """Whether the file on the host was the last modified file (is newer).
+        Return false if the file doesn't exist on the host
+        Return true if the file doesn't exist on the remote"""
+        local = self._host_path / filename
+        if not local.exists():  # Not found on host
+            return False
+        try:
+            remote_modified = self.client.stat_object(
+                self.bucket_name, filename
+            ).last_modified.timestamp()
+        except S3Error:  # Not found on remote
+            return True
+        local_modified = local.stat().st_mtime
+        return local_modified > remote_modified
+
+    def pull(self, filename: str, force: bool = False) -> None:
+        if not (not self._local_is_newer(filename) or force):
+            self.logger.info("Skipping file pull from remote: %s", filename)
+            return
+
+        local = self._host_path / filename
+        if local.exists():
+            self.logger.info("Pulling file from remote and overwriting: %s", filename)
+        else:
+            self.logger.info("Pulling new file from remote: %s", filename)
+
+        self.client.fget_object(self.bucket_name, filename, str(local))
 
         # Change local time to remote last modified
         remote_modified = self.client.stat_object(
             self.bucket_name, filename
         ).last_modified.timestamp()
-        os.utime(str(self._host_path / filename), (remote_modified, remote_modified))
+        os.utime(str(local), (remote_modified, remote_modified))
 
     def pull_all(self, force: bool = False) -> None:
         super().pull_all(force)
         for filename in self.file_list:
-            local_path = self._host_path / filename
-            if local_path.exists():
-                local_modified = local_path.stat().st_mtime
-                remote_modified = self.client.stat_object(
-                    self.bucket_name, filename
-                ).last_modified.timestamp()
+            self.pull(filename, force)
 
-                if remote_modified < local_modified and not force:
-                    self.logger.info("Skipping object pull: %s", filename)
-                    continue
-                else:
-                    self.logger.info("Pulling and overwriting: %s", filename)
-            else:
-                self.logger.info("Pulling new object: %s", filename)
+    def push(self, filename: str, force: bool = False) -> None:
+        if not (self._local_is_newer(filename) or force):
+            self.logger.info("Skipping file push to remote: %s", filename)
+            return
 
-            self.pull(filename)
-
-    def push(self, filename: str) -> None:
+        self.logger.info("Pushing file to remote: %s", filename)
         self.client.fput_object(
             self.bucket_name, filename, str(self._host_path / filename)
         )
@@ -120,24 +134,7 @@ class MinioSync(_RemoteSyncrhoniser):
     def push_all(self, force: bool = False) -> None:
         super().push_all(force)
         for filename in self.file_list:
-            try:
-                remote_modified = self.client.stat_object(
-                    self.bucket_name, filename
-                ).last_modified
-                local_modified = (self._host_path / filename).stat().st_mtime
-
-                # Remote mod will be greater than since its "modify" time will
-                # be the last push which is after the actual modify on a worker
-                if remote_modified.timestamp() > local_modified and not force:
-                    self.logger.info("Skipping object push: %s", filename)
-                    continue
-            # does not exist on remote so should push new file
-            except S3Error:
-                self.logger.info("Pushing new object: %s", filename)
-            else:
-                self.logger.info("Pushing object update: %s", filename)
-            finally:
-                self.push(filename)
+            self.push(filename, force)
 
     def remote_existance(self) -> bool:
         return self.client.bucket_exists(self.bucket_name)

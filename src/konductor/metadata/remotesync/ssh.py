@@ -120,81 +120,90 @@ class SshSync(_RemoteSyncrhoniser):
             for line in stderr:
                 self.logger.error(line.strip("\n"))
 
-    def push(self, filename: str) -> None:
-        local_path = str(self._host_path / filename)
-        remote_path = str(self._remote_path / filename)
+    @staticmethod
+    def _local_is_newer(local: Path, remote: Path, sftp: paramiko.SFTPClient) -> bool:
+        """Whether the file on the host was the last modified file (is newer).
+        Return false if the file doesn't exist on the host
+        Return true if the file doesn't exist on the remote"""
+        if not local.exists():  # Not found on host
+            return False
+        try:
+            remote_modified = sftp.stat(str(remote)).st_mtime
+            assert remote_modified is not None
+        except FileNotFoundError:  # Not found on remote
+            return True
+        local_modified = local.stat().st_mtime
+        return local_modified > remote_modified
+
+    def _get_local_remote(self, filename: str):
+        """Return local and remote path pair"""
+        return self._host_path / filename, self._remote_path / filename
+
+    def push(
+        self,
+        filename: str,
+        force: bool = False,
+        sftp: paramiko.SFTPClient | None = None,
+    ) -> None:
+        local, remote = self._get_local_remote(filename)
+        sftp_ = self._session.open_sftp() if sftp is None else sftp
+
+        if not (self._local_is_newer(local, remote, sftp_) or force):
+            self.logger.info("Skipping file push to remote: %s", filename)
+            return
 
         # Copy local to the remote
-        stfp_session = self._session.open_sftp()
-        stfp_session.put(local_path, remote_path)
+        self.logger.info("Pushing file to remote: %s", filename)
+        sftp_.put(str(local), str(remote))
 
         # Change remote time to local last modified
-        local_modified = Path(local_path).stat().st_mtime
-        stfp_session.utime(remote_path, (local_modified, local_modified))
+        local_modified = local.stat().st_mtime
+        sftp_.utime(str(remote), (local_modified, local_modified))
 
-        stfp_session.close()
+        if sftp is None:  # clean up if locally created
+            sftp_.close()
 
     def push_all(self, force: bool = False) -> None:
         super().push_all(force)
-        stfp_session = self._session.open_sftp()
+        sftp = self._session.open_sftp()
         for filename in self.file_list:
-            local_path = self._host_path / filename
-            remote_path = self._remote_path / filename
-            try:
-                remote_modified = stfp_session.stat(str(remote_path)).st_mtime
-                local_modified = local_path.stat().st_mtime
+            self.push(filename, force, sftp)
+        sftp.close()
 
-                assert remote_modified is not None
-                # Remote mod will be greater than since its "modify" time will
-                # be the last push which is after the actual modify on a worker
-                if remote_modified > local_modified and not force:
-                    continue
-            # does not exist on remote so should push new file
-            except FileNotFoundError:
-                self.logger.info("Pushing new file: %s", filename)
-            else:
-                self.logger.info("Pushing file update: %s", filename)
-            finally:
-                stfp_session.put(str(local_path), str(remote_path))
+    def pull(
+        self,
+        filename: str,
+        force: bool = False,
+        sftp: paramiko.SFTPClient | None = None,
+    ) -> None:
+        local, remote = self._get_local_remote(filename)
+        sftp_ = self._session.open_sftp() if sftp is None else sftp
 
-        stfp_session.close()
+        if not (not self._local_is_newer(local, remote, sftp_) or force):
+            self.logger.info("Skipping file pull from remote: %s", filename)
+            return
 
-    def pull(self, filename: str) -> None:
-        local_path = str(self._host_path / filename)
-        remote_path = str(self._remote_path / filename)
-
+        if local.exists():
+            self.logger.info("Pulling file from remote and overwriting: %s", filename)
+        else:
+            self.logger.info("Pulling new file from remote: %s", filename)
         # Copy remote to local
-        stfp_session = self._session.open_sftp()
-        stfp_session.get(remote_path, local_path)
+        sftp_.get(str(remote), str(local))
 
         # Change local time to remote last modified
-        remote_modified = stfp_session.stat(remote_path).st_mtime
-        stfp_session.close()
+        remote_modified = sftp_.stat(str(remote)).st_mtime
         assert remote_modified is not None
-        os.utime(local_path, (remote_modified, remote_modified))
+        os.utime(local, (remote_modified, remote_modified))
+
+        if sftp is None:  # clean up if locally created
+            sftp_.close()
 
     def pull_all(self, force: bool = False) -> None:
         super().pull_all(force)
-        stfp_session = self._session.open_sftp()
+        sftp = self._session.open_sftp()
         for filename in self.file_list:
-            local_path = self._host_path / filename
-            remote_path = self._remote_path / filename
-            if local_path.exists():
-                local_modified = local_path.stat().st_mtime
-                remote_modified = stfp_session.stat(str(remote_path)).st_mtime
-
-                assert remote_modified is not None
-                if remote_modified < local_modified and not force:
-                    self.logger.info("Skipping file pull: %s", filename)
-                    continue
-                else:
-                    self.logger.info("Pulling and overwriting: %s", filename)
-            else:
-                self.logger.info("Pulling new file: %s", filename)
-
-            stfp_session.get(str(remote_path), str(local_path))
-
-        stfp_session.close()
+            self.pull(filename, force, sftp)
+        sftp.close()
 
     def _generate_file_list_from_remote(self) -> None:
         remote_path = str(self._remote_path)
@@ -211,7 +220,6 @@ class SshSync(_RemoteSyncrhoniser):
         # from folder/path) not existing on remote.
         if len(self.file_list) > 0:
             self.logger.info("Files found: %s", self.file_list)
-            return
 
     def remote_existance(self) -> bool:
         _, _, stderr = self._session.exec_command(f"ls {self._remote_path}")
@@ -227,7 +235,7 @@ class SshSync(_RemoteSyncrhoniser):
         if host_dest is None:
             host_dest = self._host_path / Path(remote_src).name
             self.logger.info(
-                "get_file destination unspecified, writing to %s", str(host_dest)
+                "get_file host destination unspecified, writing to %s", str(host_dest)
             )
 
         stfp_session = self._session.open_sftp()
