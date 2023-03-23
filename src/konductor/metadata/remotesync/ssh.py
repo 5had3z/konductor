@@ -164,7 +164,7 @@ class SshSync(_RemoteSyncrhoniser):
         _, stdout, _ = self._session.exec_command(f"md5sum {str(remote)}")
         remote_check = stdout.readline().strip("\n").split(" ")[0]
 
-        ret = subprocess.run(f"md5sum {str(host)}", capture_output=True)
+        ret = subprocess.run(f"md5sum {str(host.absolute())}", capture_output=True)
         host_check = ret.stdout.decode().split(" ")[0]
 
         return remote_check == host_check
