@@ -200,8 +200,6 @@ def init_data_manager(
     # Initialise metadata management engine
     log_config = perf_log_cfg_cls(
         exp_config.work_dir,
-        len(train_modules.trainloader),
-        len(train_modules.valloader),
         statistics,
         dataset_properties=get_dataset_properties(exp_config),
         **exp_config.logger_kwargs,

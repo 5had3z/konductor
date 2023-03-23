@@ -78,7 +78,11 @@ class MetadataManager:
         else:
             ckpt_name = "latest.pt"
 
-        self.checkpointer.save(ckpt_name, epoch=self.epoch, iteration=self.iteration)
+        # Only save checkpoint on local rank zero
+        if comm.get_local_rank() == 0:
+            self.checkpointer.save(
+                ckpt_name, epoch=self.epoch, iteration=self.iteration
+            )
         self.perflog.flush()
         self._remote_push()
 
@@ -91,6 +95,7 @@ class MetadataManager:
         """Push latest checkpoint and metadata to remote"""
         if self.remote_sync is None:
             return
+        comm.synchronize()  # Sync potential push
         if self.remote_timer.elapsed() > self.sync_interval:
             if comm.is_main_process():  # Main rank pushes all data (logs + weights)
                 self.remote_sync.push_all()

@@ -179,7 +179,7 @@ class SshSync(_RemoteSyncrhoniser):
         local, remote = self._get_local_remote(filename)
         sftp_ = self._session.open_sftp() if sftp is None else sftp
 
-        if not (self._local_is_newer(local, remote, sftp_) or force):
+        if not self._local_is_newer(local, remote, sftp_) and not force:
             self.logger.info("Skipping file push to remote: %s", filename)
             return
 
@@ -225,14 +225,16 @@ class SshSync(_RemoteSyncrhoniser):
         local, remote = self._get_local_remote(filename)
         sftp_ = self._session.open_sftp() if sftp is None else sftp
 
-        if not (not self._local_is_newer(local, remote, sftp_) or force):
+        if self._local_is_newer(local, remote, sftp_) and not force:
             self.logger.info("Skipping file pull from remote: %s", filename)
             return
 
-        if local.exists():
-            self.logger.info("Pulling file from remote and overwriting: %s", filename)
-        else:
-            self.logger.info("Pulling new file from remote: %s", filename)
+        self.logger.info(
+            "Pulling file from remote and overwriting existing: %s"
+            if local.exists()
+            else "Pulling new file from remote: %s",
+            filename,
+        )
 
         # Copy remote to local
         tmp_local = local.with_suffix(".tmp")

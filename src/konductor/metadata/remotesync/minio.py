@@ -95,7 +95,7 @@ class MinioSync(_RemoteSyncrhoniser):
         return local_modified > remote_modified
 
     def pull(self, filename: str, force: bool = False) -> None:
-        if not (not self._local_is_newer(filename) or force):
+        if self._local_is_newer(filename) and not force:
             self.logger.info("Skipping file pull from remote: %s", filename)
             return
 
@@ -119,7 +119,7 @@ class MinioSync(_RemoteSyncrhoniser):
             self.pull(filename, force)
 
     def push(self, filename: str, force: bool = False) -> None:
-        if not (self._local_is_newer(filename) or force):
+        if not self._local_is_newer(filename) and not force:
             self.logger.info("Skipping file push to remote: %s", filename)
             return
 

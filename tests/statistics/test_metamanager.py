@@ -34,8 +34,6 @@ def scalar_perf(tmp_path):
     """Basic perf logger with "loss" and "accuracy" statistics"""
     config = PerfLoggerConfig(
         write_path=tmp_path,
-        train_buffer_length=100,
-        validation_buffer_length=10,
         statistics={"loss": ScalarStatistic, "accuracy": ScalarStatistic},
     )
     return PerfLogger(config)

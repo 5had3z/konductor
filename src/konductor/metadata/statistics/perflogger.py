@@ -20,12 +20,6 @@ class PerfLoggerConfig:
 
     write_path: Path
 
-    # training buffer length
-    train_buffer_length: int
-
-    # validation buffer length
-    validation_buffer_length: int
-
     # List of named statistics to track
     statistics: Dict[str, Type[Statistic]]
 
@@ -91,16 +85,14 @@ class PerfLogger:
     def train(self) -> None:
         """Set logger in training mode"""
         self.is_training = True
-        buffer_sz = min(self.config.train_buffer_length // self.log_interval, 1000)
-        self._reset_statistics(buffer_sz)
+        self._reset_statistics()
 
     def eval(self) -> None:
         """Set logger in validation mode"""
         self.is_training = False
-        buffer_sz = min(self.config.validation_buffer_length, 1000)
-        self._reset_statistics(buffer_sz)
+        self._reset_statistics()
 
-    def _reset_statistics(self, buffer_sz: int) -> None:
+    def _reset_statistics(self) -> None:
         """Flush buffers and reset to new file"""
 
         def pathname_fn(name: str):
@@ -112,9 +104,7 @@ class PerfLogger:
 
         self.flush()
         self._statistics = {
-            k: v.from_config(
-                buffer_sz, pathname_fn(k), **self.config.dataset_properties
-            )
+            k: v.from_config(1000, pathname_fn(k), **self.config.dataset_properties)
             for k, v in self.config.statistics.items()
         }
 

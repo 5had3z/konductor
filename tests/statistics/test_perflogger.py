@@ -12,8 +12,6 @@ def scalar_perf(tmp_path):
     """Basic perf logger with "loss" and "accuracy" statistics"""
     config = PerfLoggerConfig(
         write_path=tmp_path,
-        train_buffer_length=100,
-        validation_buffer_length=10,
         statistics={"loss": ScalarStatistic, "accuracy": ScalarStatistic},
     )
     return PerfLogger(config)
@@ -26,16 +24,12 @@ def test_naming_convention(tmp_path):
         with pytest.raises(AssertionError):
             PerfLoggerConfig(
                 write_path=tmp_path,
-                train_buffer_length=100,
-                validation_buffer_length=10,
                 statistics={badname: ScalarStatistic},
             )
 
     for goodname in ["loss", "IOU", "AP50", "My-Statistic", "13A"]:
         PerfLoggerConfig(
             write_path=tmp_path,
-            train_buffer_length=100,
-            validation_buffer_length=10,
             statistics={goodname: ScalarStatistic},
         )
 

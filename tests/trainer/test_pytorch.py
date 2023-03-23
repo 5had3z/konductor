@@ -25,7 +25,6 @@ def trainer(tmp_path):
 
 def test_nan_detection(trainer: PyTorchTrainer):
     """Test that nan detector works"""
-    trainer.async_loss_monitor.start()  # manually run, this is usually called for you in train loop
     losses = {k: torch.rand(1, requires_grad=True) for k in ["mse", "bbox", "obj"]}
 
     for _ in range(10):  # bash it a few times
@@ -36,4 +35,4 @@ def test_nan_detection(trainer: PyTorchTrainer):
         trainer._accumulate_losses(losses)
 
         # manually stop, might raise when stopping so stop in the context
-        trainer.async_loss_monitor.stop()
+        trainer.loss_monitor.stop()
