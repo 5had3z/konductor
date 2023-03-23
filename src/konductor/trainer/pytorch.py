@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Tuple
 from threading import Thread, Event, Lock
 
 import torch
+from torch import backends as tb
 from torch import optim, Tensor, nn
 from torch.autograd.grad_mode import no_grad
 from torch.amp.autocast_mode import autocast
@@ -102,7 +103,8 @@ class PyTorchTrainer(BaseTrainer):
 
         super().__init__(config, train_modules, data_manager)
 
-        self.async_loss_monitor = AsyncFiniteMonitor()
+        self.loss_monitor = AsyncFiniteMonitor()
+        self.loss_monitor.start()  # Just start and run, it'll sleep if not used anyway
 
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):
             self._logger.warning(
@@ -110,16 +112,16 @@ class PyTorchTrainer(BaseTrainer):
             )
 
         # Warn user if they're on ampere or above and do not have tensor cores enabled
-        if not (
-            torch.backends.cuda.matmul.allow_tf32 and torch.backends.cudnn.allow_tf32
+        if (
+            not (tb.cuda.matmul.allow_tf32 and tb.cudnn.allow_tf32)
+            and torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8
         ):
-            if torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
-                self._logger.warning("Tensor Cores not Enabled")
+            self._logger.warning("Tensor Cores not Enabled")
 
     def _accumulate_losses(self, losses: Dict[str, Tensor]) -> None:
         """Accumulate and backprop losses with optional grad scaler if enabled"""
         with record_function("backward"):
-            self.async_loss_monitor.validate(losses)
+            self.loss_monitor.validate(losses)
             all_loss = [
                 l
                 if self.modules.grad_scaler is None
@@ -169,7 +171,6 @@ class PyTorchTrainer(BaseTrainer):
 
     def _train(self, pbar=None, profiler: profile | None = None) -> None:
         """Train for one epoch over the dataset"""
-        self.async_loss_monitor.start()
         self.modules.model.train()
         self.data_manager.perflog.train()
 
@@ -193,7 +194,6 @@ class PyTorchTrainer(BaseTrainer):
                     == ProfilerAction.RECORD_AND_SAVE
                 ):
                     break
-        self.async_loss_monitor.stop()
 
     @staticmethod
     def train_step(
