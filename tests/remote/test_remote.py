@@ -15,7 +15,7 @@ pytestmark = pytest.mark.remote
 def test_remote_ssh_pk(example_config: ExperimentInitConfig):
     """"""
     pk_config = {
-        "key_filename": Path.home() / ".ssh/id_rsa",
+        "key_filename": str(Path.home() / ".ssh/id_rsa"),
         "username": "worker",
         "hostname": "127.0.0.1",
     }

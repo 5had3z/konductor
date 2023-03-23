@@ -3,11 +3,12 @@ Synchonise workspace with folder of remote machine
 """
 
 from dataclasses import dataclass
-import os
+from functools import wraps
+from getpass import getpass
 from pathlib import Path
 from typing import Any
-from getpass import getpass
 import subprocess
+import os
 
 import paramiko
 
@@ -43,6 +44,23 @@ def _parse_ssh_config(filepath: Path, hostname: str) -> paramiko.SSHConfigDict:
             parsed_cfg[cfg_map[key]] = data
 
     return parsed_cfg
+
+
+def retry_connection(method):
+    """Wrap SSH interaction with this to retry to
+    establish connection if it fails once"""
+
+    @wraps(method)
+    def _impl(self: "SshSync", *args, **kwargs):
+        try:
+            out = method(self, *args, **kwargs)
+        except paramiko.SSHException:
+            self.logger.warning("Reestablishing Connection...")
+            self._session.connect(**self._pk_cfg)
+            out = method(self, *args, **kwargs)
+        return out
+
+    return _impl
 
 
 @dataclass
@@ -102,16 +120,16 @@ class SshSync(_RemoteSyncrhoniser):
         """
         super().__init__(**kwargs)
 
+        # If identity file is used, use that
+        # otherwise request password to begin session
+        if not "key_filename" in pk_cfg:
+            pk_cfg["password"] = getpass()
+        self._pk_cfg = pk_cfg
+
         self._session = paramiko.SSHClient()
         self._session.load_system_host_keys()
         self._session.set_missing_host_key_policy(paramiko.AutoAddPolicy)
-
-        # If identity file is used, use that
-        # otherwise request password to begin session
-        if "key_filename" in pk_cfg:
-            self._session.connect(**pk_cfg)
-        else:
-            self._session.connect(**pk_cfg, password=getpass())
+        self._session.connect(**pk_cfg)
 
         self._remote_path = remote_path
         self.has_recursed = False
@@ -151,6 +169,7 @@ class SshSync(_RemoteSyncrhoniser):
 
         return remote_check == host_check
 
+    @retry_connection
     def push(
         self,
         filename: str,
@@ -188,6 +207,7 @@ class SshSync(_RemoteSyncrhoniser):
         if sftp is None:  # clean up if locally created
             sftp_.close()
 
+    @retry_connection
     def push_all(self, force: bool = False) -> None:
         super().push_all(force)
         sftp = self._session.open_sftp()
@@ -195,6 +215,7 @@ class SshSync(_RemoteSyncrhoniser):
             self.push(filename, force, sftp)
         sftp.close()
 
+    @retry_connection
     def pull(
         self,
         filename: str,
@@ -237,6 +258,7 @@ class SshSync(_RemoteSyncrhoniser):
         if sftp is None:  # clean up if locally created
             sftp_.close()
 
+    @retry_connection
     def pull_all(self, force: bool = False) -> None:
         super().pull_all(force)
         sftp = self._session.open_sftp()
@@ -244,6 +266,7 @@ class SshSync(_RemoteSyncrhoniser):
             self.pull(filename, force, sftp)
         sftp.close()
 
+    @retry_connection
     def _generate_file_list_from_remote(self) -> None:
         remote_path = str(self._remote_path)
 
@@ -260,12 +283,14 @@ class SshSync(_RemoteSyncrhoniser):
         if len(self.file_list) > 0:
             self.logger.info("Files found: %s", self.file_list)
 
+    @retry_connection
     def remote_existance(self) -> bool:
         _, _, stderr = self._session.exec_command(f"ls {self._remote_path}")
         for _ in stderr:  # Not empty if an error occured i.e folder doesn't exist
             return False
         return True
 
+    @retry_connection
     def get_file(self, remote_src: str, host_dest: Path | None = None) -> None:
         """
         Gets an individual remote file and copies to host.\n
@@ -277,6 +302,6 @@ class SshSync(_RemoteSyncrhoniser):
                 "get_file host destination unspecified, writing to %s", str(host_dest)
             )
 
-        stfp_session = self._session.open_sftp()
-        stfp_session.get(remote_src, str(host_dest))
-        stfp_session.close()
+        sftp = self._session.open_sftp()
+        sftp.get(remote_src, str(host_dest))
+        sftp.close()
