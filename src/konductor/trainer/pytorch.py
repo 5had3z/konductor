@@ -105,7 +105,7 @@ class PyTorchTrainer(BaseTrainer):
         self.async_loss_monitor = AsyncFiniteMonitor()
 
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):
-            self._logger.warn(
+            self._logger.warning(
                 "Using ReduceLROnPlateau scheduler, ensure you calculate loss during validation"
             )
 
@@ -114,7 +114,7 @@ class PyTorchTrainer(BaseTrainer):
             torch.backends.cuda.matmul.allow_tf32 and torch.backends.cudnn.allow_tf32
         ):
             if torch.cuda.get_device_properties(torch.cuda.current_device()).major >= 8:
-                self._logger.warn("Tensor Cores not Enabled")
+                self._logger.warning("Tensor Cores not Enabled")
 
     def _accumulate_losses(self, losses: Dict[str, Tensor]) -> None:
         """Accumulate and backprop losses with optional grad scaler if enabled"""
