@@ -61,21 +61,20 @@ class AsyncFiniteMonitor(Thread):
 
     def validate(self, data: Dict[str, Tensor]):
         """Added items to validate finiteness"""
-        if not self.is_alive():
-            raise RuntimeError("Finite value monitor not started")
         if self.err is not None:
             raise self.err
+        if not self.is_alive():
+            raise RuntimeError("Finite value monitor not started")
         with self.lk:
             self.data = data
             self.is_ready.set()
 
     def stop(self):
         self.stop_token.set()
-
+        # Give dummy data to awake thread
         with self.lk:
             self.data = {}
             self.is_ready.set()
-
         self.join()
         if self.err is not None:
             raise self.err

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Any, Callable, Dict, List, Sequence
+from typing import Any, Callable, Dict, List, Sequence, TypeVar
 
 from konductor.metadata import MetadataManager
 
@@ -97,3 +97,6 @@ class BaseTrainer(ABC):
     @abstractmethod
     def _validate(self) -> None:
         """Validate one epoch over the dataset"""
+
+
+TrainerT = TypeVar("TrainerT", bound=BaseTrainer)

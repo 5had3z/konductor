@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 import hashlib
 
-from .trainer import BaseTrainer, TrainingMangerConfig, TrainingModules
+from .trainer import TrainingMangerConfig, TrainingModules, TrainerT
 from ..modules import (
     get_model,
     get_training_model,
@@ -242,12 +242,12 @@ def cli_init_config(cli_args: argparse.Namespace):
 
 def init_training(
     exp_config: ExperimentInitConfig,
-    trainer_cls: Type[BaseTrainer],
+    trainer_cls: Type[TrainerT],
     trainer_config: TrainingMangerConfig,
     statistics: Dict[str, type[Statistic]],
     train_module_cls: Type[TrainingModules] = TrainingModules,
     perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
-) -> BaseTrainer:
+) -> TrainerT:
     """Initialize training manager class + distributed setup"""
     comm.initialize()
 
