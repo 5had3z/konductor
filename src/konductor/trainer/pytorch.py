@@ -13,15 +13,22 @@ from torch.profiler import record_function, profile, ProfilerAction
 
 
 from ..metadata.statistics import PerfLogger
-from .trainer import BaseTrainer, TrainingModules, TrainingMangerConfig, MetadataManager
+from .trainer import BaseTrainer, TrainerModules, TrainerConfig, MetadataManager
 
 
 @dataclass
-class PyTorchTrainingModules(TrainingModules):
+class PyTorchTrainerModules(TrainerModules):
     model: nn.Module
     criterion: List[nn.Module]
     optimizer: optim.Optimizer
     grad_scaler: GradScaler | None = None
+
+
+@dataclass
+class PyTorchTrainerConfig(TrainerConfig):
+    # Nvidia AMP Usage and Configuration
+    amp: bool = False
+    amp_kwargs: Dict[str, Any] | None = None
 
 
 def _amp_wrapper(func, amp_kwargs: Dict[str, Any] | None = None):
@@ -57,14 +64,20 @@ class AsyncFiniteMonitor(Thread):
                         assert torch.isfinite(data), f"Invalid loss found in {key}"
                     self.is_ready.clear()
         except AssertionError as err:
-            self.err = err
+            self.err = RuntimeError(err)
 
-    def validate(self, data: Dict[str, Tensor]):
+    def __call__(self, data: Dict[str, Tensor]) -> Any:
         """Added items to validate finiteness"""
+        # Propagate error that has come from the thread
         if self.err is not None:
             raise self.err
+
+        # Start async monitor if it hasn't been already
+        # This will raise if it has been started previously
+        # and then stopped for whatever reason.
         if not self.is_alive():
-            raise RuntimeError("Finite value monitor not started")
+            self.start()
+
         with self.lk:
             self.data = data
             self.is_ready.set()
@@ -83,27 +96,26 @@ class AsyncFiniteMonitor(Thread):
 class PyTorchTrainer(BaseTrainer):
     """Training manager for pytorch based models"""
 
-    modules: PyTorchTrainingModules
+    modules: PyTorchTrainerModules
 
     def __init__(
         self,
-        config: TrainingMangerConfig,
-        train_modules: TrainingModules,
+        config: PyTorchTrainerConfig,
+        modules: PyTorchTrainerModules,
         data_manager: MetadataManager,
     ):
         # If AMP is enabled, wrap train and eval loops and add grad_scaler
         if config.amp:
-            self.modules.grad_scaler = GradScaler()
-            self.data_manager.checkpointer.add_checkpointable(
+            modules.grad_scaler = GradScaler()
+            data_manager.checkpointer.add_checkpointable(
                 "grad_scaler", self.modules.grad_scaler
             )
             self._train = _amp_wrapper(self._train, config.amp_kwargs)
             self._validate = _amp_wrapper(self._validate, config.amp_kwargs)
 
-        super().__init__(config, train_modules, data_manager)
+        super().__init__(config, modules, data_manager)
 
-        self.loss_monitor = AsyncFiniteMonitor()
-        self.loss_monitor.start()  # Just start and run, it'll sleep if not used anyway
+        self.loss_monitor = config.loss_monitor
 
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):
             self._logger.warning(
@@ -120,7 +132,7 @@ class PyTorchTrainer(BaseTrainer):
     def _accumulate_losses(self, losses: Dict[str, Tensor]) -> None:
         """Accumulate and backprop losses with optional grad scaler if enabled"""
         with record_function("backward"):
-            self.loss_monitor.validate(losses)
+            self.loss_monitor(losses)
             all_loss = [
                 l
                 if self.modules.grad_scaler is None

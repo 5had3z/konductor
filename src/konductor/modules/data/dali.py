@@ -14,7 +14,7 @@ class DaliLoaderConfig(DataloaderConfig):
         pipe_kwargs = {
             "shard_id": get_rank(),
             "num_shards": get_world_size(),
-            "num_threads": self.workers,
+            "num_threads": max(self.workers, 1),
             "device_id": torch.cuda.current_device(),
             "batch_size": self.batch_size // get_world_size(),
         }

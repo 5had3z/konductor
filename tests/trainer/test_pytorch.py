@@ -5,8 +5,9 @@ import torch
 from konductor.trainer.init import get_experiment_cfg, init_training
 from konductor.trainer.pytorch import (
     PyTorchTrainer,
-    TrainingMangerConfig,
-    PyTorchTrainingModules,
+    PyTorchTrainerConfig,
+    PyTorchTrainerModules,
+    AsyncFiniteMonitor,
 )
 
 
@@ -16,22 +17,23 @@ def trainer(tmp_path):
     trainer = init_training(
         cfg,
         PyTorchTrainer,
-        TrainingMangerConfig(),
+        PyTorchTrainerConfig(),
         {},
-        train_module_cls=PyTorchTrainingModules,
+        train_module_cls=PyTorchTrainerModules,
     )
     return trainer
 
 
 def test_nan_detection(trainer: PyTorchTrainer):
     """Test that nan detector works"""
+    trainer.loss_monitor = AsyncFiniteMonitor()
     losses = {k: torch.rand(1, requires_grad=True) for k in ["mse", "bbox", "obj"]}
 
     for _ in range(10):  # bash it a few times
         trainer._accumulate_losses(losses)
 
     losses["bad"] = torch.tensor([torch.nan], requires_grad=True)
-    with pytest.raises(AssertionError):
+    with pytest.raises(RuntimeError):
         trainer._accumulate_losses(losses)
 
         # manually stop, might raise when stopping so stop in the context

@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 import hashlib
 
-from .trainer import TrainingMangerConfig, TrainingModules, TrainerT
+from .trainer import TrainerConfig, TrainerModules, TrainerT
 from ..modules import (
     get_model,
     get_training_model,
@@ -159,8 +159,8 @@ def get_experiment_cfg(
 
 def init_training_modules(
     exp_config: ExperimentInitConfig,
-    train_module_cls: Type[TrainingModules] = TrainingModules,
-) -> TrainingModules:
+    train_module_cls: Type[TrainerModules] = TrainerModules,
+) -> TrainerModules:
     """
     Initialise training modules from experiment init config
     optional custom init modules available.
@@ -187,7 +187,7 @@ def init_training_modules(
 
 def init_data_manager(
     exp_config: ExperimentInitConfig,
-    train_modules: TrainingModules,
+    train_modules: TrainerModules,
     statistics: Dict[str, Type[Statistic]],
     perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
 ) -> MetadataManager:
@@ -243,9 +243,9 @@ def cli_init_config(cli_args: argparse.Namespace):
 def init_training(
     exp_config: ExperimentInitConfig,
     trainer_cls: Type[TrainerT],
-    trainer_config: TrainingMangerConfig,
+    trainer_config: TrainerConfig,
     statistics: Dict[str, type[Statistic]],
-    train_module_cls: Type[TrainingModules] = TrainingModules,
+    train_module_cls: Type[TrainerModules] = TrainerModules,
     perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
 ) -> TrainerT:
     """Initialize training manager class + distributed setup"""

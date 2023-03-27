@@ -7,7 +7,7 @@ from konductor.metadata import MetadataManager
 
 
 @dataclass
-class TrainingModules:
+class TrainerModules:
     """Holds all common training Modules"""
 
     model: Any  # Model to train
@@ -28,10 +28,11 @@ class TrainingModules:
 
 
 @dataclass
-class TrainingMangerConfig:
-    amp: bool = False  # Enable Nvidia AMP
-    amp_kwargs: Dict[str, Any] | None = None  # Additional AMP Args
-    profile: Callable | None = None  # Enable Profiling
+class TrainerConfig:
+    # Function to run for monitoring issues with the value
+    # of the loss, does absolutely nothing by default
+    loss_monitor: Callable[[Dict[str, Any]], None] = lambda x: None
+
     pbar: Callable | None = None  # Enable Console Progress
     optimizer_interval: int = 1  # interval to call optimizer.step()
 
@@ -42,15 +43,15 @@ class BaseTrainer(ABC):
     contains basic train loops which they can implement
     """
 
-    modules = TrainingModules
+    modules = TrainerModules
 
     def __init__(
         self,
-        config: TrainingMangerConfig,
-        train_modules: TrainingModules,
+        config: TrainerConfig,
+        modules: TrainerModules,
         data_manager: MetadataManager,
     ):
-        self.modules = train_modules
+        self.modules = modules
         self.data_manager = data_manager
         self._logger = getLogger(type(self).__name__)
         self._config = config
