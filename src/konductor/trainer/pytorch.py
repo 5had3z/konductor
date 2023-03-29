@@ -154,10 +154,9 @@ class PyTorchTrainer(BaseTrainer):
                 self.data_manager.iter_step()
                 self.modules.optimizer.zero_grad()
 
-    @staticmethod
     @no_grad()
     def log_step(
-        logger: PerfLogger,
+        self,
         data: Dict[str, Tensor],
         preds: Dict[str, Tensor] | None,
         losses: Dict[str, Tensor] | None,
@@ -170,15 +169,15 @@ class PyTorchTrainer(BaseTrainer):
         """
         with record_function("statistics"):
             if losses is not None:
-                logger.log("loss", losses)
+                self.data_manager.perflog.log("loss", losses)
 
             if preds is None:
                 return
 
-            for statistic in logger.keys:
+            for statistic in self.data_manager.perflog.keys:
                 if statistic == "loss":
                     continue
-                logger.log(statistic, preds, data)
+                self.data_manager.perflog.log(statistic, preds, data)
 
     def _train(self, pbar=None, profiler: profile | None = None) -> None:
         """Train for one epoch over the dataset"""
@@ -188,10 +187,8 @@ class PyTorchTrainer(BaseTrainer):
         gidx = len(self.modules.trainloader) * self.data_manager.epoch
         for data in self.modules.trainloader:
             data = self.data_transform(data)
-            losses, preds = self.train_step(
-                data, self.modules.model, self.modules.criterion
-            )
-            self.log_step(self.data_manager.perflog, data, preds, losses)
+            losses, preds = self.train_step(data)
+            self.log_step(data, preds, losses)
             self._accumulate_losses(losses)
             self._maybe_step_optimiser(gidx)
 
@@ -206,10 +203,7 @@ class PyTorchTrainer(BaseTrainer):
                 ):
                     break
 
-    @staticmethod
-    def train_step(
-        data, model, criterion
-    ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor] | None]:
+    def train_step(self, data) -> Tuple[Dict[str, Tensor], Dict[str, Tensor] | None]:
         """
         Standard training step, if you don't want to calculate
         performance during training, return None for predictions.
@@ -218,11 +212,11 @@ class PyTorchTrainer(BaseTrainer):
             Predictions: predictions in dict
         """
         with record_function("train_inference"):
-            pred = model(data)
+            pred = self.modules.model(data)
 
         with record_function("criterion"):
             losses = {}
-            for criterion in criterion:
+            for criterion in self.modules.criterion:
                 losses.update(criterion(pred, data))
 
         return losses, pred
@@ -234,10 +228,8 @@ class PyTorchTrainer(BaseTrainer):
 
         for data in self.modules.valloader:
             data = self.data_transform(data)
-            losses, preds = self.val_step(
-                data, self.modules.model, self.modules.criterion
-            )
-            self.log_step(self.data_manager.perflog, data, preds, losses)
+            losses, preds = self.val_step(data)
+            self.log_step(data, preds, losses)
             if pbar is not None:
                 pbar.update(1)
             if profiler is not None:
@@ -253,10 +245,7 @@ class PyTorchTrainer(BaseTrainer):
         else:
             self.modules.scheduler.step()
 
-    @staticmethod
-    def val_step(
-        data, model, criterion
-    ) -> Tuple[Dict[str, Tensor] | None, Dict[str, Tensor]]:
+    def val_step(self, data) -> Tuple[Dict[str, Tensor] | None, Dict[str, Tensor]]:
         """
         Standard evaluation step, if you don't want to evaluate/track loss
         during evaluation, do not perform the calculation and return None
@@ -266,11 +255,11 @@ class PyTorchTrainer(BaseTrainer):
             Predictions: predictions dict
         """
         with record_function("eval_inference"):
-            pred = model(data)
+            pred = self.modules.model(data)
 
         with record_function("criterion"):
             losses = {}
-            for criterion in criterion:
+            for criterion in self.modules.criterion:
                 losses.update(criterion(pred, data))
 
         return losses, pred
