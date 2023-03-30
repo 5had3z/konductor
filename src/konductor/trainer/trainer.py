@@ -86,9 +86,7 @@ class BaseTrainer(ABC):
         before being passed to [train|val]_step, no-op by default"""
         return data
 
-    def training_exception(
-        self, err: Exception, data: Any, preds: Any, losses: Any
-    ) -> None:
+    def training_exception(self, err: Exception, data: Any) -> None:
         """This function is run when an runtime exception is thrown
         during training iteration, useful for logging the state of the
         model and the data used in the training iteration"""

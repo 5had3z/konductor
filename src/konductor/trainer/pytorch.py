@@ -198,7 +198,7 @@ class PyTorchTrainer(BaseTrainer):
                 self._accumulate_losses(losses)
                 self._maybe_step_optimiser(gidx)
             except TrainingError as err:
-                self.training_exception(err, data, preds, losses)
+                self.training_exception(err, data)
 
             gidx += 1
             if pbar is not None:
