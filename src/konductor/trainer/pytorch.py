@@ -12,8 +12,13 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.profiler import record_function, profile, ProfilerAction
 
 
-from ..metadata.statistics import PerfLogger
-from .trainer import BaseTrainer, TrainerModules, TrainerConfig, MetadataManager
+from .trainer import (
+    BaseTrainer,
+    TrainerModules,
+    TrainerConfig,
+    MetadataManager,
+    TrainingError,
+)
 
 
 @dataclass
@@ -64,7 +69,7 @@ class AsyncFiniteMonitor(Thread):
                         assert torch.isfinite(data), f"Invalid loss found in {key}"
                     self.is_ready.clear()
         except AssertionError as err:
-            self.err = RuntimeError(err)
+            self.err = TrainingError(err)
 
     def __call__(self, data: Dict[str, Tensor]) -> Any:
         """Added items to validate finiteness"""
@@ -186,11 +191,14 @@ class PyTorchTrainer(BaseTrainer):
 
         gidx = len(self.modules.trainloader) * self.data_manager.epoch
         for data in self.modules.trainloader:
-            data = self.data_transform(data)
-            losses, preds = self.train_step(data)
-            self.log_step(data, preds, losses)
-            self._accumulate_losses(losses)
-            self._maybe_step_optimiser(gidx)
+            try:
+                data = self.data_transform(data)
+                losses, preds = self.train_step(data)
+                self.log_step(data, preds, losses)
+                self._accumulate_losses(losses)
+                self._maybe_step_optimiser(gidx)
+            except TrainingError as err:
+                self.training_exception(err, data, preds, losses)
 
             gidx += 1
             if pbar is not None:

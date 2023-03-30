@@ -37,6 +37,10 @@ class TrainerConfig:
     optimizer_interval: int = 1  # interval to call optimizer.step()
 
 
+class TrainingError(RuntimeError):
+    """Exception raised by user in their training loop"""
+
+
 class BaseTrainer(ABC):
     """
     Base class that various trainer types inherit from that
@@ -81,6 +85,14 @@ class BaseTrainer(ABC):
         """Apply any post motifications to data after loading
         before being passed to [train|val]_step, no-op by default"""
         return data
+
+    def training_exception(
+        self, err: Exception, data: Any, preds: Any, losses: Any
+    ) -> None:
+        """This function is run when an runtime exception is thrown
+        during training iteration, useful for logging the state of the
+        model and the data used in the training iteration"""
+        raise err
 
     @abstractmethod
     def _accumulate_losses(self, losses: Dict[str, Any]) -> Any:

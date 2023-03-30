@@ -233,9 +233,10 @@ def cli_init_config(cli_args: argparse.Namespace):
             cfg = yaml.safe_load(f)
         exp_config.remote_sync = ModuleInitConfig(**cfg)
 
-    for data in exp_config.data:  # Divide workers evenly among datasets
-        data.val_loader.args["workers"] = cli_args.workers // len(exp_config.data)
-        data.train_loader.args["workers"] = cli_args.workers // len(exp_config.data)
+    if hasattr(cli_args, "workers"):
+        for data in exp_config.data:  # Divide workers evenly among datasets
+            data.val_loader.args["workers"] = cli_args.workers // len(exp_config.data)
+            data.train_loader.args["workers"] = cli_args.workers // len(exp_config.data)
 
     return exp_config
 
