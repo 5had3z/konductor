@@ -1,7 +1,7 @@
 import time
 import os
 import itertools
-from threading import Thread, Event
+from threading import Thread, Event, Lock
 from datetime import timedelta
 from typing import Any, List
 import enum
@@ -49,6 +49,7 @@ class ProgressBar(Thread):
     def __init__(
         self,
         total: int,
+        desc: str = "",
         ncols: int | None = None,
         frequency: float = 10,
         progress_style: List[str] | int | None = None,
@@ -56,10 +57,12 @@ class ProgressBar(Thread):
         super().__init__()
         self.total = total
         self.ncols = ncols
-        self.iter = 0
+        self._desc = desc
+        self.n = 0
         self.frequency = frequency
         self.s_time = time.time()
         self.stop = Event()
+        self.lk = Lock()
 
         if progress_style is None:
             self.style = self.pbar_style[0]
@@ -86,10 +89,10 @@ class ProgressBar(Thread):
 
     def estimated(self) -> timedelta:
         """Estimated completion time"""
-        if self.iter == 0:
+        if self.n == 0:
             return timedelta(hours=999)
-        time_per_iter = self.elapsed() / self.iter
-        return time_per_iter * (self.total - self.iter)
+        time_per_iter = self.elapsed() / self.n
+        return time_per_iter * (self.total - self.n)
 
     def estimated_str(self) -> str:
         """Estimated completion time string with microseconds removed"""
@@ -99,7 +102,8 @@ class ProgressBar(Thread):
         n_digits = len(str(self.total))
 
         for i in itertools.cycle(self.style):
-            start_str = f"{Fore.GREEN}{self.iter:0{n_digits}}{Fore.YELLOW}/{Fore.RED}{self.total}{Fore.RESET}"
+            with self.lk:
+                start_str = f"{Fore.BLUE}{self._desc}: {Fore.GREEN}{self.n:0{n_digits}}{Fore.YELLOW}/{Fore.RED}{self.total}{Fore.RESET}"
             end_str = (
                 f"Elapsed: {Fore.YELLOW}{self.elapsed_str()}{Fore.RESET} "
                 f"Est: {Fore.YELLOW}{self.estimated_str()}{Fore.RESET}"
@@ -108,20 +112,24 @@ class ProgressBar(Thread):
             ncols = os.get_terminal_size().columns if self.ncols is None else self.ncols
             print(" " * (ncols - 2), end="\r")  # Clear the terminal
             ncols -= len(start_str) + len(end_str) - self._fmt_len // 2
-            done_bars = ncols * self.iter // self.total
+            done_bars = ncols * self.n // self.total
 
             bar_str = f"{Fore.GREEN}{'█'*done_bars}{Fore.YELLOW}{i}{Fore.RED}{'-'*(ncols - done_bars)}{Fore.RESET}"
 
             print(start_str, bar_str, end_str, end="\r")
 
-            if self.iter >= self.total or self.stop.is_set():
+            if self.n >= self.total or self.stop.is_set():
                 print()
                 break
 
             time.sleep(1 / self.frequency)
 
+    def set_description(self, desc: str):
+        with self.lk:
+            self._desc = desc
+
     def update(self, update):
-        self.iter += update
+        self.n += update
 
 
 def training_function(data: Any, pbar) -> None:
@@ -132,9 +140,13 @@ def training_function(data: Any, pbar) -> None:
 
 def test_progress_bar() -> None:
     data = range(100)
-    fn = pbar_wrapper(training_function, pbar_type=PbarType.TQDM, total=len(data))
+    fn = pbar_wrapper(
+        training_function, pbar_type=PbarType.TQDM, total=len(data), desc="test"
+    )
     fn(data)
-    fn = pbar_wrapper(training_function, pbar_type=PbarType.INBUILT, total=len(data))
+    fn = pbar_wrapper(
+        training_function, pbar_type=PbarType.INBUILT, total=len(data), desc="test"
+    )
     fn(data)
 
 

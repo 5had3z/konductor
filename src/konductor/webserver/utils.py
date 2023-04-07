@@ -23,6 +23,7 @@ class Experiment:
 
     @classmethod
     def from_path(cls, root: Path):
+        assert not root.is_file(), "Experiment root should be a folder"
         log_files = [f for f in root.iterdir() if re.match(_PQ_REDUCED_RE, f.name)]
 
         if len(log_files) == 0:
