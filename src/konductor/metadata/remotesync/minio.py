@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict
 from pathlib import Path
+from datetime import datetime
 
 from minio import Minio, S3Error
 
@@ -78,28 +79,33 @@ class MinioSync(_RemoteSyncrhoniser):
             self.logger.info("Creating bucket %s", self.bucket_name)
             self.client.make_bucket(self.bucket_name)
 
-    def _local_is_newer(self, filename: str) -> bool:
-        """Whether the file on the host was the last modified file (is newer).
-        Return false if the file doesn't exist on the host
-        Return true if the file doesn't exist on the remote"""
-        local = self._host_path / filename
-        if not local.exists():  # Not found on host
-            return False
+    def _remote_exists(self, filename: str) -> bool:
+        """Test if the file exists on the remote"""
         try:
-            remote_modified = self.client.stat_object(
-                self.bucket_name, filename
-            ).last_modified.timestamp()
-        except S3Error:  # Not found on remote
+            self.client.stat_object(self.bucket_name, filename)
+        except S3Error:
+            return False
+        else:
             return True
-        local_modified = local.stat().st_mtime
-        return local_modified > remote_modified
+
+    def _remote_ts(self, filename: str) -> float:
+        """Get remote last motified time"""
+        ts: datetime = self.client.stat_object(self.bucket_name, filename).last_modified
+        return ts.timestamp()
 
     def pull(self, filename: str, force: bool = False) -> None:
-        if self._local_is_newer(filename) and not force:
+        """Pull file from bucket, will not pull if local version is
+        newer unless forced to"""
+        local = self._host_path / filename
+
+        local_is_newer = local.exists() and local.stat().st_mtime > self._remote_ts(
+            filename
+        )
+
+        if local_is_newer and not force:
             self.logger.info("Skipping file pull from remote: %s", filename)
             return
 
-        local = self._host_path / filename
         if local.exists():
             self.logger.info("Pulling file from remote and overwriting: %s", filename)
         else:
@@ -108,9 +114,7 @@ class MinioSync(_RemoteSyncrhoniser):
         self.client.fget_object(self.bucket_name, filename, str(local))
 
         # Change local time to remote last modified
-        remote_modified = self.client.stat_object(
-            self.bucket_name, filename
-        ).last_modified.timestamp()
+        remote_modified = self._remote_ts(filename)
         os.utime(str(local), (remote_modified, remote_modified))
 
     def pull_all(self, force: bool = False) -> None:
@@ -119,14 +123,21 @@ class MinioSync(_RemoteSyncrhoniser):
             self.pull(filename, force)
 
     def push(self, filename: str, force: bool = False) -> None:
-        if not self._local_is_newer(filename) and not force:
+        """Push file to bucket, will not push to bucket if it
+        has a newer version unless forced to"""
+        local = self._host_path / filename
+
+        remote_is_newer = (
+            self._remote_exists(filename)
+            and self._remote_ts(filename) > local.stat().st_mtime
+        )
+
+        if remote_is_newer and not force:
             self.logger.info("Skipping file push to remote: %s", filename)
             return
 
         self.logger.info("Pushing file to remote: %s", filename)
-        self.client.fput_object(
-            self.bucket_name, filename, str(self._host_path / filename)
-        )
+        self.client.fput_object(self.bucket_name, filename, str(local))
 
         # Doesn't seem like I can change last modified on object?
         # local_modified = (self._host_path / filename).stat().st_mtime

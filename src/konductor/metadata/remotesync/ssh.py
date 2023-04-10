@@ -140,20 +140,16 @@ class SshSync(_RemoteSyncrhoniser):
             for line in stderr:
                 self.logger.error(line.strip("\n"))
 
-    @staticmethod
-    def _local_is_newer(local: Path, remote: Path, sftp: paramiko.SFTPClient) -> bool:
-        """Whether the file on the host was the last modified file (is newer).
-        Return false if the file doesn't exist on the host
-        Return true if the file doesn't exist on the remote"""
-        if not local.exists():  # Not found on host
-            return False
+    def _remote_exists(self, filename: str, sftp: paramiko.SFTPClient) -> bool:
+        """Test if the file exists on the remote by stat'ing it"""
         try:
-            remote_modified = sftp.stat(str(remote)).st_mtime
-            assert remote_modified is not None
-        except FileNotFoundError:  # Not found on remote
-            return True
-        local_modified = local.stat().st_mtime
-        return local_modified > remote_modified
+            sftp.stat(str(self._remote_path / filename))
+        except FileNotFoundError:
+            exists = False
+        else:
+            exists = True
+
+        return exists
 
     def _get_local_remote(self, filename: str):
         """Return local and remote path pair"""
@@ -176,10 +172,17 @@ class SshSync(_RemoteSyncrhoniser):
         force: bool = False,
         sftp: paramiko.SFTPClient | None = None,
     ) -> None:
+        """scp file from local to the remote, will not do this if
+        the remote has a newer version unless forced"""
         local, remote = self._get_local_remote(filename)
         sftp_ = self._session.open_sftp() if sftp is None else sftp
 
-        if not self._local_is_newer(local, remote, sftp_) and not force:
+        remote_is_newer = (
+            self._remote_exists(remote.name, sftp_)
+            and sftp_.stat(str(remote)).st_mtime > local.stat().st_mtime
+        )
+
+        if remote_is_newer and not force:
             self.logger.info("Skipping file push to remote: %s", filename)
             return
 
@@ -222,10 +225,16 @@ class SshSync(_RemoteSyncrhoniser):
         force: bool = False,
         sftp: paramiko.SFTPClient | None = None,
     ) -> None:
+        """Pull file from the remote to local, will not pull
+        if the local copy is newer unless forced to"""
         local, remote = self._get_local_remote(filename)
         sftp_ = self._session.open_sftp() if sftp is None else sftp
 
-        if self._local_is_newer(local, remote, sftp_) and not force:
+        local_is_newer = (
+            local.exists() and local.stat().st_mtime > sftp_.stat(str(remote)).st_mtime
+        )
+
+        if local_is_newer and not force:
             self.logger.info("Skipping file pull from remote: %s", filename)
             return
 
