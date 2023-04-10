@@ -4,8 +4,12 @@
 
 from datetime import datetime, timedelta
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Any, Dict
+import subprocess
+
+import yaml
 
 from .checkpointer import Checkpointer
 from .statistics.perflogger import PerfLogger
@@ -47,6 +51,17 @@ class MetadataManager:
         if self.remote_sync is not None:
             self.remote_timer = _Timer()
 
+        self._metadata_file = self.workspace / "metadata.yaml"
+        if not self._metadata_file.exists() and comm.is_main_process():
+            metadata = {
+                "note": "",
+                "epoch": self.epoch,
+                "commit_begin": self._get_commit(),
+                "train_begin": datetime.now(),
+            }
+            with open(self._metadata_file, "w", encoding="utf-8") as f:
+                yaml.safe_dump(metadata, f)
+
     @property
     def workspace(self):
         """Directory where data is stored"""
@@ -69,20 +84,53 @@ class MetadataManager:
 
         return extras
 
+    def _get_commit(self) -> str:
+        try:
+            git_hash = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+                )
+                .strip()
+                .decode()
+            )
+        except subprocess.CalledProcessError:
+            # Try to get from environment variable, else "Unknown"
+            git_hash = os.environ.get("COMMIT_SHA", "Unknown")
+
+        return git_hash
+
+    def _update_metadata(self, data: Dict[str, Any]):
+        """Updates the metadata file with the current epoch"""
+        with open(self._metadata_file, "r", encoding="utf-8") as f:
+            metadata: Dict[str, Any] = yaml.safe_load(f)
+        metadata.update(data)
+        with open(self._metadata_file, "w", encoding="utf-8") as f:
+            yaml.safe_dump(metadata, f)
+
     def epoch_step(self) -> None:
         """Step every epoch"""
         self.epoch += 1
 
-        if self.checkpoint_interval > 0 and self.epoch % self.checkpoint_interval == 0:
-            ckpt_name = f"epoch_{self.epoch}.pt"
-        else:
-            ckpt_name = "latest.pt"
+        ckpt_name = (
+            f"epoch_{self.epoch}.pt"
+            if self.checkpoint_interval > 0
+            and self.epoch % self.checkpoint_interval == 0
+            else "latest.pt"
+        )
 
         # Only save checkpoint on local rank zero
         if comm.get_local_rank() == 0:
             self.checkpointer.save(
                 ckpt_name, epoch=self.epoch, iteration=self.iteration
             )
+            self._update_metadata(
+                {
+                    "epoch": self.epoch,
+                    "commit_last": self._get_commit(),
+                    "train_last": datetime.now(),
+                }
+            )
+
         self.perflog.flush()
         self._remote_push()
 
@@ -99,6 +147,7 @@ class MetadataManager:
         if self.remote_timer.elapsed() > self.sync_interval:
             if comm.is_main_process():  # Main rank pushes all data (logs + weights)
                 self.remote_sync.push_all()
+                self.remote_sync.push(self._metadata_file.name)
             elif comm.get_local_rank() == 0:  # Rank0 of dist machines push logs
                 self.remote_sync.push_select([r".*\.parquet", "events.out.tfevents.*"])
             self.remote_timer.reset()
