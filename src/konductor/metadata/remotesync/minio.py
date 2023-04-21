@@ -98,7 +98,7 @@ class MinioSync(_RemoteSyncrhoniser):
         newer unless forced to"""
         local = self._host_path / filename
 
-        local_is_newer = local.exists() and local.stat().st_mtime > self._remote_ts(
+        local_is_newer = local.exists() and local.stat().st_mtime >= self._remote_ts(
             filename
         )
 
@@ -129,7 +129,7 @@ class MinioSync(_RemoteSyncrhoniser):
 
         remote_is_newer = (
             self._remote_exists(filename)
-            and self._remote_ts(filename) > local.stat().st_mtime
+            and self._remote_ts(filename) >= local.stat().st_mtime
         )
 
         if remote_is_newer and not force:

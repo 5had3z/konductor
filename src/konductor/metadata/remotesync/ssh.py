@@ -179,7 +179,7 @@ class SshSync(_RemoteSyncrhoniser):
 
         remote_is_newer = (
             self._remote_exists(remote.name, sftp_)
-            and sftp_.stat(str(remote)).st_mtime > local.stat().st_mtime
+            and sftp_.stat(str(remote)).st_mtime >= local.stat().st_mtime
         )
 
         if remote_is_newer and not force:
@@ -231,7 +231,7 @@ class SshSync(_RemoteSyncrhoniser):
         sftp_ = self._session.open_sftp() if sftp is None else sftp
 
         local_is_newer = (
-            local.exists() and local.stat().st_mtime > sftp_.stat(str(remote)).st_mtime
+            local.exists() and local.stat().st_mtime >= sftp_.stat(str(remote)).st_mtime
         )
 
         if local_is_newer and not force:
