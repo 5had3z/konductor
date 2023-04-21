@@ -150,6 +150,8 @@ class MetadataManager:
                 self.remote_sync.push(self._metadata_file.name)
             elif comm.get_local_rank() == 0:  # Rank0 of dist machines push logs
                 self.remote_sync.push_select([r".*\.parquet", "events.out.tfevents.*"])
+                for file in self.workspace.glob("*.parquet"):
+                    file.unlink()  # remove pushed parquet files, prevent duplication
             self.remote_timer.reset()
         comm.synchronize()
 

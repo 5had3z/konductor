@@ -12,6 +12,7 @@ from datetime import datetime
 
 import yaml
 from pyarrow import parquet as pq
+from pyarrow import compute as pc
 from pandas import DataFrame as df
 
 _PQ_SHARD_RE = r"\A(train|val)_[a-zA-Z0-9-]+_[0-9]+_[0-9]+.parquet\Z"
@@ -143,17 +144,26 @@ def reduce_shard(shards: List[Path]) -> None:
     schema = pq.read_schema(shards[0])
 
     pq_kwargs = dict(pre_buffer=False, memory_map=True, use_threads=True)
-    data = pq.read_table(target, **pq_kwargs) if target.exists() else None
+    old_data = pq.read_table(target, **pq_kwargs) if target.exists() else None
 
     with pq.ParquetWriter(target, schema) as writer:
-        if data is not None:
-            writer.write_table(data)
+        if old_data is not None:  # rewrite original data
+            writer.write_table(old_data)
 
         for shard in shards:
             print(f"Moving {shard.name}")
             data = pq.read_table(shard, **pq_kwargs)
-            writer.write_table(data)
-            shard.unlink()
+
+            # check if iteration has been added before if there's a matching timestamp
+            ret = (
+                -1
+                if old_data is None
+                else pc.index(old_data["timestamp"], data["timestamp"][0])
+            )
+            if ret == -1:  # has not been added
+                writer.write_table(data)
+
+            shard.unlink()  # remove merged table
 
 
 @app.command()
