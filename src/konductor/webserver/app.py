@@ -12,28 +12,11 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 
 try:
-    from .utils import Experiment, OptionTree
+    from .utils import get_experiments, get_option_tree
 except ImportError:
-    from utils import Experiment, OptionTree
+    from utils import get_experiments, get_option_tree
 
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
-
-
-def get_experiments(root_dir: Path) -> List[Experiment]:
-    experiments = []
-    for p in root_dir.iterdir():
-        e = Experiment.from_path(p)
-        if e is not None:
-            experiments.append(e)
-    return experiments
-
-
-def get_option_tree(exp: List[Experiment]) -> OptionTree:
-    tree = OptionTree.make_root()
-    for s in list(s for e in exp for s in e.stats):
-        tree.add(s)
-    return tree
-
 
 parser = ArgumentParser()
 parser.add_argument("--root", type=Path, default=Path.cwd())

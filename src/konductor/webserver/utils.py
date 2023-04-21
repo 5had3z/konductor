@@ -4,6 +4,7 @@ from collections import deque
 import re
 from typing import List, Deque
 
+import yaml
 import pandas as pd
 from pyarrow import parquet as pq
 from konductor.utilities.metadata import _PQ_REDUCED_RE
@@ -12,6 +13,7 @@ from konductor.utilities.metadata import _PQ_REDUCED_RE
 @dataclass
 class Experiment:
     root: Path
+    name: str
     stats: List[str]
 
     @staticmethod
@@ -35,20 +37,33 @@ class Experiment:
             split, name = log_file.stem.split("_")[:2]
             keys.extend([f"{split}/{name}/{k}" for k in Experiment.get_keys(log_file)])
 
-        return cls(root, keys)
+        mdata_f = root / "metadata.yaml"
+        if mdata_f.exists():
+            with open(mdata_f, "r", encoding="utf-8") as f:
+                mdata = yaml.safe_load(f)
+            name = mdata.get("name", mdata["note"][:30])
+        else:
+            name = root.name
 
-    @property
-    def name(self):
-        return self.root.name
+        return cls(root, name, keys)
 
-    def __getitem__(self, stat: str) -> pd.Series:
-        """Read from disk {split}/{statistic}/{key} and average by iteration for plotting"""
-        split, name, key = stat.split("/")
-        filename = self.root / f"{split}_{name}.parquet"
+    def _get_group_data(self, split: str, group: str) -> pd.DataFrame:
+        """Return all statistics within a group with averaged iteration"""
+        filename = self.root / f"{split}_{group}.parquet"
         data: pd.DataFrame = pq.read_table(
             filename, pre_buffer=False, memory_map=True, use_threads=True
         ).to_pandas()
-        return data.groupby("iteration")[key].mean()
+        return data.groupby("iteration").mean()
+
+    def __getitem__(self, stat: str) -> pd.Series:
+        """Read from disk {split}/{statistic}/{key} and return data by iteration"""
+        split, name, key = stat.split("/")
+        return self._get_group_data(split, name)[key]
+
+    def get_group_latest(self, split: str, group: str) -> pd.DataFrame:
+        """Read all statistics within a group and get data from latest iteration"""
+        data = self._get_group_data(split, group)
+        return data.query("iteration == iteration.max()")
 
     def __contains__(self, stat: str) -> bool:
         return stat in self.stats
@@ -115,3 +130,19 @@ class OptionTree:
             self.children[nxt_key]._add_helper(option)
         else:
             self.children[nxt_key] = OptionTree(option)
+
+
+def get_experiments(root_dir: Path) -> List[Experiment]:
+    experiments = []
+    for p in root_dir.iterdir():
+        e = Experiment.from_path(p)
+        if e is not None:
+            experiments.append(e)
+    return experiments
+
+
+def get_option_tree(exp: List[Experiment]) -> OptionTree:
+    tree = OptionTree.make_root()
+    for s in list(s for e in exp for s in e.stats):
+        tree.add(s)
+    return tree

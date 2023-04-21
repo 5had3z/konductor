@@ -6,7 +6,11 @@ import re
 import os
 from colorama import Fore, Style
 from typing import List, Dict
+from io import StringIO
+from dataclasses import dataclass
+from datetime import datetime
 
+import yaml
 from pyarrow import parquet as pq
 from pandas import DataFrame as df
 
@@ -29,28 +33,79 @@ def chunk(iterable, size):
         yield data
 
 
-def summarize_log(path: Path) -> None:
+def summarize_stats(path: Path) -> None:
     """Prints summary of the last iteration"""
     data: df = pq.read_table(
         path, pre_buffer=False, memory_map=True, use_threads=True
     ).to_pandas()
     last_iter = data["iteration"].max()
-    average = data[data["iteration"] == last_iter].mean()
+    average = data.query(f"iteration == {last_iter}").mean()
 
     print(
-        f"{Fore.GREEN}{Style.BRIGHT}\n{path.stem}\n\t{Fore.BLUE}Last Iteration: {Style.RESET_ALL}{last_iter}\n"
+        f"{Fore.GREEN+Style.BRIGHT}\n{path.stem}\n\t{Fore.BLUE}Last Iteration: {Style.RESET_ALL}{last_iter}\n"
     )
     labels = [lbl for lbl in average.index if lbl not in {"iteration", "timestamp"}]
 
     max_lbl = len(max(labels, key=lambda x: len(x)))
     print_strs = [
-        f"{Style.BRIGHT}{Fore.BLUE}{label:{max_lbl}}: {Style.RESET_ALL}{average[label]:.3f}"
+        f"{Style.BRIGHT+Fore.BLUE}{label:{max_lbl}}: {Style.RESET_ALL}{average[label]:5.3f}"
         for label in labels
     ]
     n_cols = os.get_terminal_size().columns // (max_lbl + 10) - 1
     for printstr in chunk(print_strs, n_cols):
         print("".join(f"   {d}" for d in printstr))
     print(f"\n{Style.BRIGHT}" + "=" * os.get_terminal_size().columns + Style.RESET_ALL)
+
+
+@dataclass
+class Metadata:
+    commit_begin: str
+    commit_last: str
+    epoch: int
+    note: str
+    train_begin: datetime
+    train_last: datetime
+    name: str = ""
+
+    @property
+    def train_duration(self):
+        return self.train_last - self.train_begin
+
+    @classmethod
+    def from_yaml(cls, path: Path):
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        return cls(**data)
+
+
+def print_metadata(path: Path) -> None:
+    """Prints info in metadata file to console"""
+    if not path.exists():
+        print(
+            f"{Fore.RED+Style.BRIGHT}Metadata file not found in directory{Style.RESET_ALL}"
+        )
+        return
+
+    mdata = Metadata.from_yaml(path)
+
+    ss = StringIO()
+    ss.write(
+        f"{Fore.GREEN+Style.BRIGHT}{path.parent.name} "
+        f"{Fore.WHITE}- {Fore.BLUE}{mdata.name}\n"
+    )
+    ss.write(f"{Fore.GREEN}Metadata:{Style.RESET_ALL}\n")
+    ss.write(
+        f"\t{Fore.BLUE+Style.BRIGHT}Git Commit{Style.RESET_ALL} "
+        f"begin: {mdata.commit_begin}, end: {mdata.commit_last}\n"
+    )
+    ss.write(
+        f"\t{Fore.BLUE+Style.BRIGHT}Training time{Style.RESET_ALL} "
+        f"duration: {mdata.train_duration.seconds / 3600:.2f} Hr, "
+        f"start: {mdata.train_begin}, last: {mdata.train_last}\n"
+    )
+    ss.write(f"\t{Fore.BLUE+Style.BRIGHT}Notes:{Style.RESET_ALL}\n{mdata.note}\n")
+
+    print(ss.getvalue())
 
 
 @app.command()
@@ -65,8 +120,10 @@ def describe(path: Path = typer.Option(Path.cwd(), "--path")) -> None:
             f"you reduce shards first: {path.name}{Style.RESET_ALL}"
         )
 
+    print_metadata(path / "metadata.yaml")
+
     for log in logs:
-        summarize_log(log)
+        summarize_stats(log)
 
 
 def get_reduced_path(path: Path) -> Path:
@@ -82,7 +139,7 @@ def get_reduced_path(path: Path) -> Path:
 def reduce_shard(shards: List[Path]) -> None:
     """Reduce shards into single parquet file"""
     target = get_reduced_path(shards[0])
-    print(f"{Fore.BLUE}{Style.BRIGHT}Grouping for {target.name}{Style.RESET_ALL}")
+    print(f"{Fore.BLUE+Style.BRIGHT}Grouping for {target.name}{Style.RESET_ALL}")
     schema = pq.read_schema(shards[0])
 
     pq_kwargs = dict(pre_buffer=False, memory_map=True, use_threads=True)
@@ -108,13 +165,13 @@ def reduce(path: Path = typer.Option(Path.cwd(), "--path")) -> None:
     shards = [p for p in path.iterdir() if re.match(_PQ_SHARD_RE, p.name)]
     if len(shards) == 0:
         print(
-            f"{Fore.RED}{Style.BRIGHT}No shards found"
+            f"{Fore.RED+Style.BRIGHT}No shards found"
             f" in directory: {path}{Style.RESET_ALL}"
         )
         return
 
     print(
-        f"{Fore.BLUE}{Style.BRIGHT}Discovered shards: {Style.RESET_ALL}"
+        f"{Fore.BLUE+Style.BRIGHT}Discovered shards: {Style.RESET_ALL}"
         f"{' '.join(shard.name for shard in shards)}"
     )
 
