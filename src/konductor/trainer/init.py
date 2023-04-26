@@ -56,14 +56,8 @@ def parser_add_common_args(parser: argparse.ArgumentParser) -> None:
         default=Path.cwd() / "checkpoints",
         help="The base directory where checkpoints are stored",
     )
-
-    # Remote configuration
     parser.add_argument(
-        "-r",
-        "--remote",
-        type=Path,
-        required=False,
-        help="Path to configuration file for remote synchronisation",
+        "--workers", type=int, default=0, help="Number of dataloader workers"
     )
 
 
@@ -71,6 +65,7 @@ def get_training_parser() -> argparse.ArgumentParser:
     """Parses arguments used for training"""
     parser = argparse.ArgumentParser("Training Script")
     parser_add_common_args(parser)
+
     parser.add_argument(
         "-k",
         "--extra_checkpoints",
@@ -79,14 +74,19 @@ def get_training_parser() -> argparse.ArgumentParser:
         help="Save intermediate checkpoints at defined time interval (sec)",
     )
     parser.add_argument(
-        "-w",
-        "--workers",
-        type=int,
-        default=0,
-        help="Number of dataloader workers",
+        "-e", "--epochs", type=int, default=1, help="Max epoch to train to"
     )
     parser.add_argument(
-        "-e", "--epochs", type=int, default=1, help="Max epoch to train to"
+        "--brief", type=str, default="", help="Brief description to give experiment"
+    )
+
+    # Remote configuration
+    parser.add_argument(
+        "-r",
+        "--remote",
+        type=Path,
+        required=False,
+        help="Path to configuration file for remote synchronisation",
     )
 
     # Configruation for torch.distributed training
@@ -174,6 +174,7 @@ def init_training_modules(
     modules = [
         get_training_model(exp_config, idx) for idx in range(len(exp_config.model))
     ]
+    # Unpack tuple into each category
     models = [m[0] for m in modules]
     optims = [m[1] for m in modules]
     scheds = [m[2] for m in modules]
@@ -211,13 +212,17 @@ def init_data_manager(
         else get_remote_config(exp_config).get_instance()
     )
 
-    return get_metadata_manager(
+    manager = get_metadata_manager(
         log_config,
         remote_sync=remote_sync,
         model=train_modules.model,
         optim=train_modules.optimizer,
         scheduler=train_modules.scheduler,
     )
+
+    manager.write_brief(exp_config.brief)
+
+    return manager
 
 
 def cli_init_config(cli_args: argparse.Namespace):
@@ -228,15 +233,17 @@ def cli_init_config(cli_args: argparse.Namespace):
         cli_args.workspace, cli_args.config_file, cli_args.run_hash
     )
 
-    if cli_args.remote:
+    if hasattr(cli_args, "brief"):
+        exp_config.brief = cli_args.brief  # Add brief to experiment cfg
+
+    if getattr(cli_args, "remote", False):
         with open(cli_args.remote, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
         exp_config.remote_sync = ModuleInitConfig(**cfg)
 
-    if hasattr(cli_args, "workers"):
-        for data in exp_config.data:  # Divide workers evenly among datasets
-            data.val_loader.args["workers"] = cli_args.workers // len(exp_config.data)
-            data.train_loader.args["workers"] = cli_args.workers // len(exp_config.data)
+    for data in exp_config.data:  # Divide workers evenly among datasets
+        data.val_loader.args["workers"] = cli_args.workers // len(exp_config.data)
+        data.train_loader.args["workers"] = cli_args.workers // len(exp_config.data)
 
     return exp_config
 
@@ -250,8 +257,9 @@ def init_training(
     perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
 ) -> TrainerT:
     """Initialize training manager class + distributed setup"""
-    comm.initialize()
+    comm.initialize()  # Init distributed if required
 
+    # Making the big assumption that step interval is same for all optimizers
     trainer_config.optimizer_interval = exp_config.model[0].optimizer.args.pop(
         "step_interval", 1
     )

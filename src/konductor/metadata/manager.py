@@ -54,7 +54,8 @@ class MetadataManager:
         self._metadata_file = self.workspace / "metadata.yaml"
         if not self._metadata_file.exists() and comm.is_main_process():
             metadata = {
-                "note": "",
+                "brief": "",
+                "notes": "",
                 "epoch": self.epoch,
                 "commit_begin": self._get_commit(),
                 "train_begin": datetime.now(),
@@ -72,6 +73,12 @@ class MetadataManager:
         assert path.exists(), f"New workspace folder does not exist: {path}"
         self.checkpointer.rootdir = path
         self.perflog.config.write_path = path
+
+    def write_brief(self, brief: str) -> None:
+        """Writes brief to metadata file"""
+        if len(brief) == 0:
+            return  # Skip writing nothing
+        self._update_metadata({"brief": brief})
 
     def resume(self) -> Dict[str, Any] | None:
         """Resume if available, pull from remote if necessary"""
@@ -100,10 +107,12 @@ class MetadataManager:
         return git_hash
 
     def _update_metadata(self, data: Dict[str, Any]):
-        """Updates the metadata file with the current epoch"""
+        """Updates the metadata file with dictionary"""
         with open(self._metadata_file, "r", encoding="utf-8") as f:
             metadata: Dict[str, Any] = yaml.safe_load(f)
-        metadata.update(data)
+
+        metadata.update(data)  # Add changes to metadata
+
         with open(self._metadata_file, "w", encoding="utf-8") as f:
             yaml.safe_dump(metadata, f)
 

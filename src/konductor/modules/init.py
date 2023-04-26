@@ -79,7 +79,8 @@ class ExperimentInitConfig:
     Configuration for all the modules for training
     """
 
-    work_dir: Path
+    brief: str  # Short description for experiment
+    work_dir: Path  # Directory for saving everything
     model: List[ModelInitConfig]
     data: List[DatasetInitConfig]
     criterion: List[ModuleInitConfig]
@@ -94,6 +95,7 @@ class ExperimentInitConfig:
             remote_sync = None
 
         return cls(
+            brief=parsed_dict.get("brief", ""),
             model=[ModelInitConfig.from_yaml(cfg) for cfg in parsed_dict["model"]],
             data=[DatasetInitConfig.from_yaml(cfg) for cfg in parsed_dict["dataset"]],
             criterion=[
