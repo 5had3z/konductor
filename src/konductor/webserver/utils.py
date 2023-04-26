@@ -9,6 +9,8 @@ import pandas as pd
 from pyarrow import parquet as pq
 from konductor.utilities.metadata import _PQ_REDUCED_RE
 
+from logging import debug
+
 
 @dataclass
 class Experiment:
@@ -29,7 +31,7 @@ class Experiment:
         log_files = [f for f in root.iterdir() if re.match(_PQ_REDUCED_RE, f.name)]
 
         if len(log_files) == 0:
-            print(f"Skipping {root.name}")
+            debug(f"Skipping {root.name}")
             return None
 
         keys: List[str] = []
@@ -132,17 +134,21 @@ class OptionTree:
             self.children[nxt_key] = OptionTree(option)
 
 
-def get_experiments(root_dir: Path) -> List[Experiment]:
-    experiments = []
+EXPERIMENTS: List[Experiment] = []
+OPTION_TREE = OptionTree.make_root()
+
+
+def get_experiments(root_dir: Path):
+    """Add experiments in root directory to experiment folder"""
     for p in root_dir.iterdir():
         e = Experiment.from_path(p)
         if e is not None:
-            experiments.append(e)
-    return experiments
+            EXPERIMENTS.append(e)
+    return EXPERIMENTS
 
 
-def get_option_tree(exp: List[Experiment]) -> OptionTree:
-    tree = OptionTree.make_root()
+def get_option_tree(exp: List[Experiment]):
+    """Add experiments to the option tree"""
     for s in list(s for e in exp for s in e.stats):
-        tree.add(s)
-    return tree
+        OPTION_TREE.add(s)
+    return OPTION_TREE

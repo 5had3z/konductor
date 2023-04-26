@@ -48,6 +48,7 @@ dependencies = [
 
 [project.scripts]
 konduct-metadata = "konductor.utilities.metadata:app"
+konduct-review = "konductor.webserver.app:app.run"
 
 [project.optional-dependencies]
 REMOTE = [

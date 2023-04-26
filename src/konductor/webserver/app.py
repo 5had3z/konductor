@@ -3,120 +3,52 @@
 
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import List
 
-import pandas as pd
-from dash import Dash, html, dcc, Input, Output
-from dash.exceptions import PreventUpdate
+import dash
+from dash import Dash, html, dcc
 import dash_bootstrap_components as dbc
-import plotly.graph_objects as go
 
-try:
-    from .utils import get_experiments, get_option_tree
-except ImportError:
-    from utils import get_experiments, get_option_tree
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=True)
 
-parser = ArgumentParser()
-parser.add_argument("--root", type=Path, default=Path.cwd())
-args = parser.parse_args()
 
-experiments = get_experiments(args.root)
-stat_tree = get_option_tree(experiments)
-exp_hashes = list(e.name for e in experiments)
-
-app.layout = html.Div(
-    children=[
-        html.H1(children="Konduct-Review"),
-        dbc.Row(
-            [
-                dbc.Col(
+def get_basic_layout(root_dir: str):
+    """
+    Get layout for app after registering all other pages,
+    the root directory of the experiment folder is saved in
+    store called root-dir which other components can then use
+    """
+    return html.Div(
+        [
+            html.H1("Konduct Review"),
+            dcc.Store(id="root-dir", data=root_dir),
+            html.Div(
+                dbc.ButtonGroup(
                     [
-                        dbc.ModalTitle("Split"),
-                        dcc.Dropdown(stat_tree.keys, id="stat-split"),
+                        dbc.Button(page["name"], href=page["relative_path"])
+                        for page in dash.page_registry.values()
                     ]
                 ),
-                dbc.Col([dbc.ModalTitle("Group"), dcc.Dropdown(id="stat-group")]),
-                dbc.Col([dbc.ModalTitle("Statistic"), dcc.Dropdown(id="stat-name")]),
-            ],
-        ),
-        dbc.Row(
-            [
-                dbc.ModalTitle("Select Runs"),
-                html.Div(dcc.Dropdown(exp_hashes, id="enable-exp", multi=True)),
-            ]
-        ),
-        dcc.Graph(id="line-graph"),
-    ]
-)
+            ),
+            dash.page_container,
+        ]
+    )
 
 
-@app.callback(
-    Output("stat-group", "options"),
-    Output("stat-group", "value"),
-    Input("stat-split", "value"),
-)
-def update_stat_group(split: str):
-    if not split:
-        return [], None
-    return stat_tree[split].keys, None  # Deselect
+def add_base_args(parser: ArgumentParser):
+    """Add basic args for app"""
+    parser.add_argument("--root", type=Path, default=Path.cwd())
 
 
-@app.callback(
-    Output("stat-name", "options"),
-    Output("stat-name", "value"),
-    Input("stat-split", "value"),
-    Input("stat-group", "value"),
-)
-def update_stat_name(split: str, group: str):
-    if split and group:
-        search_value = "/".join([split, group])
-        return stat_tree[search_value].keys, None
-    return [], None  # Deselect and clear
+def run_as_main() -> None:
+    """Main entrypoint for basic pages"""
+    parser = ArgumentParser()
+    add_base_args(parser)
+    args = parser.parse_args()
 
-
-@app.callback(
-    Output("enable-exp", "options"),
-    Input("stat-split", "value"),
-    Input("stat-group", "value"),
-    Input("stat-name", "value"),
-)
-def filter_experiments(split: str, group: str, name: str):
-    if split and group and name:
-        search = "/".join([split, group, name])
-        return [e.name for e in experiments if search in e.stats]
-    raise PreventUpdate  # Don't deselect/mess with things
-
-
-@app.callback(
-    Output("line-graph", "figure"),
-    Input("enable-exp", "value"),
-    Input("stat-split", "value"),
-    Input("stat-group", "value"),
-    Input("stat-name", "value"),
-)
-def update_graph(exp_list: List[str], split: str, group: str, name: str):
-    if not (split and group and name and exp_list):
-        raise PreventUpdate
-
-    stat_path = "/".join([split, group, name])
-    exps: List[pd.Series] = [
-        e[stat_path].rename(e.name).sort_index()
-        for e in experiments
-        if e.name in exp_list and stat_path in e
-    ]
-    if len(exps) == 0:
-        raise PreventUpdate
-
-    fig = go.Figure()
-    for exp in exps:
-        fig.add_trace(
-            go.Scatter(x=exp.index, y=exp.values, mode="lines", name=exp.name)
-        )
-
-    return fig
+    app.layout = get_basic_layout(str(args.root))
+    app.run(debug=True)
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    run_as_main()
