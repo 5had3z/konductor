@@ -115,6 +115,15 @@ class OptionTree:
         nxt_key = option.popleft()
         return self.children[nxt_key]._get_helper(option)
 
+    def __contains__(self, option: str) -> bool:
+        """Check if option path exists in tree"""
+        try:
+            self.__getitem__(option)
+        except KeyError:
+            return False
+        else:
+            return True
+
     def __getitem__(self, option: str):
         """Returns node of requested option string foo/bar/baz"""
         return self._get_helper(deque(option.split("/")))

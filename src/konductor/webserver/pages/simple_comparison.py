@@ -36,7 +36,7 @@ layout = html.Div(
                 dbc.Col([dbc.ModalTitle("Statistic"), dcc.Dropdown(id="stat-name")]),
             ],
         ),
-        dcc.Graph(id="line-graph"),
+        dcc.Graph(id="simple-comparison-graph"),
     ]
 )
 
@@ -70,13 +70,12 @@ def update_stat_group(split: str):
 )
 def update_stat_name(split: str, group: str):
     if split and group:
-        search_value = "/".join([split, group])
-        return OPTION_TREE[search_value].keys, None
+        return OPTION_TREE[f"{split}/{group}"].keys, None
     return [], None  # Deselect and clear
 
 
 @callback(
-    Output("line-graph", "figure"),
+    Output("simple-comparison-graph", "figure"),
     Input("stat-split", "value"),
     Input("stat-group", "value"),
     Input("stat-name", "value"),
