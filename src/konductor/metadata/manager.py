@@ -76,7 +76,7 @@ class MetadataManager:
 
     def write_brief(self, brief: str) -> None:
         """Writes brief to metadata file"""
-        if len(brief) == 0:
+        if len(brief) == 0 or not comm.is_main_process():
             return  # Skip writing nothing
         self._update_metadata({"brief": brief})
 
