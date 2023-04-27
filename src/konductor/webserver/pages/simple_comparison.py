@@ -10,13 +10,16 @@ import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 
 from konductor.webserver.utils import (
-    EXPERIMENTS,
-    OPTION_TREE,
-    get_experiments,
-    get_option_tree,
+    fill_experiments,
+    fill_option_tree,
+    Experiment,
+    OptionTree,
 )
 
 dash.register_page(__name__, path="/simple-comparison")
+
+EXPERIMENTS: List[Experiment] = []
+OPTION_TREE = OptionTree.make_root()
 
 layout = html.Div(
     children=[
@@ -26,7 +29,7 @@ layout = html.Div(
                 dbc.Col(
                     [
                         html.H4("Split"),
-                        dcc.Dropdown(OPTION_TREE.keys, id="stat-split"),
+                        dcc.Dropdown(id="stat-split"),
                     ]
                 ),
                 dbc.Col([html.H4("Group"), dcc.Dropdown(id="stat-group")]),
@@ -43,8 +46,8 @@ layout = html.Div(
     Input("root-dir", "data"),
 )
 def init_exp(root_dir: str):
-    get_experiments(Path(root_dir))
-    get_option_tree(EXPERIMENTS)
+    fill_experiments(Path(root_dir), EXPERIMENTS)
+    fill_option_tree(EXPERIMENTS, OPTION_TREE)
     return OPTION_TREE.keys
 
 

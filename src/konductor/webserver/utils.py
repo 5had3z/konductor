@@ -136,21 +136,15 @@ class OptionTree:
             self.children[nxt_key] = OptionTree(option)
 
 
-EXPERIMENTS: List[Experiment] = []
-OPTION_TREE = OptionTree.make_root()
-
-
-def get_experiments(root_dir: Path):
+def fill_experiments(root_dir: Path, experiments: List[Experiment]):
     """Add experiments in root directory to experiment folder"""
     for p in root_dir.iterdir():
         e = Experiment.from_path(p)
         if e is not None:
-            EXPERIMENTS.append(e)
-    return EXPERIMENTS
+            experiments.append(e)
 
 
-def get_option_tree(exp: List[Experiment]):
+def fill_option_tree(exp: List[Experiment], tree: OptionTree):
     """Add experiments to the option tree"""
     for s in list(s for e in exp for s in e.stats):
-        OPTION_TREE.add(s)
-    return OPTION_TREE
+        tree.add(s)
