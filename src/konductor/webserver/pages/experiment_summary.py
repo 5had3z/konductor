@@ -75,7 +75,8 @@ layout = html.Div(
     Input("root-dir", "data"),
 )
 def init_exp(root_dir: str):
-    fill_experiments(Path(root_dir), EXPERIMENTS)
+    if len(EXPERIMENTS) == 0:
+        fill_experiments(Path(root_dir), EXPERIMENTS)
     return [e.name for e in EXPERIMENTS]
 
 
@@ -112,7 +113,6 @@ def selected_experiment(exp_name: str):
     Input("summary-stat-group", "value"),
 )
 def update_stat_name(group: str):
-    print(f"updating names with {group=}")
     if not group:
         return [], None  # Deselect and clear
 
