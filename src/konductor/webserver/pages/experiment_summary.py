@@ -25,6 +25,7 @@ layout = html.Div(
     children=[
         html.H2(children="Experiment Summary"),
         html.Div(dcc.Dropdown(id="summary-exp-select")),
+        html.Div(id="summary-exp-hash"),
         dbc.Row(
             [
                 dbc.Col(
@@ -85,13 +86,14 @@ def init_exp(root_dir: str):
     Output("summary-stat-group", "value"),
     Output("summary-traincfg-txt", "value"),
     Output("summary-metadata-txt", "value"),
+    Output("summary-exp-hash", "children"),
     Input("summary-exp-select", "value"),
 )
 def selected_experiment(exp_name: str):
     """Return new statistic group and deselect previous value,
     also initialize the training cfg and metadata text boxes"""
     if not exp_name:
-        return [], None, "", ""
+        return [], None, "", "", ""
     OPTION_TREE.children = {}
 
     exp = next(e for e in EXPERIMENTS if e.name == exp_name)
@@ -104,7 +106,7 @@ def selected_experiment(exp_name: str):
     cfg_txt = (exp.root / "train_config.yml").read_text()
     meta_txt = (exp.root / "metadata.yaml").read_text()
 
-    return sorted(stat_groups), None, cfg_txt, meta_txt
+    return sorted(stat_groups), None, cfg_txt, meta_txt, exp.root.name
 
 
 @callback(
