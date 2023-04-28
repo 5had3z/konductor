@@ -66,7 +66,7 @@ class Metadata:
     note: str
     train_begin: datetime
     train_last: datetime
-    name: str = ""
+    brief: str = ""
 
     @property
     def train_duration(self):
@@ -92,7 +92,7 @@ def print_metadata(path: Path) -> None:
     ss = StringIO()
     ss.write(
         f"{Fore.GREEN+Style.BRIGHT}{path.parent.name} "
-        f"{Fore.WHITE}- {Fore.BLUE}{mdata.name}\n"
+        f"{Fore.WHITE}- {Fore.BLUE}{mdata.brief}\n"
     )
     ss.write(f"{Fore.GREEN}Metadata:{Style.RESET_ALL}\n")
     ss.write(
