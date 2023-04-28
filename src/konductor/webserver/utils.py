@@ -42,7 +42,7 @@ class Experiment:
         try:
             with open(root / "metadata.yaml", "r", encoding="utf-8") as f:
                 mdata = yaml.safe_load(f)
-            name: str = mdata.get("brief", mdata["note"][:30])
+            name: str = mdata.get("brief", mdata["notes"][:30])
         except FileNotFoundError:
             name = ""
 

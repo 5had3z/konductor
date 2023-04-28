@@ -37,7 +37,7 @@ def get_basic_layout(root_dir: str):
 
 def add_base_args(parser: ArgumentParser):
     """Add basic args for app"""
-    parser.add_argument("--root", type=Path, default=Path.cwd())
+    parser.add_argument("--workspace", type=Path, default=Path.cwd())
 
 
 def run_as_main() -> None:

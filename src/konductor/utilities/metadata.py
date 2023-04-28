@@ -151,17 +151,19 @@ def reduce_shard(shards: List[Path]) -> None:
             writer.write_table(old_data)
 
         for shard in shards:
-            print(f"Moving {shard.name}")
             data = pq.read_table(shard, **pq_kwargs)
 
             # check if iteration has been added before if there's a matching timestamp
             ret = (
                 -1
                 if old_data is None
-                else pc.index(old_data["timestamp"], data["timestamp"][0])
+                else pc.index(old_data["timestamp"], data["timestamp"][0]).as_py()
             )
-            if ret == -1:  # has not been added
+            if ret == -1:  # Add new data to table
+                print(f"Writing {shard.name}")
                 writer.write_table(data)
+            else:  # Skip copying duplicate, just delete
+                print(f"Skipping {shard.name}")
 
             shard.unlink()  # remove merged table
 
