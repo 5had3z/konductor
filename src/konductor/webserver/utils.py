@@ -1,5 +1,6 @@
 from pathlib import Path
 from dataclasses import dataclass
+from datetime import datetime
 from collections import deque
 import re
 from typing import List, Deque
@@ -16,6 +17,7 @@ from logging import debug
 class Experiment:
     root: Path
     name: str
+    last_train: datetime
     stats: List[str]
 
     @staticmethod
@@ -43,13 +45,15 @@ class Experiment:
             with open(root / "metadata.yaml", "r", encoding="utf-8") as f:
                 mdata = yaml.safe_load(f)
             name: str = mdata.get("brief", mdata["notes"][:30])
+            ts = mdata.get("train_last", datetime(1, 1, 1))
         except FileNotFoundError:
             name = ""
+            ts = datetime(1, 1, 1)
 
         if len(name) == 0:  # rename to exp hash if brief/note empty
             name = root.name
 
-        return cls(root, name, keys)
+        return cls(root, name, ts, keys)
 
     def _get_group_data(self, split: str, group: str) -> pd.DataFrame:
         """Return all statistics within a group with averaged iteration"""
@@ -151,6 +155,8 @@ def fill_experiments(root_dir: Path, experiments: List[Experiment]):
         e = Experiment.from_path(p)
         if e is not None:
             experiments.append(e)
+
+    experiments.sort(key=lambda e: e.last_train)
 
 
 def fill_option_tree(exp: List[Experiment], tree: OptionTree):

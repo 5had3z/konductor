@@ -63,7 +63,7 @@ class Metadata:
     commit_begin: str
     commit_last: str
     epoch: int
-    note: str
+    notes: str
     train_begin: datetime
     train_last: datetime
     brief: str = ""
@@ -104,7 +104,7 @@ def print_metadata(path: Path) -> None:
         f"duration: {mdata.train_duration.seconds / 3600:.2f} Hr, "
         f"start: {mdata.train_begin}, last: {mdata.train_last}\n"
     )
-    ss.write(f"\t{Fore.BLUE+Style.BRIGHT}Notes:{Style.RESET_ALL}\n{mdata.note}\n")
+    ss.write(f"\t{Fore.BLUE+Style.BRIGHT}Notes:{Style.RESET_ALL}\n{mdata.notes}\n")
 
     print(ss.getvalue())
 
