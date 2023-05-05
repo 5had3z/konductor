@@ -52,7 +52,7 @@ class TorchModelConfig(ModelConfig):
             )
             logger = getLogger()
             logger.info(f"Loading pretrained checkpoint from {ckpt_path}")
-            checkpoint = load(ckpt_path)
+            checkpoint = load(ckpt_path, map_location="cpu")
             if "model" in checkpoint:
                 missing, unused = model.load_state_dict(
                     checkpoint["model"], strict=False
