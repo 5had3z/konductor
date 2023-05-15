@@ -152,6 +152,8 @@ class OptionTree:
 def fill_experiments(root_dir: Path, experiments: List[Experiment]):
     """Add experiments in root directory to experiment folder"""
     for p in root_dir.iterdir():
+        if not p.is_dir():
+            continue
         e = Experiment.from_path(p)
         if e is not None:
             experiments.append(e)
