@@ -89,13 +89,16 @@ layout = html.Div(
 
 @callback(
     Output("stat-split", "options"),
+    Output("left-select", "options"),
+    Output("right-select", "options"),
     Input("root-dir", "data"),
 )
 def init_exp(root_dir: str):
     if len(EXPERIMENTS) == 0:
         fill_experiments(Path(root_dir), EXPERIMENTS)
     fill_option_tree(EXPERIMENTS, OPTION_TREE)
-    return OPTION_TREE.keys
+    opts = [e.name for e in EXPERIMENTS]
+    return OPTION_TREE.keys, opts, opts
 
 
 @callback(
