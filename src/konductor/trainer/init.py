@@ -2,10 +2,11 @@
 Initialisation methods for Training/Validation etc.
 """
 import argparse
-from typing import Dict, Type
+from typing import Any, Dict, Type
 from pathlib import Path
 import yaml
 import hashlib
+from io import StringIO
 
 from .trainer import TrainerConfig, TrainerModules, TrainerT
 from ..modules import (
@@ -118,6 +119,17 @@ def parse_evaluation_args() -> argparse.ArgumentParser:
     return parser
 
 
+def hash_from_config(config: Dict[str, Any]) -> str:
+    """Return hashed version of the config file loaded as a dict
+    This simulates writing config to a file which prevents issues
+    with changing orders and formatting between the written config
+    and original config"""
+    ss = StringIO()
+    yaml.safe_dump(config, ss)
+    ss.seek(0)
+    return hashlib.md5(ss.read().encode("utf-8")).hexdigest()
+
+
 def get_experiment_cfg(
     workspace: Path, config_file: Path | None = None, run_hash: str | None = None
 ) -> ExperimentInitConfig:
@@ -135,7 +147,7 @@ def get_experiment_cfg(
         with open(config_file, "r", encoding="utf-8") as conf_f:
             exp_cfg = yaml.safe_load(conf_f)
 
-        train_hash = hashlib.md5(str(exp_cfg).encode("utf-8")).hexdigest()
+        train_hash = hash_from_config(exp_cfg)
         exp_path: Path = workspace / train_hash
 
         if not exp_path.exists():
