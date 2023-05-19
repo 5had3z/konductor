@@ -12,7 +12,7 @@ import dash_bootstrap_components as dbc
 app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=True)
 
 
-def get_basic_layout(root_dir: str):
+def get_basic_layout(root_dir: str, content_url: str):
     """
     Get layout for app after registering all other pages,
     the root directory of the experiment folder is saved in
@@ -22,6 +22,7 @@ def get_basic_layout(root_dir: str):
         [
             html.H1("Konduct Review"),
             dcc.Store(id="root-dir", data=root_dir),
+            dcc.Store(id="content-url", data=content_url),
             html.Div(
                 dbc.ButtonGroup(
                     [
