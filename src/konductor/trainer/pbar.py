@@ -110,13 +110,13 @@ class ProgressBar(Thread):
             )
 
             ncols = os.get_terminal_size().columns if self.ncols is None else self.ncols
-            print(" " * (ncols - 2), end="\r")  # Clear the terminal
+            print("\r" + " " * (ncols - 2), end="\r")  # Clear the terminal
             ncols -= len(start_str) + len(end_str) - self._fmt_len // 2
             done_bars = ncols * self.n // self.total
 
             bar_str = f"{Fore.GREEN}{'█'*done_bars}{Fore.YELLOW}{i}{Fore.RED}{'-'*(ncols - done_bars)}{Fore.RESET}"
 
-            print(start_str, bar_str, end_str, end="\r")
+            print(start_str, bar_str, end_str, end="")
 
             if self.n >= self.total or self.stop.is_set():
                 print()

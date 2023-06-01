@@ -113,7 +113,7 @@ class PyTorchTrainer(BaseTrainer):
         if config.amp:
             modules.grad_scaler = GradScaler()
             data_manager.checkpointer.add_checkpointable(
-                "grad_scaler", self.modules.grad_scaler
+                "grad_scaler", modules.grad_scaler
             )
             self._train = _amp_wrapper(self._train, config.amp_kwargs)
             self._validate = _amp_wrapper(self._validate, config.amp_kwargs)
