@@ -150,7 +150,7 @@ def get_experiment_cfg(
         train_hash = hash_from_config(exp_cfg)
         exp_path: Path = workspace / train_hash
 
-        if not exp_path.exists():
+        if not exp_path.exists() and comm.get_local_rank() == 0:
             print(f"Creating experiment directory {exp_path}")
             exp_path.mkdir(parents=True)
         else:

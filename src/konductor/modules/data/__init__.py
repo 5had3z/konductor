@@ -3,7 +3,7 @@ import enum
 from dataclasses import dataclass, field
 import os
 from pathlib import Path
-from typing import Any, Dict, Sequence
+from typing import Any, Dict, List, Sequence
 
 from ..registry import Registry, BaseConfig
 from ..init import ModuleInitConfig, DatasetInitConfig, ExperimentInitConfig
@@ -78,6 +78,7 @@ class DataloaderConfig(BaseConfig):
     workers: int = 0
     shuffle: bool = False
     drop_last: bool = True
+    augmentations: List[ModuleInitConfig] = field(default_factory=lambda: [])
 
     @classmethod
     def from_config(cls, dataset: DatasetConfig, mode: Mode):

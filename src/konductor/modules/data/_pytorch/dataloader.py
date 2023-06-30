@@ -1,9 +1,8 @@
 from typing import Any, Callable, List, Type
-from warnings import warn
 from dataclasses import dataclass
 
 from ....utilities.comm import get_world_size, in_distributed_mode
-from .. import DataloaderConfig, DATALOADER_REGISTRY
+from .. import DataloaderConfig, DATALOADER_REGISTRY, Registry
 
 from torch.utils.data import (
     DataLoader,
@@ -12,14 +11,19 @@ from torch.utils.data import (
     RandomSampler,
     Sampler,
     BatchSampler,
+    default_collate,
 )
 
+DATAPIPE_AUG = Registry("datapipe_augmentations")
+
 try:
+    from torchdata.datapipes.utils import pin_memory_fn
     from torchdata.datapipes.iter import IterableWrapper
     from torchdata.dataloader2 import DataLoader2
     from torchdata.dataloader2.reading_service import (
         MultiProcessingReadingService,
         DistributedReadingService,
+        SequentialReadingService,
     )
 except ImportError:
     print("torchdata unavailable")
@@ -76,16 +80,36 @@ class DataloaderV2Config(DataloaderConfig):
     :param DataloaderConfig: _description_
     """
 
+    pin_memory: bool = True
+
     def get_instance(self, *args, **kwargs):
         datapipe = IterableWrapper(self.dataset.get_instance(self.mode))
 
-        if self.workers > 0 and in_distributed_mode():
-            warn(
-                "Multiworker distributed is currently not supported"
-                "(waiting for torch2), defaulting to single worker"
-            )
-
+        if self.shuffle:
+            datapipe = datapipe.shuffle()
         if in_distributed_mode():
+            datapipe = datapipe.sharding_filter()
+
+        # if len(self.augmentations) > 0:
+        #     transforms = torch.nn.Sequential(
+        #         *list(DATAPIPE_AUG[aug.type](**aug.args) for aug in self.augmentations)
+        #     )
+        #     datapipe = datapipe.map(torch.jit.script(transforms))
+
+        for aug in self.augmentations:
+            datapipe = datapipe.map(DATAPIPE_AUG[aug.type](**aug.args))
+
+        datapipe = datapipe.batch(self.batch_size).map(default_collate)
+
+        if self.pin_memory:
+            datapipe = datapipe.map(pin_memory_fn)
+
+        if self.workers > 0 and in_distributed_mode():
+            rs = SequentialReadingService(
+                DistributedReadingService(),
+                MultiProcessingReadingService(num_workers=self.workers),
+            )
+        elif in_distributed_mode():
             rs = DistributedReadingService()
         elif self.workers > 0:
             rs = MultiProcessingReadingService(num_workers=self.workers)
