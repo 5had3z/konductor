@@ -116,7 +116,7 @@ class ProgressBar(Thread):
 
             bar_str = f"{Fore.GREEN}{'█'*done_bars}{Fore.YELLOW}{i}{Fore.RED}{'-'*(ncols - done_bars)}{Fore.RESET}"
 
-            print(start_str, bar_str, end_str, end="")
+            print(start_str, bar_str, end_str, end="\r")
 
             if self.n >= self.total or self.stop.is_set():
                 print()
