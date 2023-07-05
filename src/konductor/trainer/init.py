@@ -157,7 +157,7 @@ def get_experiment_cfg(
             print(f"Using experiment directory {exp_path}")
 
         # Ensure the experiment configuration exists in the target directory
-        if not (exp_path / "train_config.yml").exists():
+        if not (exp_path / "train_config.yml").exists() and comm.get_local_rank() == 0:
             with open(exp_path / "train_config.yml", "w", encoding="utf-8") as f:
                 yaml.safe_dump(exp_cfg, f)
 
