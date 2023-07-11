@@ -22,10 +22,10 @@ class DaliLoaderConfig(DataloaderConfig):
             "augmentations": self.augmentations,
         }
 
-        dali_pipe, out_map, reader_name = self.dataset.get_instance(
+        dali_pipe, out_map, reader_name, size = self.dataset.get_instance(
             mode=self.mode, random_shuffle=self.mode == Mode.train, **pipe_kwargs
         )
 
         return DALIGenericIterator(
-            dali_pipe, out_map, reader_name=reader_name, auto_reset=True
+            dali_pipe, out_map, reader_name=reader_name, size=size, auto_reset=True
         )
