@@ -70,6 +70,17 @@ class DatasetInitConfig:
         else:
             train_loader = ModuleInitConfig(**parsed_dict["train_loader"])
             val_loader = ModuleInitConfig(**parsed_dict["val_loader"])
+
+        # Transform augmentations to ModuleInitConfig
+        if "augmentations" in train_loader.args:
+            train_loader.args["augmentations"] = [
+                ModuleInitConfig(**aug) for aug in train_loader.args["augmentations"]
+            ]
+        if "augmentations" in val_loader.args:
+            val_loader.args["augmentations"] = [
+                ModuleInitConfig(**aug) for aug in val_loader.args["augmentations"]
+            ]
+
         return cls(dataset, train_loader, val_loader)
 
 
