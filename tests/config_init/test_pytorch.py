@@ -22,7 +22,7 @@ def test_optim_param_groups(example_config: ExperimentInitConfig):
     lr_mult = 0.1
     example_config.model[0].optimizer.args["param_group_fn"] = {
         "type": "custom_pg",
-        "arg": lr_mult,
+        "args": {"arg": lr_mult},
     }
     _, optim, _ = get_training_model(example_config)
 
