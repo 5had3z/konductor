@@ -30,7 +30,7 @@ class Statistic(metaclass=ABCMeta):
 
     @classmethod
     def from_config(cls, buffer_length: int, writepath: Path, **kwargs):
-        return cls(buffer_length, writepath, **kwargs)
+        return cls(buffer_length=buffer_length, writepath=writepath, **kwargs)
 
     def __init__(
         self,
