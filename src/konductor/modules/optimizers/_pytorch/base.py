@@ -7,6 +7,7 @@ from torch import nn
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler, ReduceLROnPlateau
 
+from ...init import ModuleInitConfig
 from ...registry import Registry
 from ...optimizers import OptimizerConfig
 
@@ -64,9 +65,8 @@ class PytorchOptimizer(OptimizerConfig):
         optim_cls = self.maybe_add_gradient_clipping(optim_cls)
 
         if self.param_group_fn is not None:
-            pg_kwargs = dict(self.param_group_fn)  # make copy to modify
-            pg_fn = pg_kwargs.pop("type")
-            params = PG_REGISTRY[pg_fn](model, **pg_kwargs, **asdict(self))
+            pg = ModuleInitConfig(**self.param_group_fn)
+            params = PG_REGISTRY[pg.type](model, **pg.args, **asdict(self))
         else:
             params = model.parameters()
 
