@@ -49,7 +49,7 @@ class ProgressBar(Thread):
     def __init__(
         self,
         total: int,
-        desc: str = "",
+        desc: str = "Running",
         ncols: int | None = None,
         frequency: float = 10,
         progress_style: List[str] | int | None = None,

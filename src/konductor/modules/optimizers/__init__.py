@@ -1,4 +1,5 @@
 import abc
+import inspect
 from dataclasses import dataclass
 from typing import Any
 
@@ -19,7 +20,13 @@ class OptimizerConfig(BaseConfig):
         sched_cfg: SchedulerConfig = SCHEDULER_REGISTRY[
             config.scheduler.type
         ].from_config(config, **config.scheduler.args)
-        return cls(scheduler=sched_cfg, **config.args)
+        # TODO Maybe warn unused kwargs
+        filtered = {
+            k: v
+            for k, v in config.args.items()
+            if k in inspect.signature(cls).parameters
+        }
+        return cls(scheduler=sched_cfg, **filtered)
 
     @abc.abstractmethod
     def get_instance(self, model: Any) -> Any:
