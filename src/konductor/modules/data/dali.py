@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import torch
 from nvidia.dali.plugin.pytorch import DALIGenericIterator
+from nvidia.dali.plugin.pytorch import LastBatchPolicy
 
 from . import DataloaderConfig, DATALOADER_REGISTRY, Mode, Registry
 from ...utilities.comm import get_rank, get_world_size
@@ -27,5 +28,10 @@ class DaliLoaderConfig(DataloaderConfig):
         )
 
         return DALIGenericIterator(
-            dali_pipe, out_map, reader_name=reader_name, size=size, auto_reset=True
+            dali_pipe,
+            out_map,
+            reader_name=reader_name,
+            size=size,
+            auto_reset=True,
+            last_batch_policy=LastBatchPolicy.DROP,
         )

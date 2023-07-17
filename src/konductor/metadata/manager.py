@@ -4,10 +4,11 @@
 
 from datetime import datetime, timedelta
 from dataclasses import dataclass
-import os
 from pathlib import Path
 from typing import Any, Dict
 import subprocess
+from warnings import warn
+import os
 
 import yaml
 
@@ -88,6 +89,8 @@ class MetadataManager:
             self.epoch = extras["epoch"]
             self.iteration = extras["iteration"]
             self.perflog.set_iteration(self.iteration)
+        else:
+            warn("Unable to load epoch and iteration from checkpoint")
 
         return extras
 
