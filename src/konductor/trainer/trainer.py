@@ -34,7 +34,6 @@ class TrainerConfig:
     loss_monitor: Callable[[Dict[str, Any]], None] = lambda x: None
 
     pbar: Callable | None = None  # Enable Console Progress
-    optimizer_interval: int = 1  # interval to call optimizer.step()
 
 
 class TrainingError(RuntimeError):

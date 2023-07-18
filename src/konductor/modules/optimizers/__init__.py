@@ -14,12 +14,11 @@ REGISTRY = Registry("optimizers")
 class OptimizerConfig(BaseConfig):
     scheduler: SchedulerConfig
     lr: float
+    step_interval: int = 1
 
     @classmethod
     def from_config(cls, config: OptimizerInitConfig):
-        sched_cfg: SchedulerConfig = SCHEDULER_REGISTRY[
-            config.scheduler.type
-        ].from_config(config, **config.scheduler.args)
+        sched_cfg = SCHEDULER_REGISTRY[config.scheduler.type](**config.scheduler.args)
         # TODO Maybe warn unused kwargs
         filtered = {
             k: v

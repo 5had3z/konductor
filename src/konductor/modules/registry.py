@@ -7,10 +7,11 @@ by a dataset can be used to configure the model
 """
 
 import abc
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import inspect
 from logging import getLogger
 from typing import Any, Dict, Type
+from warnings import warn
 
 from .init import ExperimentInitConfig
 
@@ -31,6 +32,19 @@ class BaseConfig(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_instance(self, *args, **kwargs) -> Any:
         """Get initialised module from configuration"""
+
+    def init_auto_filter(self, target, **kwargs) -> Dict[str, Any]:
+        """Make instance of target class with auto-filtered asdict(self) + kwargs"""
+        kwargs.update(asdict(self))
+        filtered = {
+            k: v for k, v in kwargs.items() if k in inspect.signature(target).parameters
+        }
+
+        diff = set(kwargs.keys()).difference(set(filtered.keys()))
+        if len(diff) > 0:
+            warn(f"Filtered unused arguments from {target.__name__}: {diff}")
+
+        return target(**filtered)
 
 
 class Registry:

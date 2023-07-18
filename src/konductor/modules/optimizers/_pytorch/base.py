@@ -70,11 +70,9 @@ class PytorchOptimizer(OptimizerConfig):
         else:
             params = model.parameters()
 
-        kwargs.update(**asdict(self))
-        for extra in ["scheduler", "gradient_clipping", "param_group_fn"]:
-            kwargs.pop(extra, None)
-
-        return optim_cls(params, **kwargs)
+        optim = self.init_auto_filter(optim_cls, params=params, **kwargs)
+        setattr(optim, "step_interval", self.step_interval)
+        return optim
 
     @abc.abstractmethod
     def get_instance(self, model: nn.Module) -> Optimizer:

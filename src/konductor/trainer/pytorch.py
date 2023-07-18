@@ -39,7 +39,6 @@ class PyTorchTrainerConfig(TrainerConfig):
 def _amp_wrapper(func, amp_kwargs: Dict[str, Any] | None = None):
     if amp_kwargs is None:
         amp_kwargs = {"device_type": "cuda"}
-        print("Assuming cuda amp")
 
     def with_amp(*args, **kwargs):
         with autocast(**amp_kwargs):
@@ -144,13 +143,35 @@ class PyTorchTrainer(BaseTrainer):
                 else self.modules.grad_scaler.scale(l)
                 for l in losses.values()
             ]
-            all_loss = torch.stack(all_loss).sum() / self._config.optimizer_interval
+            all_loss = torch.stack(all_loss).sum()
             all_loss.backward()
+
+    def _maybe_step_scheduler(self, is_epoch: bool):
+        assert hasattr(self.modules.scheduler, "epoch_step"), (
+            "Scheduler needs 'epoch_step' attribute to "
+            "determine whether to step on iteration or epoch"
+        )
+        if self.modules.scheduler.epoch_step != is_epoch:
+            return
+
+        if isinstance(self.modules.scheduler, ReduceLROnPlateau):
+            if self.modules.scheduler.epoch_step == False:
+                self._logger.warn(
+                    "Reduce on plateau uses validation"
+                    "epoch loss for stepping by default"
+                )
+            self.modules.scheduler.step(self.data_manager.perflog.epoch_loss())
+        else:
+            self.modules.scheduler.step()
 
     def _maybe_step_optimiser(self, iter_: int) -> None:
         """Step optimizer if modulo the interval"""
+        assert hasattr(self.modules.optimizer, "step_interval"), (
+            "Optimizer needs 'step_interval' attribute to "
+            "determine the interval optimizer should be stepped"
+        )
         with record_function("optimizer"):
-            if iter_ % self._config.optimizer_interval == 0:
+            if iter_ % self.modules.optimizer.step_interval == 0:
                 if self.modules.grad_scaler is not None:
                     self.modules.grad_scaler.step(self.modules.optimizer)
                     self.modules.grad_scaler.update()
@@ -158,6 +179,7 @@ class PyTorchTrainer(BaseTrainer):
                     self.modules.optimizer.step()
                 self.data_manager.iter_step()
                 self.modules.optimizer.zero_grad()
+                self._maybe_step_scheduler(is_epoch=False)
 
     @no_grad()
     def log_step(
@@ -248,10 +270,7 @@ class PyTorchTrainer(BaseTrainer):
                 ):
                     break
 
-        if isinstance(self.modules.scheduler, ReduceLROnPlateau):
-            self.modules.scheduler.step(self.data_manager.perflog.epoch_loss())
-        else:
-            self.modules.scheduler.step()
+        self._maybe_step_scheduler(is_epoch=True)
 
     def val_step(self, data) -> Tuple[Dict[str, Tensor] | None, Dict[str, Tensor]]:
         """

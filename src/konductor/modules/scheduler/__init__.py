@@ -2,12 +2,12 @@
 Learning rate schedulers
 """
 from dataclasses import dataclass
-from typing import Any, NewType, Sequence
+from typing import Any, NewType
 
 from ..registry import Registry, BaseConfig
 from ..init import ModelInitConfig, ExperimentInitConfig
 
-SchedulerT = NewType("Scheduler", Sequence)
+SchedulerT = NewType("Scheduler", Any)
 OptimizerT = NewType("Optimizer", Any)
 
 REGISTRY = Registry("scheduler")
@@ -15,12 +15,17 @@ REGISTRY = Registry("scheduler")
 
 @dataclass
 class SchedulerConfig(BaseConfig):
+    epoch_step: bool = True  # Scheduler is stepped at epoch, else at iteration
+
     @classmethod
     def from_config(cls, config: ExperimentInitConfig, *args, **kwargs):
         return super().from_config(config, *args, **kwargs)
 
-    def get_instance(self, optimizer: Any) -> SchedulerT:
-        raise NotImplementedError()
+    def get_instance(self, scheduler: SchedulerT, **kwargs):
+        """Add flag whether step is epoch based or iteration based"""
+        inst = self.init_auto_filter(scheduler, **kwargs)
+        setattr(inst, "epoch_step", self.epoch_step)
+        return inst
 
 
 try:

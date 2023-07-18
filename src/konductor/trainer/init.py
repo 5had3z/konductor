@@ -269,12 +269,6 @@ def init_training(
     perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
 ) -> TrainerT:
     """Initialize training manager class"""
-
-    # Making the big assumption that step interval is same for all optimizers
-    trainer_config.optimizer_interval = exp_config.model[0].optimizer.args.pop(
-        "step_interval", 1
-    )
-
     train_modules = init_training_modules(exp_config, train_module_cls)
     data_manager = init_data_manager(
         exp_config, train_modules, statistics, perf_log_cfg_cls
