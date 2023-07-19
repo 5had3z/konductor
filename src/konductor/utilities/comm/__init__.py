@@ -27,5 +27,3 @@ if not _has_imported:
 
 if not _has_imported:
     raise RuntimeError("No distributed communications framework found")
-else:
-    initialize()
