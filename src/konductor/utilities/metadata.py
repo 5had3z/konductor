@@ -74,7 +74,7 @@ class Metadata:
 
     @classmethod
     def from_yaml(cls, path: Path):
-        with open(path, "r", encoding="utf-8") as f:
+        with path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return cls(**data)
 

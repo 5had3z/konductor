@@ -74,11 +74,11 @@ def test_filenames(sample_ckpt: Checkpointer):
         fuzz_params(sample_ckpt._ckpts["model"])
         sample_ckpt.save(epoch)
 
-    dir_files = set(f.name for f in sample_ckpt.rootdir.iterdir() if f.is_file())
+    dir_files = set(f.stem for f in sample_ckpt.rootdir.iterdir() if f.is_file())
     for epoch in epochs:
-        assert f"{epoch}.pt" in dir_files
+        assert epoch in dir_files
 
-    assert "latest.pt" in dir_files
+    assert "latest" in dir_files
 
 
 def test_no_file(sample_ckpt: Checkpointer):
@@ -86,7 +86,8 @@ def test_no_file(sample_ckpt: Checkpointer):
     with pytest.raises(FileNotFoundError):
         sample_ckpt.load("foo")
 
-    assert sample_ckpt.resume() == None
+    with pytest.raises(FileNotFoundError):
+        sample_ckpt.resume()
 
 
 def test_metadata(sample_ckpt: Checkpointer):

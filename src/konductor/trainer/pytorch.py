@@ -126,6 +126,17 @@ class PyTorchTrainer(BaseTrainer):
                 "Using ReduceLROnPlateau scheduler, ensure you calculate loss during validation"
             )
 
+        # Optimizer and scheduler needs extra attributes injected
+        # to check when they need to be stepped
+        assert hasattr(self.modules.scheduler, "epoch_step"), (
+            "Scheduler needs 'epoch_step' attribute to "
+            "determine whether to step on iteration or epoch"
+        )
+        assert hasattr(self.modules.optimizer, "step_interval"), (
+            "Optimizer needs 'step_interval' attribute to "
+            "determine the interval optimizer should be stepped"
+        )
+
         # Warn user if they're on ampere or above and do not have tensor cores enabled
         if (
             not (tb.cuda.matmul.allow_tf32 and tb.cudnn.allow_tf32)
@@ -147,10 +158,6 @@ class PyTorchTrainer(BaseTrainer):
             all_loss.backward()
 
     def _maybe_step_scheduler(self, is_epoch: bool):
-        assert hasattr(self.modules.scheduler, "epoch_step"), (
-            "Scheduler needs 'epoch_step' attribute to "
-            "determine whether to step on iteration or epoch"
-        )
         if self.modules.scheduler.epoch_step != is_epoch:
             return
 
@@ -165,11 +172,6 @@ class PyTorchTrainer(BaseTrainer):
             self.modules.scheduler.step()
 
     def _maybe_step_optimiser(self, iter_: int) -> None:
-        """Step optimizer if modulo the interval"""
-        assert hasattr(self.modules.optimizer, "step_interval"), (
-            "Optimizer needs 'step_interval' attribute to "
-            "determine the interval optimizer should be stepped"
-        )
         with record_function("optimizer"):
             if iter_ % self.modules.optimizer.step_interval == 0:
                 if self.modules.grad_scaler is not None:
@@ -177,9 +179,9 @@ class PyTorchTrainer(BaseTrainer):
                     self.modules.grad_scaler.update()
                 else:
                     self.modules.optimizer.step()
-                self.data_manager.iter_step()
                 self.modules.optimizer.zero_grad()
                 self._maybe_step_scheduler(is_epoch=False)
+                self.data_manager.iter_step()
 
     @no_grad()
     def log_step(
@@ -206,7 +208,9 @@ class PyTorchTrainer(BaseTrainer):
                     continue
                 self.data_manager.perflog.log(statistic, preds, data)
 
-    def _train(self, pbar=None, profiler: profile | None = None) -> None:
+    def _train(
+        self, max_iter: int | None, pbar=None, profiler: profile | None = None
+    ) -> None:
         """Train for one epoch over the dataset"""
         self.modules.model.train()
         self.data_manager.perflog.train()
@@ -221,6 +225,9 @@ class PyTorchTrainer(BaseTrainer):
                 self._maybe_step_optimiser(gidx)
             except TrainingError as err:
                 self.training_exception(err, data)
+
+            if max_iter is not None and self.data_manager.iteration >= max_iter:
+                break
 
             gidx += 1
             if pbar is not None:
@@ -269,8 +276,6 @@ class PyTorchTrainer(BaseTrainer):
                     == ProfilerAction.RECORD_AND_SAVE
                 ):
                     break
-
-        self._maybe_step_scheduler(is_epoch=True)
 
     def val_step(self, data) -> Tuple[Dict[str, Tensor] | None, Dict[str, Tensor]]:
         """

@@ -67,16 +67,8 @@ def get_training_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser("Training Script")
     parser_add_common_args(parser)
 
-    parser.add_argument(
-        "-k",
-        "--extra_checkpoints",
-        type=float,
-        default=None,
-        help="Save intermediate checkpoints at defined time interval (sec)",
-    )
-    parser.add_argument(
-        "-e", "--epochs", type=int, default=1, help="Max epoch to train to"
-    )
+    parser.add_argument("--epochs", type=int, default=None, help="Target Epoch")
+    parser.add_argument("--iteration", type=int, default=None, help="Target Iteration")
     parser.add_argument(
         "--brief", type=str, default="", help="Brief description to give experiment"
     )
@@ -88,18 +80,6 @@ def get_training_parser() -> argparse.ArgumentParser:
         type=Path,
         required=False,
         help="Path to configuration file for remote synchronisation",
-    )
-
-    # Configruation for torch.distributed training
-    parser.add_argument("-g", "--gpu", type=int, required=False, default=0)
-    parser.add_argument("-b", "--backend", type=str, required=False, default="nccl")
-    parser.add_argument(
-        "-d",
-        "--dist_method",
-        type=str,
-        required=False,
-        help="dist method eg. tcp://master_ip:master_port",
-        default=None,
     )
 
     return parser
@@ -139,12 +119,15 @@ def get_experiment_cfg(
     """
 
     if run_hash is not None:
+        assert config_file is None, "Either run_hash or config_file should be provided"
         exp_path: Path = workspace / run_hash
         with open(exp_path / "train_config.yml", "r", encoding="utf-8") as conf_f:
             exp_cfg = yaml.safe_load(conf_f)
-
-    elif config_file is not None:
-        with open(config_file, "r", encoding="utf-8") as conf_f:
+    else:
+        assert (
+            config_file is not None
+        ), "Either run_hash or config_file should be provided"
+        with config_file.open("r", encoding="utf-8") as conf_f:
             exp_cfg = yaml.safe_load(conf_f)
 
         train_hash = hash_from_config(exp_cfg)
@@ -160,9 +143,6 @@ def get_experiment_cfg(
         if not (exp_path / "train_config.yml").exists() and comm.get_local_rank() == 0:
             with open(exp_path / "train_config.yml", "w", encoding="utf-8") as f:
                 yaml.safe_dump(exp_cfg, f)
-
-    else:
-        raise RuntimeError("Either --train_hash or --train_config are required")
 
     exp_cfg["work_dir"] = exp_path
 

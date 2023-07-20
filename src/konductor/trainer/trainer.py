@@ -58,12 +58,7 @@ class BaseTrainer(ABC):
         self.data_manager = data_manager
         self._logger = getLogger(type(self).__name__)
         self._config = config
-
-        extra = self.data_manager.resume()
-        if extra is not None and "epoch" in extra:
-            self._logger.info(f"Resuming from epoch {extra['epoch']}")
-        else:
-            self._logger.info(f"Unable to load checkpont, starting from scatch")
+        self.data_manager.resume()
 
         if config.pbar is not None:
             self._train = config.pbar(
@@ -73,14 +68,33 @@ class BaseTrainer(ABC):
                 self._validate, total=len(self.modules.valloader), desc="Validation"
             )
 
-    def run_epoch(self) -> None:
+    def run_epoch(self, max_iter: int | None = None) -> None:
         """Complete one epoch with training and validation epoch"""
-        self._logger.info(f"Training epoch {self.data_manager.epoch}")
-        self._train()
-        self._logger.info(f"Validating epoch {self.data_manager.epoch}")
+        self._train(max_iter)
         self._validate()
-        self._logger.info(f"Epoch {self.data_manager.epoch} complete")
+        self._maybe_step_scheduler(is_epoch=True)
         self.data_manager.epoch_step()
+
+    def train(self, epoch: int | None = None, iteration: int | None = None) -> None:
+        """Train until epoch or iteration is reached"""
+        if iteration is not None:
+            assert epoch is None, "Only epoch or iteration should be specified"
+            while self.data_manager.iteration < iteration:
+                self._logger.info(
+                    f"Training {self.data_manager.iteration} of {iteration} iterations"
+                )
+                self.run_epoch(iteration)
+        else:
+            assert epoch is not None, "Neither epoch or iteration were specified"
+            while self.data_manager.epoch < epoch:
+                self._logger.info(
+                    f"Training {self.data_manager.epoch} of {epoch} epochs"
+                )
+                self.run_epoch(iteration)
+
+        self._logger.info("Finished Training, Saving Model and Metadata")
+        self.data_manager.save("latest", force_push=True)
+        self._logger.info("Finished Saving (and Pushing)")
 
     def data_transform(self, data: Any) -> Any:
         """Apply any post motifications to data after loading
@@ -100,11 +114,16 @@ class BaseTrainer(ABC):
 
     @abstractmethod
     def _maybe_step_optimiser(self, iter_: int) -> None:
-        """Step optimizer if iteration is divisible by subbatch number"""
+        """Step optimizer if iteration is divisible by interval"""
 
     @abstractmethod
-    def _train(self) -> None:
-        """Train for one epoch over the dataset"""
+    def _maybe_step_scheduler(self, is_epoch: bool):
+        """Step lr scheduler if necessary"""
+
+    @abstractmethod
+    def _train(self, max_iter: int | None) -> None:
+        """Train for one epoch over the dataset or to the
+        optional global iteration limit"""
 
     @abstractmethod
     def _validate(self) -> None:

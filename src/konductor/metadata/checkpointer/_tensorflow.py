@@ -1,11 +1,12 @@
 from typing import Any, Dict
 from pathlib import Path
 
+from .base import BaseCheckpointer
 
-class Checkpointer:
-    def __init__(self, rootdir: Path = Path.cwd(), **extras) -> None:
-        self.rootdir = rootdir
-        raise NotImplementedError()
+
+class Checkpointer(BaseCheckpointer):
+    def __init__(self, rootdir: Path) -> None:
+        super().__init__(rootdir)
 
     def add_checkpointable(self, key: str, checkpointable: Any) -> None:
         pass
@@ -14,7 +15,4 @@ class Checkpointer:
         pass
 
     def load(self, filename: str) -> Dict[str, Any]:
-        return {}
-
-    def resume(self) -> Dict[str, Any] | None:
         return {}

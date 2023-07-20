@@ -1,13 +1,13 @@
 """
 
 """
-
+import enum
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict
+from logging import getLogger
 import subprocess
-from warnings import warn
 import os
 
 import yaml
@@ -16,6 +16,22 @@ from .checkpointer import Checkpointer
 from .statistics.perflogger import PerfLogger
 from .remotesync import _RemoteSyncrhoniser
 from ..utilities import comm
+
+
+def get_commit() -> str:
+    try:
+        git_hash = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
+            )
+            .strip()
+            .decode()
+        )
+    except subprocess.CalledProcessError:
+        # Try to get from environment variable, else "Unknown"
+        git_hash = os.environ.get("COMMIT_SHA", "Unknown")
+
+    return git_hash
 
 
 class _Timer:
@@ -36,12 +52,56 @@ class _Timer:
 
 
 @dataclass
+class CkptConfig:
+    """Configuration for saving checkpoints at iteration
+    or epoch steps and at what interval"""
+
+    @dataclass
+    class Mode(enum.Enum):
+        EPOCH = enum.auto()
+        ITERATION = enum.auto()
+
+    mode: Mode = Mode.EPOCH  # save checkpoints on epoch, iteration or time
+    latest: int = 1  # interval for updating latest checkpoint
+    extra: int | None = None  # interval for updating extra checkpoint
+
+    @classmethod
+    def from_yaml(cls):
+        return cls()
+
+    def __post_init__(self):
+        assert self.latest >= 1
+        if self.extra is not None:
+            assert (
+                self.extra % self.latest == 0
+            ), "Extra checkpoints should be a multiple of latest"
+
+    @property
+    def epoch_mode(self):
+        return self.mode == CkptConfig.Mode.EPOCH
+
+    @property
+    def iter_mode(self):
+        return self.mode == CkptConfig.Mode.ITERATION
+
+    def save_latest(self, x: int):
+        return x % self.latest == 0
+
+    def save_extra(self, x: int):
+        return self.extra is not None and x % self.extra == 0
+
+
+@dataclass
 class MetadataManager:
-    """Manages the lifecycle for statistics, checkpoints and any other relevant logs during training"""
+    """Manages the lifecycle for statistics, checkpoints and
+    any other relevant logs during training
+    TODO Maybe make more flexible/extensible by using a callback
+    structure for iteration step/epoch step?
+    """
 
     perflog: PerfLogger
     checkpointer: Checkpointer
-    checkpoint_interval: int = 0
+    ckpt_cfg: CkptConfig = CkptConfig()
     remote_sync: _RemoteSyncrhoniser | None = None
     sync_interval: timedelta = timedelta(hours=1)
     epoch: int = 0
@@ -49,8 +109,8 @@ class MetadataManager:
 
     def __post_init__(self) -> None:
         self.perflog.set_iteration(0)
-        if self.remote_sync is not None:
-            self.remote_timer = _Timer()
+        self.remote_timer = _Timer()
+        self._logger = getLogger("DataManager")
 
         self._metadata_file = self.workspace / "metadata.yaml"
         if not self._metadata_file.exists() and comm.is_main_process():
@@ -58,10 +118,10 @@ class MetadataManager:
                 "brief": "",
                 "notes": "",
                 "epoch": self.epoch,
-                "commit_begin": self._get_commit(),
+                "commit_begin": get_commit(),
                 "train_begin": datetime.now(),
             }
-            with open(self._metadata_file, "w", encoding="utf-8") as f:
+            with self._metadata_file.open("w", encoding="utf-8") as f:
                 yaml.safe_dump(metadata, f)
 
     @property
@@ -81,96 +141,103 @@ class MetadataManager:
             return  # Skip writing nothing
         self._update_metadata({"brief": brief})
 
-    def resume(self) -> Dict[str, Any] | None:
-        """Resume if available, pull from remote if necessary"""
+    def resume(self) -> None:
+        """Resume from checkpoint if available, pull from remote if necessary"""
         self._remote_resume()
+
+        if not self.checkpointer.latest.exists():
+            self._logger.warning("No checkpoint to resume")
+            return
+
         extras = self.checkpointer.resume()
-        if extras is not None:
-            self.epoch = extras["epoch"]
-            self.iteration = extras["iteration"]
-            self.perflog.set_iteration(self.iteration)
-        else:
-            warn("Unable to load epoch and iteration from checkpoint")
-
-        return extras
-
-    def _get_commit(self) -> str:
-        try:
-            git_hash = (
-                subprocess.check_output(
-                    ["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL
-                )
-                .strip()
-                .decode()
-            )
-        except subprocess.CalledProcessError:
-            # Try to get from environment variable, else "Unknown"
-            git_hash = os.environ.get("COMMIT_SHA", "Unknown")
-
-        return git_hash
+        self.epoch = extras["epoch"]
+        self.iteration = extras["iteration"]
+        self.perflog.set_iteration(self.iteration)
+        self._logger.info(
+            f"Resuming from epoch {self.epoch}, iteration {self.iteration}"
+        )
 
     def _update_metadata(self, data: Dict[str, Any]):
         """Updates the metadata file with dictionary"""
-        with open(self._metadata_file, "r", encoding="utf-8") as f:
+        with self._metadata_file.open("r", encoding="utf-8") as f:
             metadata: Dict[str, Any] = yaml.safe_load(f)
 
         metadata.update(data)  # Add changes to metadata
 
-        with open(self._metadata_file, "w", encoding="utf-8") as f:
+        with self._metadata_file.open("w", encoding="utf-8") as f:
             yaml.safe_dump(metadata, f)
 
     def epoch_step(self) -> None:
-        """Step every epoch"""
+        """Step epoch"""
         self.epoch += 1
+        if self.ckpt_cfg.epoch_mode and self.ckpt_cfg.save_latest(self.epoch):
+            filename = (
+                f"epoch_{self.epoch}"
+                if self.ckpt_cfg.save_extra(self.epoch)
+                else "latest"
+            )
+            self.save(filename)
 
-        ckpt_name = (
-            f"epoch_{self.epoch}.pt"
-            if self.checkpoint_interval > 0
-            and self.epoch % self.checkpoint_interval == 0
-            else "latest.pt"
-        )
+    def iter_step(self) -> None:
+        """Step iteration"""
+        self.iteration += 1
+        self.perflog.set_iteration(self.iteration)
+        if self.ckpt_cfg.iter_mode and self.ckpt_cfg.save_latest(self.iteration):
+            filename = (
+                f"iteration_{self.iteration}"
+                if self.ckpt_cfg.save_extra(self.iteration)
+                else "latest"
+            )
+            self.save(filename)
+
+    def save(self, filename: str, force_push: bool = False) -> None:
+        """Save metadata and checkpoint, optionally force push to remote"""
 
         # Only save checkpoint on local rank zero
         if comm.get_local_rank() == 0:
-            self.checkpointer.save(
-                ckpt_name, epoch=self.epoch, iteration=self.iteration
-            )
+            self.checkpointer.save(filename, epoch=self.epoch, iteration=self.iteration)
             self._update_metadata(
                 {
                     "epoch": self.epoch,
-                    "commit_last": self._get_commit(),
+                    "iteration": self.iteration,
+                    "commit_last": get_commit(),
                     "train_last": datetime.now(),
                 }
             )
 
         self.perflog.flush()
-        self._remote_push()
+        comm.synchronize()  # Ensure all workers have saved data before push
 
-    def iter_step(self) -> None:
-        """Step every iteration"""
-        self.iteration += 1
-        self.perflog.set_iteration(self.iteration)
+        if self.remote_timer.elapsed() > self.sync_interval or force_push:
+            self.remote_push()
+            self.remote_timer.reset()
 
-    def _remote_push(self) -> None:
+        comm.synchronize()  # Sync after push branch condition
+
+    def remote_push(self, force: bool = False) -> None:
         """Push latest checkpoint and metadata to remote"""
         if self.remote_sync is None:
             return
-        comm.synchronize()  # Sync potential push
-        if self.remote_timer.elapsed() > self.sync_interval:
-            if comm.is_main_process():  # Main rank pushes all data (logs + weights)
-                self.remote_sync.push_all()
-                self.remote_sync.push(self._metadata_file.name)
-            elif comm.get_local_rank() == 0:  # Rank0 of dist machines push logs
-                self.remote_sync.push_select([r".*\.parquet", "events.out.tfevents.*"])
-                for file in self.workspace.glob("*.parquet"):
-                    file.unlink()  # remove pushed parquet files, prevent duplication
-            self.remote_timer.reset()
-        comm.synchronize()
+
+        if comm.is_main_process():  # Main rank pushes all data (logs + weights)
+            self.remote_sync.push_all()
+            self.remote_sync.push(self._metadata_file.name)
+        elif comm.get_local_rank() == 0:  # Rank 0 of other machines push logs
+            self.remote_sync.push_select([r".*\.parquet", "events.out.tfevents.*"])
+
+        # Local rank 0 removes parquet logs
+        if comm.get_local_rank() == 0:
+            for file in self.workspace.glob("*.parquet"):
+                file.unlink()
 
     def _remote_resume(self) -> None:
         """Pulls latest checkpoint and configuration files from remote"""
         if self.remote_sync is None:
             return
+
         if comm.get_local_rank() == 0:
-            self.remote_sync.pull_select([r".*\.yaml", r".*\.yml", "latest.pt"])
+            self.remote_sync.pull_select(
+                [r".*\.yaml", r".*\.yml", self.checkpointer.latest.name]
+            )
+
         comm.synchronize()

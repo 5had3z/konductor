@@ -1,14 +1,14 @@
-import logging
 from pathlib import Path
 from typing import Any, Dict
-import shutil
 
 import torch
 from torch import nn
 from torch.nn.parallel import DistributedDataParallel, DataParallel
 
+from .base import BaseCheckpointer
 
-class Checkpointer:
+
+class Checkpointer(BaseCheckpointer):
     """
     Checkpointer that saves/loads model and checkpointables
     Inspired from fvcore and diverged from there.
@@ -16,32 +16,24 @@ class Checkpointer:
     Otherwise, use any filename and a "latest.pt" will link to it.
     """
 
-    def __init__(self, rootdir: Path = Path.cwd(), **extras) -> None:
-        """
-        Args:
-        """
-        self.logger = logging.getLogger(type(self).__name__)
-        self.rootdir = rootdir
-        self._ckpts: Dict[str, nn.Module] = {}
+    EXTENSION = ".pt"
 
-        if not rootdir.exists():
-            self.logger.info(f"Creating checkpoint folder: {rootdir}")
-            rootdir.mkdir(parents=True)
-        else:
-            self.logger.info(f"Using checkpoint folder: {rootdir}")
+    def __init__(self, rootdir: Path, **extras) -> None:
+        """
+        Args: Save Directory + Checkpointables
+        """
+        super().__init__(rootdir)
+        self._ckpts: Dict[str, nn.Module] = {}
 
         # Unpack any lists of modules
         for k in list(extras.keys()):
             if isinstance(extras[k], list):
-                if len(extras[k]) > 1:
-                    # unpack list into dictionary
-                    self.logger.info(f"Unpacking {k} into checkpointable list")
+                if len(extras[k]) > 1:  # unpack list into dictionary
                     extras.update(
                         {f"{k}_{i}": extras[k][i] for i in range(len(extras[k]))}
                     )
                     del extras[k]
-                else:
-                    # remove list dimension
+                else:  # remove list dimension
                     extras[k] = extras[k][0]
 
         for k, v in extras.items():
@@ -71,43 +63,22 @@ class Checkpointer:
         Use latest.pt if you don't want to accumulate checkponts.
         Otherwise the new file will be saved and latest.pt will link to it.
         """
-        assert (
-            isinstance(filename, str) and len(filename) > 0
-        ), f"Filename should be a string of len > 0, got {filename}"
-
-        if not filename.endswith(".pt"):
-            filename += ".pt"
-        _path = self.rootdir / filename
+        _path = self._get_path(filename)
 
         data = {k: v.state_dict() for k, v in self._ckpts.items()}
         data.update(extras)
 
         torch.save(data, _path)
 
-        # If the path name is not 'latest.pt' create a symlink to it
-        # using 'latest.pt' prevents the accumulation of checkpoints.
-        if _path.name != "latest.pt":
-            try:
-                (self.rootdir / "latest.pt").symlink_to(_path)
-            except OSError:
-                # make copy if symlink is unsupported
-                shutil.copy(_path, self.rootdir / "latest.pt")
+        self._maybe_link_latest(_path)
 
     def load(self, filename: str) -> Dict[str, Any]:
         """Load checkpoint and return any previously saved scalar kwargs"""
-        if not filename.endswith(".pt"):
-            filename += ".pt"
-        _path = self.rootdir / filename
+        _path = self._get_path(filename)
         checkpoint = torch.load(_path, map_location="cpu")
 
         for key in self._ckpts:
             self._ckpts[key].load_state_dict(checkpoint.pop(key))
 
-        # Return any extra data
+        # Return extra data
         return checkpoint
-
-    def resume(self) -> Dict[str, Any] | None:
-        """Resumes from checkpoint linked with latest.pt"""
-        if (self.rootdir / "latest.pt").exists():
-            return self.load("latest.pt")
-        return None
