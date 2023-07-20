@@ -79,6 +79,11 @@ class BaseTrainer(ABC):
         """Train until epoch or iteration is reached"""
         if iteration is not None:
             assert epoch is None, "Only epoch or iteration should be specified"
+            if self.data_manager.ckpt_cfg.epoch_mode:
+                self._logger.warning(
+                    "Checkpointer in epoch mode but training in iteration mode"
+                )
+
             while self.data_manager.iteration < iteration:
                 self._logger.info(
                     f"Training {self.data_manager.iteration} of {iteration} iterations"
@@ -86,6 +91,11 @@ class BaseTrainer(ABC):
                 self.run_epoch(iteration)
         else:
             assert epoch is not None, "Neither epoch or iteration were specified"
+            if self.data_manager.ckpt_cfg.iter_mode:
+                self._logger.warning(
+                    "Checkpointer in iteration mode but training in epoch mode"
+                )
+
             while self.data_manager.epoch < epoch:
                 self._logger.info(
                     f"Training {self.data_manager.epoch} of {epoch} epochs"

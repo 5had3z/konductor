@@ -19,6 +19,7 @@ from ..metadata import (
     PerfLoggerConfig,
     MetadataManager,
     Statistic,
+    CkptConfig,
 )
 from ..metadata.statistics.scalar_dict import ScalarStatistic
 from ..utilities import comm
@@ -59,7 +60,7 @@ def get_training_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser("Training Script")
     parser_add_common_args(parser)
 
-    parser.add_argument("--epochs", type=int, default=None, help="Target Epoch")
+    parser.add_argument("--epoch", type=int, default=None, help="Target Epoch")
     parser.add_argument("--iteration", type=int, default=None, help="Target Iteration")
     parser.add_argument(
         "--brief", type=str, default="", help="Brief description to give experiment"
@@ -187,7 +188,7 @@ def init_data_manager(
         exp_config.work_dir,
         statistics,
         dataset_properties=get_dataset_properties(exp_config),
-        **exp_config.logger_kwargs,
+        **exp_config.log_kwargs,
     )
 
     remote_sync = (
@@ -198,6 +199,7 @@ def init_data_manager(
 
     manager = get_metadata_manager(
         log_config,
+        CkptConfig(**exp_config.ckpt_kwargs),
         remote_sync=remote_sync,
         model=train_modules.model,
         optim=train_modules.optimizer,

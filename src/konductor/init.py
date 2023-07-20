@@ -95,8 +95,9 @@ class ExperimentInitConfig:
     model: List[ModelInitConfig]
     data: List[DatasetInitConfig]
     criterion: List[ModuleInitConfig]
-    remote_sync: ModuleInitConfig | None = None
-    logger_kwargs: Dict[str, Any] = field(default_factory=dict)
+    remote_sync: ModuleInitConfig | None
+    ckpt_kwargs: Dict[str, Any]
+    log_kwargs: Dict[str, Any]
 
     @classmethod
     def from_yaml(cls, parsed_dict: Dict[str, Any]):
@@ -114,5 +115,6 @@ class ExperimentInitConfig:
             ],
             work_dir=parsed_dict["work_dir"],
             remote_sync=remote_sync,
-            logger_kwargs=parsed_dict.get("logger", {}),
+            ckpt_kwargs=parsed_dict.get("checkpointer", {}),
+            log_kwargs=parsed_dict.get("logger", {}),
         )

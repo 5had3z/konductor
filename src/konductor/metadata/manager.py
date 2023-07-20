@@ -65,11 +65,10 @@ class CkptConfig:
     latest: int = 1  # interval for updating latest checkpoint
     extra: int | None = None  # interval for updating extra checkpoint
 
-    @classmethod
-    def from_yaml(cls):
-        return cls()
-
     def __post_init__(self):
+        if isinstance(self.mode, str):
+            self.mode = CkptConfig.Mode[self.mode.upper()]
+
         assert self.latest >= 1
         if self.extra is not None:
             assert (
@@ -78,11 +77,11 @@ class CkptConfig:
 
     @property
     def epoch_mode(self):
-        return self.mode == CkptConfig.Mode.EPOCH
+        return self.mode is CkptConfig.Mode.EPOCH
 
     @property
     def iter_mode(self):
-        return self.mode == CkptConfig.Mode.ITERATION
+        return self.mode is CkptConfig.Mode.ITERATION
 
     def save_latest(self, x: int):
         return x % self.latest == 0
