@@ -9,18 +9,10 @@ import hashlib
 from io import StringIO
 
 from .trainer import TrainerConfig, TrainerModules, TrainerT
-from ..modules import (
-    get_model,
-    get_training_model,
-    get_criterion,
-    get_optimizer,
-    get_lr_scheduler,
-    get_dataset_properties,
-    get_dataloader,
-    get_dataset_config,
-    ExperimentInitConfig,
-    ModuleInitConfig,
-)
+from ..models import get_training_model
+from ..losses import get_criterion
+from ..data import get_dataloader, get_dataset_properties, get_dataset_config
+from ..init import ExperimentInitConfig, ModuleInitConfig
 from ..metadata import (
     get_metadata_manager,
     get_remote_config,
@@ -40,8 +32,8 @@ def parser_add_common_args(parser: argparse.ArgumentParser) -> None:
         "-t",
         "--config_file",
         required=False,
-        type=str,
-        help="Training configuration either as path to json or string (this will be deduced)",
+        type=Path,
+        help="Path to training configuration",
     )
     parser.add_argument(
         "-x",

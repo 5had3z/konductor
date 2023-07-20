@@ -6,8 +6,8 @@ from ..init_config import example_config
 
 
 import pytest
-from konductor.metadata.remotesync import get_remote, ExperimentInitConfig
-from konductor.modules import ModuleInitConfig
+from konductor.metadata.remotesync import get_remote
+from konductor.init import ModuleInitConfig, ExperimentInitConfig
 
 pytestmark = pytest.mark.remote
 

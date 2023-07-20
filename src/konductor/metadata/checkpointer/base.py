@@ -10,10 +10,10 @@ class BaseCheckpointer(abc.ABC):
 
     def __init__(self, rootdir: Path) -> None:
         if not rootdir.exists():
-            logging.info("Creating Checkpoint Directory: %", rootdir)
+            logging.info(f"Creating Checkpoint Directory: {rootdir}")
             rootdir.mkdir(parents=True)
         else:
-            logging.info("Using Checkpoint Directory: %", rootdir)
+            logging.info(f"Using Checkpoint Directory: {rootdir}")
         self.rootdir = rootdir
 
     @property

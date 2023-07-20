@@ -10,7 +10,7 @@ from pyarrow import parquet as pq
 from pandas import DataFrame as df
 
 from ...utilities import comm
-from ...modules.registry import Registry
+from ...registry import Registry
 
 STATISTICS_REGISTRY = Registry("STATISTICS")
 

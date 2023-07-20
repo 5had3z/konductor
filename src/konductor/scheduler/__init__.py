@@ -19,7 +19,7 @@ class SchedulerConfig(BaseConfig):
 
     @classmethod
     def from_config(cls, config: ExperimentInitConfig, *args, **kwargs):
-        return super().from_config(config, *args, **kwargs)
+        return cls(*args, **kwargs)
 
     def get_instance(self, scheduler: SchedulerT, **kwargs):
         """Add flag whether step is epoch based or iteration based"""

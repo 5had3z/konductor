@@ -1,6 +1,6 @@
 import pytest
 
-from konductor.modules.registry import Registry
+from konductor.registry import Registry
 
 
 def test_decorator():

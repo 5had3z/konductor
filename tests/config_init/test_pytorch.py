@@ -2,9 +2,9 @@ from ..init_config import example_config
 
 import numpy as np
 from torch import nn
-from konductor.modules import ExperimentInitConfig
-from konductor.modules.optimizers._pytorch import PG_REGISTRY
-from konductor.modules import get_training_model
+from konductor.init import ExperimentInitConfig
+from konductor.optimizers._pytorch import PG_REGISTRY
+from konductor.models import get_training_model
 
 
 @PG_REGISTRY.register_module("custom_pg")

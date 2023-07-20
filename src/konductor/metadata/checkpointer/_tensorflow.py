@@ -5,7 +5,7 @@ from .base import BaseCheckpointer
 
 
 class Checkpointer(BaseCheckpointer):
-    def __init__(self, rootdir: Path) -> None:
+    def __init__(self, rootdir: Path, **checkpointables) -> None:
         super().__init__(rootdir)
 
     def add_checkpointable(self, key: str, checkpointable: Any) -> None:

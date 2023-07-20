@@ -27,7 +27,6 @@ class BaseConfig(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def from_config(cls, config: ExperimentInitConfig, *args, **kwargs) -> Any:
         """Run configuration stage of the module"""
-        return cls(*args, **kwargs)
 
     @abc.abstractmethod
     def get_instance(self, *args, **kwargs) -> Any:

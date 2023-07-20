@@ -5,7 +5,7 @@ from nvidia.dali.plugin.pytorch import DALIGenericIterator
 from nvidia.dali.plugin.pytorch import LastBatchPolicy
 
 from . import DataloaderConfig, DATALOADER_REGISTRY, Mode, Registry
-from ...utilities.comm import get_rank, get_world_size
+from ..utilities.comm import get_rank, get_world_size
 
 DALI_AUGMENTATIONS = Registry("DALI_AUGMENTATIONS")
 

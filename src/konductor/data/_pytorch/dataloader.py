@@ -1,7 +1,7 @@
 from typing import Any, Callable, List, Type
 from dataclasses import dataclass
 
-from ....utilities.comm import get_world_size, in_distributed_mode
+from ...utilities.comm import get_world_size, in_distributed_mode
 from .. import DataloaderConfig, DATALOADER_REGISTRY, Registry
 
 from torch.utils.data import (
