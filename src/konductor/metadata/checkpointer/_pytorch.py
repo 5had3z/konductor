@@ -57,7 +57,7 @@ class Checkpointer(BaseCheckpointer):
 
         self._ckpts[key] = checkpointable
 
-    def save(self, filename: str, **extras) -> None:
+    def save(self, filename: str, is_latest: bool = True, **extras) -> None:
         """
         Saves checkpointables with extra scalar data kwargs
         Use latest.pt if you don't want to accumulate checkponts.
@@ -70,7 +70,8 @@ class Checkpointer(BaseCheckpointer):
 
         torch.save(data, _path)
 
-        self._maybe_link_latest(_path)
+        if is_latest:
+            self._maybe_link_latest(_path)
 
     def load(self, filename: str) -> Dict[str, Any]:
         """Load checkpoint and return any previously saved scalar kwargs"""
