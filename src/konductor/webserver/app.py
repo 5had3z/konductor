@@ -3,6 +3,7 @@
 
 from argparse import ArgumentParser
 from pathlib import Path
+from subprocess import Popen
 
 import dash
 from dash import Dash, html, dcc
@@ -46,9 +47,17 @@ def run_as_main() -> None:
     parser = ArgumentParser()
     add_base_args(parser)
     args = parser.parse_args()
+    content_port = 8000
+    content_url = f"http://localhost:{content_port}"
+    app.layout = get_basic_layout(str(args.workspace), content_url=content_url)
 
-    app.layout = get_basic_layout(str(args.root))
-    app.run(debug=True)
+    proc = Popen(
+        f"python3 -m http.server {content_port} --directory {parser.parse_args().workspace}",
+        shell=True,
+    )
+
+    app.run()
+    proc.terminate()
 
 
 if __name__ == "__main__":
