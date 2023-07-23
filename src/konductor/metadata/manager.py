@@ -112,7 +112,7 @@ class MetadataManager:
         self._logger = getLogger("DataManager")
 
         self._metadata_file = self.workspace / "metadata.yaml"
-        if not self._metadata_file.exists() and comm.is_main_process():
+        if not self._metadata_file.exists() and comm.get_local_rank() == 0:
             metadata = {
                 "brief": "",
                 "notes": "",
@@ -136,9 +136,8 @@ class MetadataManager:
 
     def write_brief(self, brief: str) -> None:
         """Writes brief to metadata file"""
-        if len(brief) == 0 or not comm.is_main_process():
-            return  # Skip writing nothing
-        self._update_metadata({"brief": brief})
+        if len(brief) > 0 and comm.get_local_rank() == 0:
+            self._update_metadata({"brief": brief})
 
     def resume(self) -> None:
         """Resume from checkpoint if available, pull from remote if necessary"""
