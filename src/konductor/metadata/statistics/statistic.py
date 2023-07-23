@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 import pyarrow as pa
 from pyarrow import parquet as pq
-from pandas import DataFrame as df
 
 from ...utilities import comm
 from ...registry import Registry
@@ -134,11 +133,6 @@ class Statistic(metaclass=ABCMeta):
 
         return data_
 
-    def as_df(self, all_gather: bool = False) -> df:
-        """Get valid data as pandas dataframe, option to gather
-        from all ranks if in distributed mode"""
-        return df(self.data(all_gather))
-
     @property
     def last(self) -> Dict[str, float]:
         """
@@ -181,19 +175,15 @@ class Statistic(metaclass=ABCMeta):
         if self.empty:
             return
 
-        data = pa.Table.from_pandas(self.as_df())
+        data = pa.table(self.data(all_gather=False))
 
-        original_data = (
-            pq.read_table(
+        if self.writepath.exists():  # Concatinate to original data
+            original_data = pq.read_table(
                 self.writepath, pre_buffer=False, memory_map=True, use_threads=True
             )
-            if self.writepath.exists()
-            else None
-        )
+            data = pa.concat_tables([original_data, data])
 
         with pq.ParquetWriter(self.writepath, data.schema) as writer:
-            if original_data is not None:
-                writer.write_table(original_data)
             writer.write_table(data)
 
         self.reset()
@@ -202,12 +192,10 @@ class Statistic(metaclass=ABCMeta):
         """Empty the currently held data"""
         self._end_idx = -1
         for s in self._statistics:
-            self._statistics[s] = np.full(self._buffer_length, np.nan)
+            self._statistics[s].fill(np.nan)
 
-    def _append_sample(self, name: str, value: float | np.ndarray) -> None:
-        """Add a single scalar to the logging array"""
-        if isinstance(value, np.ndarray) and self.reduce_batch:
-            value = value.mean(axis=0)  # assume batch dimension first
+    def _append_sample(self, name: str, value: float) -> None:
+        """Add a single sample to the logging array"""
         self._statistics[name][self._end_idx] = value
         # This will be redundant but whatever, it'll still be syncrhonised between
         # all statistics correctly this has to be done this way because of batching
