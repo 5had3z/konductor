@@ -1,15 +1,17 @@
 """Extra cli utilities for metadata management"""
 
-import typer
 from pathlib import Path
 import re
 import os
+import inspect
 from colorama import Fore, Style
-from typing import List, Dict
+from typing import Any, List, Dict
 from io import StringIO
 from dataclasses import dataclass
 from datetime import datetime
+from warnings import warn
 
+import typer
 import yaml
 from pyarrow import parquet as pq
 from pyarrow import compute as pc
@@ -63,6 +65,7 @@ class Metadata:
     commit_begin: str
     commit_last: str
     epoch: int
+    iteration: int
     notes: str
     train_begin: datetime
     train_last: datetime
@@ -74,9 +77,25 @@ class Metadata:
 
     @classmethod
     def from_yaml(cls, path: Path):
-        with path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        return cls(**data)
+        with open(path, "r", encoding="utf-8") as f:
+            data: Dict[str, Any] = yaml.safe_load(f)
+
+        known = set(inspect.signature(cls).parameters)
+        unknown = set()
+        filtered = {}
+        for k, v in data.items():
+            if k in known:
+                filtered[k] = v
+                known.remove(k)
+            else:
+                unknown.add(k)
+
+        if len(known) > 0:
+            warn(f"missing keys from metadata: {known}")
+        if len(unknown) > 0:
+            warn(f"extra keys in metadata: {unknown}")
+
+        return cls(**filtered)
 
 
 def print_metadata(path: Path) -> None:

@@ -70,10 +70,11 @@ class PerfLogger:
             self._logger.info(f"Creating logging folder: {config.write_path}")
             config.write_path.mkdir(parents=True)
 
-        if len(self.config.write_tboard) > 0 or "all" in self.config.write_tboard:
-            self.tboard_writer = Writer(str(config.write_path))
-        else:
-            self.tboard_writer = None  # Don't create useless tboard file
+        self.tboard_writer = (
+            Writer(str(config.write_path))
+            if len(self.config.write_tboard) > 0
+            else None
+        )
 
     @property
     def log_interval(self) -> int:
