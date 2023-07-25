@@ -219,5 +219,14 @@ def reduce(path: Path = typer.Option(Path.cwd(), "--path")) -> None:
         reduce_shard(shard_list)
 
 
+@app.command()
+def reduce_all(path: Path = typer.Option(Path.cwd(), "--path")) -> None:
+    """Run over each experiment folder in a workspace, reducing all shards"""
+    for folder in path.iterdir():
+        if folder.is_file():
+            continue  # Skip files in root dir
+        reduce(folder)
+
+
 if __name__ == "__main__":
     app()
