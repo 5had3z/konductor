@@ -179,7 +179,6 @@ class MetadataManager:
     def iter_step(self) -> None:
         """Step iteration"""
         self.iteration += 1
-        self.perflog.set_iteration(self.iteration)
         if self.ckpt_cfg.iter_mode and self.ckpt_cfg.save_latest(self.iteration):
             filename = (
                 f"iteration_{self.iteration}"
@@ -203,7 +202,8 @@ class MetadataManager:
                 }
             )
 
-        self.perflog.flush()
+        self.perflog.flush()  # Ensure all perf data is logged
+        self.perflog.set_iteration(self.iteration)  # Move perflogger to a new file
         comm.synchronize()  # Ensure all workers have saved data before push
 
         if self.remote_timer.elapsed() > self.sync_interval or force_push:
