@@ -211,9 +211,17 @@ def init_data_manager(
     return manager
 
 
+def add_workers_to_dataloader(cfg: ExperimentInitConfig, workers: int):
+    """Set the number of workers for each dataloader
+    Workers will be divided evenly amonst datasets"""
+    for data in cfg.data:  # Divide workers evenly among datasets
+        data.val_loader.args["workers"] = workers // len(cfg.data)
+        data.train_loader.args["workers"] = workers // len(cfg.data)
+
+
 def cli_init_config(cli_args: argparse.Namespace):
-    """
-    Parse cli args to generate the experiment configuration
+    """Parse cli args to generate and ready the
+    experiment configuration for training.
     """
     exp_config = get_experiment_cfg(
         cli_args.workspace, cli_args.config_file, cli_args.run_hash
@@ -227,9 +235,7 @@ def cli_init_config(cli_args: argparse.Namespace):
             cfg = yaml.safe_load(f)
         exp_config.remote_sync = ModuleInitConfig(**cfg)
 
-    for data in exp_config.data:  # Divide workers evenly among datasets
-        data.val_loader.args["workers"] = cli_args.workers // len(exp_config.data)
-        data.train_loader.args["workers"] = cli_args.workers // len(exp_config.data)
+    add_workers_to_dataloader(exp_config, workers=cli_args.workers)
 
     return exp_config
 
