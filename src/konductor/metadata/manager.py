@@ -108,6 +108,7 @@ class MetadataManager:
 
     def __post_init__(self) -> None:
         self.perflog.set_iteration(0)
+        self.perflog.set_file_suffix(0)
         self.remote_timer = _Timer()
         self._logger = getLogger("DataManager")
 
@@ -151,6 +152,7 @@ class MetadataManager:
         self.epoch = extras["epoch"]
         self.iteration = extras["iteration"]
         self.perflog.set_iteration(self.iteration)
+        self.perflog.set_file_suffix(self.iteration)
         self._logger.info(
             f"Resuming from epoch {self.epoch}, iteration {self.iteration}"
         )
@@ -179,6 +181,7 @@ class MetadataManager:
     def iter_step(self) -> None:
         """Step iteration"""
         self.iteration += 1
+        self.perflog.set_iteration(self.iteration)
         if self.ckpt_cfg.iter_mode and self.ckpt_cfg.save_latest(self.iteration):
             filename = (
                 f"iteration_{self.iteration}"
@@ -202,8 +205,7 @@ class MetadataManager:
                 }
             )
 
-        self.perflog.flush()  # Ensure all perf data is logged
-        self.perflog.set_iteration(self.iteration)  # Move perflogger to a new file
+        self.perflog.commit()  # Ensure all perf data is logged, move to next shard
         comm.synchronize()  # Ensure all workers have saved data before push
 
         if self.remote_timer.elapsed() > self.sync_interval or force_push:
@@ -212,7 +214,7 @@ class MetadataManager:
 
         comm.synchronize()  # Sync after push branch condition
 
-    def remote_push(self, force: bool = False) -> None:
+    def remote_push(self) -> None:
         """Push latest checkpoint and metadata to remote"""
         if self.remote_sync is None:
             return

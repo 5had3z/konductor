@@ -63,6 +63,7 @@ class PerfLogger:
         self.is_training = False
         self.config = config
         self._iteration = -1
+        self._file_suffix = -1
         self._statistics: Dict[str, Statistic] | None = None
         self._logger = getLogger(type(self).__name__)
 
@@ -81,7 +82,21 @@ class PerfLogger:
         return self.config.interval
 
     def set_iteration(self, it: int) -> None:
+        """Set the current iteration of training
+        i.e. number of optimizer.steps()"""
         self._iteration = it
+
+    def set_file_suffix(self, it: int) -> None:
+        """Set the iteration used for the
+        filename for the current shard"""
+        self._file_suffix = it
+        self._reset_statistics()
+
+    def commit(self) -> None:
+        """Commit statistics by flushing to disk and changing
+        filename to latest iteration to start a new shard"""
+        self._file_suffix = self._iteration
+        self._reset_statistics()
 
     def train(self) -> None:
         """Set logger in training mode"""
@@ -100,7 +115,7 @@ class PerfLogger:
             """Create logging file with naming convention
             {split}_{stat}_{rank}_{start_iter}"""
             split = "train" if self.is_training else "val"
-            filename = f"{split}_{name}_{comm.get_rank()}_{self._iteration}.parquet"
+            filename = f"{split}_{name}_{comm.get_rank()}_{self._file_suffix}.parquet"
             return self.config.write_path / filename
 
         self.flush()
@@ -125,12 +140,13 @@ class PerfLogger:
 
     def log(self, name: str, *args, **kwargs) -> None:
         assert self._statistics is not None, self._not_init_msg
-        assert self._iteration >= 0, "Iteration for perflogger not set"
+        assert (
+            self._iteration >= 0 and self._file_suffix >= 0
+        ), "Iteration or file_suffix for perflogger not set"
 
         # Log if testing or at training log interval
         if not self.is_training or self._iteration % self.log_interval == 0:
             self._statistics[name](self._iteration, *args, **kwargs)
-
             # Write to tensorbard at each iteration when training
             if (
                 name in self.config.write_tboard
@@ -163,9 +179,7 @@ class PerfLogger:
         """Get mean validation for each loss of last iteration"""
         assert self._statistics is not None, self._not_init_msg
         self.flush()  # Ensure flushed so data is on disk to read
-
-        # Get last iteration of val loss
-        try:
+        try:  # Get last iteration of val loss
             _filename = max(
                 [
                     f
