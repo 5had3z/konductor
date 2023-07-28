@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Callable, Dict, List, Sequence, TypeVar
 
-from konductor.metadata import MetadataManager
+from ..utilities import comm
+from ..metadata import MetadataManager
 
 
 @dataclass
@@ -34,6 +35,10 @@ class TrainerConfig:
     loss_monitor: Callable[[Dict[str, Any]], None] = lambda x: None
 
     pbar: Callable | None = None  # Enable Console Progress
+
+    def __post_init__(self):
+        if comm.get_local_rank() != 0:
+            self.pbar = None  # Ensure only one pbar per machine
 
 
 class TrainingError(RuntimeError):

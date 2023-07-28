@@ -98,6 +98,7 @@ class ExperimentInitConfig:
     remote_sync: ModuleInitConfig | None
     ckpt_kwargs: Dict[str, Any]
     log_kwargs: Dict[str, Any]
+    trainer_kwargs: Dict[str, Any]
 
     @classmethod
     def from_yaml(cls, parsed_dict: Dict[str, Any]):
@@ -117,4 +118,5 @@ class ExperimentInitConfig:
             remote_sync=remote_sync,
             ckpt_kwargs=parsed_dict.get("checkpointer", {}),
             log_kwargs=parsed_dict.get("logger", {}),
+            trainer_kwargs=parsed_dict.get("trainer", {}),
         )
