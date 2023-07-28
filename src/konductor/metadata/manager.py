@@ -107,8 +107,6 @@ class MetadataManager:
     iteration: int = 0
 
     def __post_init__(self) -> None:
-        self.perflog.set_iteration(0)
-        self.perflog.set_file_suffix(0)
         self.remote_timer = _Timer()
         self._logger = getLogger("DataManager")
 
@@ -151,8 +149,7 @@ class MetadataManager:
         extras = self.checkpointer.resume()
         self.epoch = extras["epoch"]
         self.iteration = extras["iteration"]
-        self.perflog.set_iteration(self.iteration)
-        self.perflog.set_file_suffix(self.iteration)
+        self.perflog.resume(self.iteration)
         self._logger.info(
             f"Resuming from epoch {self.epoch}, iteration {self.iteration}"
         )

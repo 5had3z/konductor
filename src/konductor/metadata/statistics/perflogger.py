@@ -62,8 +62,8 @@ class PerfLogger:
     def __init__(self, config: PerfLoggerConfig) -> None:
         self.is_training = False
         self.config = config
-        self._iteration = -1
-        self._file_suffix = -1
+        self._iteration = 0
+        self._file_suffix = 0
         self._statistics: Dict[str, Statistic] | None = None
         self._logger = getLogger(type(self).__name__)
 
@@ -86,16 +86,16 @@ class PerfLogger:
         i.e. number of optimizer.steps()"""
         self._iteration = it
 
-    def set_file_suffix(self, it: int) -> None:
-        """Set the iteration used for the
-        filename for the current shard"""
-        self._file_suffix = it
+    def resume(self, it: int):
+        """Resume log, i.e. set file suffix as next iteration"""
+        self._iteration = it
+        self._file_suffix = it + 1
         self._reset_statistics()
 
     def commit(self) -> None:
         """Commit statistics by flushing to disk and changing
         filename to latest iteration to start a new shard"""
-        self._file_suffix = self._iteration
+        self._file_suffix = self._iteration + 1
         self._reset_statistics()
 
     def train(self) -> None:
@@ -140,9 +140,6 @@ class PerfLogger:
 
     def log(self, name: str, *args, **kwargs) -> None:
         assert self._statistics is not None, self._not_init_msg
-        assert (
-            self._iteration >= 0 and self._file_suffix >= 0
-        ), "Iteration or file_suffix for perflogger not set"
 
         # Log if testing or at training log interval
         if not self.is_training or self._iteration % self.log_interval == 0:
