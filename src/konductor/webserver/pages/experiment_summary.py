@@ -66,7 +66,7 @@ layout = html.Div(
                 ),
                 dbc.Col(
                     [
-                        dbc.H4("Statistic", style={"text-align": "center"}),
+                        html.H4("Statistic", style={"text-align": "center"}),
                         dcc.Dropdown(id="summary-stat-name"),
                     ]
                 ),
