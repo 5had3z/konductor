@@ -24,8 +24,38 @@ OPTION_TREE = OptionTree.make_root()
 layout = html.Div(
     children=[
         html.H2(children="Experiment Summary"),
-        html.Div(dcc.Dropdown(id="summary-exp-select")),
-        html.Div(id="summary-exp-hash"),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        html.H4(
+                            "Select Experiment by Brief", style={"text-align": "center"}
+                        ),
+                    ]
+                ),
+                dbc.Col(
+                    [
+                        html.H4(
+                            "Select Experiment by Hash", style={"text-align": "center"}
+                        ),
+                    ]
+                ),
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        html.Div(dcc.Dropdown(id="summary-brief-select")),
+                    ]
+                ),
+                dbc.Col(
+                    [
+                        html.Div(dcc.Dropdown(id="summary-hash-select")),
+                    ]
+                ),
+            ]
+        ),
         dbc.Row(
             [
                 dbc.Col(
@@ -36,7 +66,7 @@ layout = html.Div(
                 ),
                 dbc.Col(
                     [
-                        dbc.ModalTitle("Statistic", style={"text-align": "center"}),
+                        dbc.H4("Statistic", style={"text-align": "center"}),
                         dcc.Dropdown(id="summary-stat-name"),
                     ]
                 ),
@@ -72,13 +102,32 @@ layout = html.Div(
 
 
 @callback(
-    Output("summary-exp-select", "options"),
+    Output("summary-brief-select", "options"),
+    Output("summary-hash-select", "options"),
     Input("root-dir", "data"),
 )
 def init_exp(root_dir: str):
     if len(EXPERIMENTS) == 0:
         fill_experiments(Path(root_dir), EXPERIMENTS)
-    return [e.name for e in EXPERIMENTS]
+    return [e.name for e in EXPERIMENTS], [e.root.stem for e in EXPERIMENTS]
+
+
+@callback(
+    Output("summary-hash-select", "value"), Input("summary-brief-select", "value")
+)
+def action_brief(brief):
+    if brief is None:
+        raise PreventUpdate
+    return next(e.root.stem for e in EXPERIMENTS if e.name == brief)
+
+
+@callback(
+    Output("summary-brief-select", "value"), Input("summary-hash-select", "value")
+)
+def action_hash(exp_hash):
+    if exp_hash is None:
+        raise PreventUpdate
+    return next(e.name for e in EXPERIMENTS if e.root.stem == exp_hash)
 
 
 @callback(
@@ -86,14 +135,13 @@ def init_exp(root_dir: str):
     Output("summary-stat-group", "value"),
     Output("summary-traincfg-txt", "value"),
     Output("summary-metadata-txt", "value"),
-    Output("summary-exp-hash", "children"),
-    Input("summary-exp-select", "value"),
+    Input("summary-brief-select", "value"),
 )
 def selected_experiment(exp_name: str):
     """Return new statistic group and deselect previous value,
     also initialize the training cfg and metadata text boxes"""
     if not exp_name:
-        return [], None, "", "", ""
+        return [], None, "", ""
     OPTION_TREE.children = {}
 
     exp = next(e for e in EXPERIMENTS if e.name == exp_name)
@@ -106,7 +154,7 @@ def selected_experiment(exp_name: str):
     cfg_txt = (exp.root / "train_config.yml").read_text()
     meta_txt = (exp.root / "metadata.yaml").read_text()
 
-    return sorted(stat_groups), None, cfg_txt, meta_txt, exp.root.name
+    return sorted(stat_groups), None, cfg_txt, meta_txt
 
 
 @callback(
@@ -129,7 +177,7 @@ def update_stat_name(group: str):
 
 @callback(
     Output("summary-graph", "figure"),
-    Input("summary-exp-select", "value"),
+    Input("summary-brief-select", "value"),
     Input("summary-stat-group", "value"),
     Input("summary-stat-name", "value"),
 )
