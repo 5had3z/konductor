@@ -116,6 +116,7 @@ class MetadataManager:
                 "brief": "",
                 "notes": "",
                 "epoch": self.epoch,
+                "iteration": self.iteration,
                 "commit_begin": get_commit(),
                 "train_begin": datetime.now(),
             }
