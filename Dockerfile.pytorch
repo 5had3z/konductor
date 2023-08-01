@@ -12,7 +12,7 @@ RUN pip3 install --index-url https://download.pytorch.org/whl/cu118 \
 
 # Install DALI
 RUN pip3 install --extra-index-url https://developer.download.nvidia.com/compute/redist \
-    nvidia-dali-cuda110==1.27.0
+    nvidia-dali-cuda110==1.28.0
 
 # Install other Python Packages
 RUN pip3 install \
