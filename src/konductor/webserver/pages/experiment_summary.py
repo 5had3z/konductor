@@ -21,39 +21,59 @@ dash.register_page(__name__, path="/experiment-summary")
 EXPERIMENTS: List[Experiment] = []
 OPTION_TREE = OptionTree.make_root()
 
+
 layout = html.Div(
     children=[
         html.H2(children="Experiment Summary"),
         dbc.Row(
             [
                 dbc.Col(
-                    [
-                        html.H4(
-                            "Select Experiment by Brief", style={"text-align": "center"}
-                        ),
-                    ]
+                    [html.H4("Select by:", style={"text-align": "right"})],
+                    width=1,
                 ),
                 dbc.Col(
                     [
-                        html.H4(
-                            "Select Experiment by Hash", style={"text-align": "center"}
-                        ),
-                    ]
+                        dcc.RadioItems(
+                            id="summary-opt",
+                            options=[
+                                {
+                                    "label": html.Span(
+                                        "Brief",
+                                        style={
+                                            "font-size": 20,
+                                            "padding-left": 10,
+                                            "padding-right": 15,
+                                        },
+                                    ),
+                                    "value": "Brief",
+                                },
+                                {
+                                    "label": html.Span(
+                                        "Hash",
+                                        style={
+                                            "font-size": 20,
+                                            "padding-left": 10,
+                                            "padding-right": 15,
+                                        },
+                                    ),
+                                    "value": "Hash",
+                                },
+                            ],
+                            inline=True,
+                        )
+                    ],
+                    width=1,
                 ),
+                dbc.Col([dcc.Dropdown(id="summary-select")]),
             ]
         ),
         dbc.Row(
             [
                 dbc.Col(
-                    [
-                        html.Div(dcc.Dropdown(id="summary-brief-select")),
-                    ]
+                    [html.H4("Experiment Path: ", style={"text-align": "right"})],
+                    width=2,
                 ),
-                dbc.Col(
-                    [
-                        html.Div(dcc.Dropdown(id="summary-hash-select")),
-                    ]
-                ),
+                dbc.Col([html.Div("Unknown", id="summary-exp-path")]),
             ]
         ),
         dbc.Row(
@@ -101,33 +121,46 @@ layout = html.Div(
 )
 
 
+def get_experiment(key: str, btn: str):
+    if btn == "Brief":
+        exp = next(e for e in EXPERIMENTS if e.name == key)
+    elif btn == "Hash":
+        exp = next(e for e in EXPERIMENTS if e.root.stem == key)
+    else:
+        raise KeyError(f"Unknown button value: {btn}")
+    return exp
+
+
 @callback(
-    Output("summary-brief-select", "options"),
-    Output("summary-hash-select", "options"),
+    Output("summary-select", "options"),
+    Output("summary-select", "value"),
     Input("root-dir", "data"),
+    Input("summary-opt", "value"),
 )
-def init_exp(root_dir: str):
+def init_exp(root_dir: str, btn: str):
     if len(EXPERIMENTS) == 0:
         fill_experiments(Path(root_dir), EXPERIMENTS)
-    return [e.name for e in EXPERIMENTS], [e.root.stem for e in EXPERIMENTS]
+
+    if not btn:
+        raise PreventUpdate
+
+    opts = [e.name if btn == "Brief" else e.root.stem for e in EXPERIMENTS]
+
+    return opts, None
 
 
 @callback(
-    Output("summary-hash-select", "value"), Input("summary-brief-select", "value")
+    Output("summary-exp-path", "children"),
+    Input("summary-select", "value"),
+    Input("summary-opt", "value"),
 )
-def action_brief(brief):
-    if brief is None:
+def on_exp_select(key: str, btn: str):
+    if not all([key, btn]):
         raise PreventUpdate
-    return next(e.root.stem for e in EXPERIMENTS if e.name == brief)
 
+    exp = get_experiment(key, btn)
 
-@callback(
-    Output("summary-brief-select", "value"), Input("summary-hash-select", "value")
-)
-def action_hash(exp_hash):
-    if exp_hash is None:
-        raise PreventUpdate
-    return next(e.name for e in EXPERIMENTS if e.root.stem == exp_hash)
+    return str(exp.root)
 
 
 @callback(
@@ -135,16 +168,18 @@ def action_hash(exp_hash):
     Output("summary-stat-group", "value"),
     Output("summary-traincfg-txt", "value"),
     Output("summary-metadata-txt", "value"),
-    Input("summary-brief-select", "value"),
+    Input("summary-select", "value"),
+    Input("summary-opt", "value"),
 )
-def selected_experiment(exp_name: str):
+def selected_experiment(key: str, btn: str):
     """Return new statistic group and deselect previous value,
     also initialize the training cfg and metadata text boxes"""
-    if not exp_name:
+    if not all([key, btn]):
         return [], None, "", ""
     OPTION_TREE.children = {}
 
-    exp = next(e for e in EXPERIMENTS if e.name == exp_name)
+    exp = get_experiment(key, btn)
+
     fill_option_tree([exp], OPTION_TREE)
 
     stat_groups = set()  # Gather all groups
@@ -177,15 +212,16 @@ def update_stat_name(group: str):
 
 @callback(
     Output("summary-graph", "figure"),
-    Input("summary-brief-select", "value"),
+    Input("summary-select", "value"),
+    Input("summary-opt", "value"),
     Input("summary-stat-group", "value"),
     Input("summary-stat-name", "value"),
 )
-def update_graph(exp_name: str, group: str, name: str):
-    if not (exp_name and group and name):
+def update_graph(key: str, btn: str, group: str, name: str):
+    if not all([key, btn, group, name]):
         raise PreventUpdate
 
-    exp = next(e for e in EXPERIMENTS if e.name == exp_name)
+    exp = get_experiment(key, btn)
 
     data: List[pd.Series] = []
     for split in OPTION_TREE.keys:
