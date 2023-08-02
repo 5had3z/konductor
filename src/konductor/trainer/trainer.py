@@ -36,6 +36,8 @@ class TrainerConfig:
 
     pbar: Callable | None = None  # Enable Console Progress
 
+    pre_eval: bool = False  # Run evaluation before beginning of training
+
     def __post_init__(self):
         if comm.get_local_rank() != 0:
             self.pbar = None  # Ensure only one pbar per machine
@@ -82,6 +84,9 @@ class BaseTrainer(ABC):
 
     def train(self, epoch: int | None = None, iteration: int | None = None) -> None:
         """Train until epoch or iteration is reached"""
+        if self._config.pre_eval and self.data_manager.iteration == 0:
+            self._validate()
+
         if iteration is not None:
             assert epoch is None, "Only epoch or iteration should be specified"
             if self.data_manager.ckpt_cfg.epoch_mode:
