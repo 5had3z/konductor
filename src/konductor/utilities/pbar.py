@@ -40,6 +40,8 @@ class BasePbar:
     # The amount of the terminal string that's just formatting
     # This increases the "string length" but not its display length
     # So it has to be compensated for
+    DEFAULT_N_COLS = 120
+
     _fmt_len = len(
         f"{Fore.GREEN}{Fore.YELLOW}{Fore.RED}{Fore.RESET}"
         f"{Fore.YELLOW}{Fore.RESET}{Fore.YELLOW}{Fore.RESET}"
@@ -95,9 +97,18 @@ class BasePbar:
         )
         return end_str
 
+    def _get_cols(self):
+        """Get number of columns for pbar"""
+        if self.ncols is not None:
+            return self.ncols
+        try:
+            return os.get_terminal_size().columns
+        except OSError:
+            return BasePbar.DEFAULT_N_COLS
+
     def make_pbar(self, prog_char: str, start_end_len: int):
         """Progress character"""
-        ncols = os.get_terminal_size().columns if self.ncols is None else self.ncols
+        ncols = self._get_cols()
         print("\r" + " " * (ncols - 2), end="\r")  # Clear the terminal
         ncols -= start_end_len - self._fmt_len // 2
         done_bars = ncols * self.n // self.total
