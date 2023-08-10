@@ -1,6 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Literal
 
 
 @dataclass
@@ -120,3 +120,20 @@ class ExperimentInitConfig:
             log_kwargs=parsed_dict.get("logger", {}),
             trainer_kwargs=parsed_dict.get("trainer", {}),
         )
+
+    def set_workers(self, n: int):
+        """Set number of workers for dataloader, divided evenly
+        amonst multiple datasets if there are multiple"""
+        for data in self.data:
+            data.val_loader.args["workers"] = n // len(self.data)
+            data.train_loader.args["workers"] = n // len(self.data)
+
+    def set_batch_size(self, n: int, split: Literal["val", "train"]):
+        """Set the loaded batch size for the dataloader"""
+        assert split in {"val", "train"}, f"Invalid split {split}"
+
+        for data in self.data:
+            if split == "val":
+                data.val_loader.args["batch_size"] = n
+            elif split == "train":
+                data.train_loader.args["batch_size"] = n
