@@ -50,21 +50,23 @@ class TorchModelConfig(ModelConfig):
             ckpt_path = (
                 Path(os.environ.get("PRETRAINED_ROOT", Path.cwd())) / self.pretrained
             )
-            logger = getLogger()
-            logger.info(f"Loading pretrained checkpoint from {ckpt_path}")
+
             checkpoint = load(ckpt_path, map_location="cpu")
             if "model" in checkpoint:
                 missing, unused = model.load_state_dict(
                     checkpoint["model"], strict=False
                 )
-            else:
-                # Assume direct loading
+            else:  # Assume direct loading
                 missing, unused = model.load_state_dict(checkpoint, strict=False)
+
+            logger = getLogger()
             if len(missing) > 0 or len(unused) > 0:
                 logger.warning(
-                    f"Loaded pretrained checkpoint {ckpt_path} with "
+                    f"Loaded pretrained checkpoint from {ckpt_path} with "
                     f"{len(missing)} missing and {len(unused)} unused weights"
                 )
+            else:
+                logger.info(f"Loaded pretrained checkpoint from {ckpt_path}")
 
         return model
 
