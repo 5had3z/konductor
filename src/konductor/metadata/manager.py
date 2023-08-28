@@ -3,10 +3,11 @@
 """
 import enum
 from datetime import datetime, timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Any, Dict
-from logging import getLogger
+from logging import getLogger, warning
+import inspect
 import subprocess
 import os
 
@@ -32,6 +33,62 @@ def get_commit() -> str:
         git_hash = os.environ.get("COMMIT_SHA", "Unknown")
 
     return git_hash
+
+
+@dataclass
+class Metadata:
+    """
+    Information that pertains to the experiment
+    and its current state of training.
+    """
+
+    commit_begin: str = ""
+    commit_last: str = ""
+    epoch: int = 0
+    iteration: int = 0
+    notes: str = ""
+    train_begin: datetime = datetime.now()
+    train_last: datetime = datetime.now()
+    brief: str = ""
+
+    # Filepath is intended for convenience, not written to metadata file
+    filepath: Path | None = None
+
+    @property
+    def train_duration(self):
+        """Differene between train begin and last timestamp"""
+        return self.train_last - self.train_begin
+
+    @classmethod
+    def from_yaml(cls, path: Path):
+        """Create from metadata file"""
+        with open(path, "r", encoding="utf-8") as f:
+            data: Dict[str, Any] = yaml.safe_load(f)
+
+        known = set(inspect.signature(cls).parameters)
+        unknown = set()
+        filtered = {}
+        for k, v in data.items():
+            if k in known:
+                filtered[k] = v
+                known.remove(k)
+            else:
+                unknown.add(k)
+
+        if len(known) > 0:
+            warning(f"missing keys from metadata: {known}")
+        if len(unknown) > 0:
+            warning(f"extra keys in metadata: {unknown}")
+
+        return cls(**filtered, filepath=path)
+
+    def write(self):
+        """Write metadata to current filepath defined"""
+        filter_keys = {"filepath"}
+        metadata = {k: v for k, v in asdict(self).items() if k not in filter_keys}
+
+        with open(self.filepath, "w", encoding="utf-8") as f:
+            yaml.safe_dump(metadata, f)
 
 
 class _Timer:
@@ -67,7 +124,7 @@ class CkptConfig:
 
     def __post_init__(self):
         if isinstance(self.mode, str):
-            self.mode = CkptConfig.Mode[self.mode.upper()]
+            self.mode = CkptConfig.Mode[self.mode.name.upper()]
 
         assert self.latest >= 1
         if self.extra is not None:
@@ -92,8 +149,9 @@ class CkptConfig:
 
 @dataclass
 class MetadataManager:
-    """Manages the lifecycle for statistics, checkpoints and
-    any other relevant logs during training
+    """
+    Manages the lifecycle for statistics, checkpoints and
+    any other relevant logs during training.
     TODO Maybe make more flexible/extensible by using a callback
     structure for iteration step/epoch step?
     """
@@ -103,30 +161,37 @@ class MetadataManager:
     ckpt_cfg: CkptConfig = CkptConfig()
     remote_sync: _RemoteSyncrhoniser | None = None
     sync_interval: timedelta = timedelta(hours=1)
-    epoch: int = 0
-    iteration: int = 0
+    metadata: Metadata = field(init=False)  # post_init handles creation logic
 
     def __post_init__(self) -> None:
         self.remote_timer = _Timer()
         self._logger = getLogger("DataManager")
 
-        self._metadata_file = self.workspace / "metadata.yaml"
-        if not self._metadata_file.exists() and comm.get_local_rank() == 0:
-            metadata = {
-                "brief": "",
-                "notes": "",
-                "epoch": self.epoch,
-                "iteration": self.iteration,
-                "commit_begin": get_commit(),
-                "train_begin": datetime.now(),
-            }
-            with self._metadata_file.open("w", encoding="utf-8") as f:
-                yaml.safe_dump(metadata, f)
+        metadata_path = self.workspace / "metadata.yaml"
+        if metadata_path.exists():
+            self.metadata = Metadata.from_yaml(metadata_path)
+        elif comm.get_local_rank() == 0:
+            self.metadata = Metadata(
+                commit_begin=get_commit(),
+                commit_last=get_commit(),
+                filepath=metadata_path,
+            )
+            self.metadata.write()
 
     @property
     def workspace(self):
         """Directory where data is stored"""
         return self.checkpointer.rootdir
+
+    @property
+    def epoch(self):
+        """Current training epoch"""
+        return self.metadata.epoch
+
+    @property
+    def iteration(self):
+        """Current training iteration"""
+        return self.metadata.iteration
 
     @workspace.setter
     def workspace(self, path: Path):
@@ -137,7 +202,8 @@ class MetadataManager:
     def write_brief(self, brief: str) -> None:
         """Writes brief to metadata file"""
         if len(brief) > 0 and comm.get_local_rank() == 0:
-            self._update_metadata({"brief": brief})
+            self.metadata.brief = brief
+            self.metadata.write()
 
     def resume(self) -> None:
         """Resume from checkpoint if available, pull from remote if necessary"""
@@ -148,26 +214,19 @@ class MetadataManager:
             return
 
         extras = self.checkpointer.resume()
-        self.epoch = extras["epoch"]
-        self.iteration = extras["iteration"]
+
+        # Ensure that metadata file has same information as checkpoint
+        assert self.metadata.epoch == extras["epoch"]
+        assert self.metadata.iteration == extras["iteration"]
+
         self.perflog.resume(self.iteration)
         self._logger.info(
-            f"Resuming from epoch {self.epoch}, iteration {self.iteration}"
+            "Resuming from epoch %d, iteration %d", self.epoch, self.iteration
         )
-
-    def _update_metadata(self, data: Dict[str, Any]):
-        """Updates the metadata file with dictionary"""
-        with self._metadata_file.open("r", encoding="utf-8") as f:
-            metadata: Dict[str, Any] = yaml.safe_load(f)
-
-        metadata.update(data)  # Add changes to metadata
-
-        with self._metadata_file.open("w", encoding="utf-8") as f:
-            yaml.safe_dump(metadata, f)
 
     def epoch_step(self) -> None:
         """Step epoch"""
-        self.epoch += 1
+        self.metadata.epoch += 1
         if self.ckpt_cfg.epoch_mode and self.ckpt_cfg.save_latest(self.epoch):
             filename = (
                 f"epoch_{self.epoch}"
@@ -178,7 +237,7 @@ class MetadataManager:
 
     def iter_step(self) -> None:
         """Step iteration"""
-        self.iteration += 1
+        self.metadata.iteration += 1
         self.perflog.set_iteration(self.iteration)
         if self.ckpt_cfg.iter_mode and self.ckpt_cfg.save_latest(self.iteration):
             filename = (
@@ -194,14 +253,9 @@ class MetadataManager:
         # Only save checkpoint on local rank zero
         if comm.get_local_rank() == 0:
             self.checkpointer.save(filename, epoch=self.epoch, iteration=self.iteration)
-            self._update_metadata(
-                {
-                    "epoch": self.epoch,
-                    "iteration": self.iteration,
-                    "commit_last": get_commit(),
-                    "train_last": datetime.now(),
-                }
-            )
+            self.metadata.commit_last = get_commit()
+            self.metadata.train_last = datetime.now()
+            self.metadata.write()
 
         self.perflog.commit()  # Ensure all perf data is logged, move to next shard
         comm.synchronize()  # Ensure all workers have saved data before push
@@ -219,11 +273,10 @@ class MetadataManager:
 
         if comm.is_main_process():  # Main rank pushes all data (logs + weights)
             self.remote_sync.push_all()
-            self.remote_sync.push(self._metadata_file.name)
         elif comm.get_local_rank() == 0:  # Rank 0 of other machines push logs
             self.remote_sync.push_select([r".*\.parquet", "events.out.tfevents.*"])
 
-        # Local rank 0 removes parquet logs
+        # Local rank 0 removes parquet logs after push to prevent excess accumulation
         if comm.get_local_rank() == 0:
             for file in self.workspace.glob("*.parquet"):
                 file.unlink()
@@ -237,5 +290,8 @@ class MetadataManager:
             self.remote_sync.pull_select(
                 [r".*\.yaml", r".*\.yml", self.checkpointer.latest.name]
             )
+            # Remake metadata from pulled file
+            if self.metadata.filepath.exists():
+                self.metadata = Metadata.from_yaml(self.metadata.filepath)
 
         comm.synchronize()

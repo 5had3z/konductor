@@ -4,9 +4,10 @@ Initialisation methods for Training/Validation etc.
 import argparse
 from typing import Any, Dict, Type
 from pathlib import Path
-import yaml
 import hashlib
 from io import StringIO
+
+import yaml
 
 from .trainer import TrainerConfig, TrainerModules, TrainerT
 from ..models import get_training_model

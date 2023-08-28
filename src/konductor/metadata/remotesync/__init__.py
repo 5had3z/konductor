@@ -41,7 +41,7 @@ if len(REGISTRY) == 0:
 def get_remote_config(config: ExperimentInitConfig) -> RemoteConfig:
     assert (
         config.remote_sync is not None
-    ), f"Can't setup remote if there's no configuration"
+    ), "Can't setup remote if there's no configuration"
     return REGISTRY[config.remote_sync.type].from_config(config)
 
 

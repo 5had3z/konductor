@@ -3,19 +3,17 @@
 from pathlib import Path
 import re
 import os
-import inspect
-from colorama import Fore, Style
-from typing import Any, List, Dict
+from typing import List, Dict
 from io import StringIO
-from dataclasses import dataclass
-from datetime import datetime
-from warnings import warn
+from typing_extensions import Annotated
 
-import typer
-import yaml
+from colorama import Fore, Style
 from pyarrow import parquet as pq
 from pyarrow import compute as pc
 from pandas import DataFrame as df
+import typer
+
+from ..metadata.manager import Metadata
 
 _PQ_SHARD_RE = r"\A(train|val)_[a-zA-Z0-9-]+_[0-9]+_[0-9]+.parquet\Z"
 _PQ_REDUCED_RE = r"\A(train|val)_[a-zA-Z0-9-]+.parquet\Z"
@@ -45,11 +43,12 @@ def summarize_stats(path: Path) -> None:
     average = data.query(f"iteration == {last_iter}").mean()
 
     print(
-        f"{Fore.GREEN+Style.BRIGHT}\n{path.stem}\n\t{Fore.BLUE}Last Iteration: {Style.RESET_ALL}{last_iter}\n"
+        f"{Fore.GREEN+Style.BRIGHT}\n{path.stem}\n"
+        f"\t{Fore.BLUE}Last Iteration: {Style.RESET_ALL}{last_iter}\n"
     )
     labels = [lbl for lbl in average.index if lbl not in {"iteration", "timestamp"}]
 
-    max_lbl = len(max(labels, key=lambda x: len(x)))
+    max_lbl = len(max(labels, key=len))
     print_strs = [
         f"{Style.BRIGHT+Fore.BLUE}{label:{max_lbl}}: {Style.RESET_ALL}{average[label]:5.3f}"
         for label in labels
@@ -58,44 +57,6 @@ def summarize_stats(path: Path) -> None:
     for printstr in chunk(print_strs, n_cols):
         print("".join(f"   {d}" for d in printstr))
     print(f"\n{Style.BRIGHT}" + "=" * os.get_terminal_size().columns + Style.RESET_ALL)
-
-
-@dataclass
-class Metadata:
-    commit_begin: str
-    commit_last: str
-    epoch: int
-    iteration: int
-    notes: str
-    train_begin: datetime
-    train_last: datetime
-    brief: str = ""
-
-    @property
-    def train_duration(self):
-        return self.train_last - self.train_begin
-
-    @classmethod
-    def from_yaml(cls, path: Path):
-        with open(path, "r", encoding="utf-8") as f:
-            data: Dict[str, Any] = yaml.safe_load(f)
-
-        known = set(inspect.signature(cls).parameters)
-        unknown = set()
-        filtered = {}
-        for k, v in data.items():
-            if k in known:
-                filtered[k] = v
-                known.remove(k)
-            else:
-                unknown.add(k)
-
-        if len(known) > 0:
-            warn(f"missing keys from metadata: {known}")
-        if len(unknown) > 0:
-            warn(f"extra keys in metadata: {unknown}")
-
-        return cls(**filtered)
 
 
 def print_metadata(path: Path) -> None:
@@ -129,7 +90,7 @@ def print_metadata(path: Path) -> None:
 
 
 @app.command()
-def describe(path: Path = typer.Option(Path.cwd(), "--path")) -> None:
+def describe(path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
     """Describe the performance statistics of a run"""
     # Find all sharded files
     logs = [p for p in path.iterdir() if re.match(_PQ_REDUCED_RE, p.name)]
@@ -162,7 +123,7 @@ def reduce_shard(shards: List[Path]) -> None:
     print(f"{Fore.BLUE+Style.BRIGHT}Grouping for {target.name}{Style.RESET_ALL}")
     schema = pq.read_schema(shards[0])
 
-    pq_kwargs = dict(pre_buffer=False, memory_map=True, use_threads=True)
+    pq_kwargs = {"pre_buffer": False, "memory_map": True, "use_threads": True}
     old_data = pq.read_table(target, **pq_kwargs) if target.exists() else None
 
     with pq.ParquetWriter(target, schema) as writer:
@@ -188,7 +149,7 @@ def reduce_shard(shards: List[Path]) -> None:
 
 
 @app.command()
-def reduce(path: Path = typer.Option(Path.cwd(), "--path")) -> None:
+def reduce(path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
     """Collate parquet epoch/worker shards into singular file.
     This reduces them to singular {train|val}_{name}.parquet file.
     """
@@ -220,7 +181,7 @@ def reduce(path: Path = typer.Option(Path.cwd(), "--path")) -> None:
 
 
 @app.command()
-def reduce_all(path: Path = typer.Option(Path.cwd(), "--path")) -> None:
+def reduce_all(path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
     """Run over each experiment folder in a workspace, reducing all shards"""
     for folder in path.iterdir():
         if folder.is_file():
