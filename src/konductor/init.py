@@ -128,12 +128,12 @@ class ExperimentInitConfig:
             data.val_loader.args["workers"] = n // len(self.data)
             data.train_loader.args["workers"] = n // len(self.data)
 
-    def set_batch_size(self, n: int, split: Literal["val", "train"]):
+    def set_batch_size(self, n: int, split: Literal["val", "train", "test"]):
         """Set the loaded batch size for the dataloader"""
-        assert split in {"val", "train"}, f"Invalid split {split}"
+        assert split in {"val", "train", "test"}, f"Invalid split {split}"
 
         for data in self.data:
-            if split == "val":
+            if split in {"val", "test"}:
                 data.val_loader.args["batch_size"] = n
             elif split == "train":
                 data.train_loader.args["batch_size"] = n
