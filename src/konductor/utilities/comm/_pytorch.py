@@ -101,7 +101,7 @@ def _serialize_to_tensor(data: Any, group) -> Tensor:
             len(buffer) / (1024**3),
             device,
         )
-    storage = torch.ByteStorage.from_buffer(buffer)
+    storage = torch.UntypedStorage.from_buffer(buffer)
     tensor = torch.ByteTensor(storage).to(device=device)
     return tensor
 
