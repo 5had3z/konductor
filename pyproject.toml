@@ -53,6 +53,7 @@ konduct-review = "konductor.webserver.app:run_as_main"
 [project.optional-dependencies]
 REMOTE = ["paramiko", "minio"]
 WEBUI = ["dash", "plotly", "dash_bootstrap_components"]
+DEV = ["pytest"]
 
 [project.urls]
 "Homepage" = "https://github.com/5had3z/konductor"
