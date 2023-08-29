@@ -42,6 +42,9 @@ class Metadata:
     and its current state of training.
     """
 
+    # Filepath is intended for convenience, not written to metadata file
+    filepath: Path
+
     commit_begin: str = ""
     commit_last: str = ""
     epoch: int = 0
@@ -50,9 +53,6 @@ class Metadata:
     train_begin: datetime = datetime.now()
     train_last: datetime = datetime.now()
     brief: str = ""
-
-    # Filepath is intended for convenience, not written to metadata file
-    filepath: Path | None = None
 
     @property
     def train_duration(self):
@@ -168,14 +168,17 @@ class MetadataManager:
         self._logger = getLogger("DataManager")
 
         metadata_path = self.workspace / "metadata.yaml"
-        if metadata_path.exists():
-            self.metadata = Metadata.from_yaml(metadata_path)
-        elif comm.get_local_rank() == 0:
-            self.metadata = Metadata(
+        self.metadata = (
+            Metadata.from_yaml(metadata_path)
+            if metadata_path.exists()
+            else Metadata(
                 commit_begin=get_commit(),
                 commit_last=get_commit(),
                 filepath=metadata_path,
             )
+        )
+
+        if comm.get_local_rank() == 0:
             self.metadata.write()
 
     @property
@@ -250,11 +253,12 @@ class MetadataManager:
     def save(self, filename: str, force_push: bool = False) -> None:
         """Save metadata and checkpoint, optionally force push to remote"""
 
+        self.metadata.commit_last = get_commit()
+        self.metadata.train_last = datetime.now()
+
         # Only save checkpoint on local rank zero
         if comm.get_local_rank() == 0:
             self.checkpointer.save(filename, epoch=self.epoch, iteration=self.iteration)
-            self.metadata.commit_last = get_commit()
-            self.metadata.train_last = datetime.now()
             self.metadata.write()
 
         self.perflog.commit()  # Ensure all perf data is logged, move to next shard
@@ -290,8 +294,9 @@ class MetadataManager:
             self.remote_sync.pull_select(
                 [r".*\.yaml", r".*\.yml", self.checkpointer.latest.name]
             )
-            # Remake metadata from pulled file
-            if self.metadata.filepath.exists():
-                self.metadata = Metadata.from_yaml(self.metadata.filepath)
 
         comm.synchronize()
+
+        # Remake metadata from pulled file
+        if self.metadata.filepath.exists():
+            self.metadata = Metadata.from_yaml(self.metadata.filepath)
