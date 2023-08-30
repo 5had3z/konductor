@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
+from logging import debug
 from typing import Any
 
-
-from ..registry import Registry, BaseConfig
-from ..optimizers import OptimizerConfig, get_optimizer_config
 from ..init import ExperimentInitConfig
+from ..optimizers import OptimizerConfig, get_optimizer_config
+from ..registry import BaseConfig, Registry
 
 # Model is end-to-end definition of
 MODEL_REGISTRY = Registry("model")
@@ -56,6 +56,6 @@ def get_training_model(config: ExperimentInitConfig, idx: int = 0) -> Any:
 try:
     import torch
 except ImportError:
-    print("Unable to import torch, not adding default models")
+    debug("Unable to import torch, not adding default models")
 else:
     from . import _pytorch

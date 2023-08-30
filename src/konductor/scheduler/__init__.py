@@ -2,10 +2,11 @@
 Learning rate schedulers
 """
 from dataclasses import dataclass
+from logging import debug
 from typing import Any, NewType
 
-from ..registry import Registry, BaseConfig
-from ..init import ModelInitConfig, ExperimentInitConfig
+from ..init import ExperimentInitConfig, ModelInitConfig
+from ..registry import BaseConfig, Registry
 
 SchedulerT = NewType("Scheduler", Any)
 OptimizerT = NewType("Optimizer", Any)
@@ -23,7 +24,15 @@ class SchedulerConfig(BaseConfig):
 
     def get_instance(self, scheduler: SchedulerT, **kwargs):
         """Add flag whether step is epoch based or iteration based"""
-        inst = self.init_auto_filter(scheduler, **kwargs)
+
+        if "known_unused" in kwargs:
+            kwargs["known_unused"].add("epoch_step")
+            inst = self.init_auto_filter(scheduler, **kwargs)
+        else:
+            inst = self.init_auto_filter(
+                scheduler, known_unused={"epoch_step"}, **kwargs
+            )
+
         setattr(inst, "epoch_step", self.epoch_step)
         return inst
 
@@ -31,7 +40,7 @@ class SchedulerConfig(BaseConfig):
 try:
     import torch
 except ImportError:
-    print("Unable to import torch, not using torch schedulers")
+    debug("Unable to import torch, not using torch schedulers")
 else:
     from . import _pytorch
 
@@ -48,17 +57,19 @@ def get_lr_scheduler(config: ModelInitConfig, optimizer: Any) -> SchedulerT:
 
 def main() -> None:
     """Quick plot to show LR Scheduler config in action"""
+    from pathlib import Path
+
     import matplotlib.pyplot as plt
     import numpy as np
-    from torch.optim import Optimizer
     from torch.nn import Conv2d
+    from torch.optim import Optimizer
     from torch.optim.lr_scheduler import PolynomialLR
-    from pathlib import Path
-    from konductor.modules import (
-        ExperimentInitConfig,
-        ModuleInitConfig,
+
+    from konductor.init import (
         DatasetInitConfig,
+        ExperimentInitConfig,
         ModelInitConfig,
+        ModuleInitConfig,
     )
 
     iters = 600

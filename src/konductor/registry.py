@@ -7,11 +7,10 @@ by a dataset can be used to configure the model
 """
 
 import abc
-from dataclasses import dataclass, asdict
 import inspect
-from logging import getLogger
-from typing import Any, Dict, Type
-from warnings import warn
+from dataclasses import asdict, dataclass
+from logging import getLogger, warning
+from typing import Any, Dict, Set, Type
 
 from .init import ExperimentInitConfig
 
@@ -32,16 +31,25 @@ class BaseConfig(metaclass=abc.ABCMeta):
     def get_instance(self, *args, **kwargs) -> Any:
         """Get initialised module from configuration"""
 
-    def init_auto_filter(self, target, **kwargs) -> Dict[str, Any]:
-        """Make instance of target class with auto-filtered asdict(self) + kwargs"""
+    def init_auto_filter(
+        self, target, known_unused: Set[str] | None = None, **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Make instance of target class with auto-filtered asdict(self) + kwargs
+        known_unused is a set of keyword arguments which may be present and are
+        known to be not used by the module itself so we can skip the warning.
+        """
         kwargs.update(asdict(self))
         filtered = {
             k: v for k, v in kwargs.items() if k in inspect.signature(target).parameters
         }
 
         diff = set(kwargs.keys()).difference(set(filtered.keys()))
+        if known_unused is not None:
+            diff = diff.difference(known_unused)
+
         if len(diff) > 0:
-            warn(f"Filtered unused arguments from {target.__name__}: {diff}")
+            warning("Filtered unused arguments from %s: %s", target.__name__, diff)
 
         return target(**filtered)
 

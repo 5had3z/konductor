@@ -3,21 +3,20 @@ Popular Learning Rate Schedulers
 TODO: Find out a way to use inspect.signature to automatically
 generate dataclass config but still have inheritance from base
 """
-from dataclasses import dataclass
-from typing import Sequence, Literal
-from functools import partial
 import math
+from dataclasses import dataclass
+from functools import partial
+from typing import Literal, Sequence
 
+from torch.optim import Optimizer
 from torch.optim.lr_scheduler import (
-    ReduceLROnPlateau,
-    LinearLR,
     ConstantLR,
     LambdaLR,
-    StepLR,
+    LinearLR,
     MultiStepLR,
+    ReduceLROnPlateau,
+    StepLR,
 )
-from torch.optim import Optimizer
-
 
 from . import REGISTRY, SchedulerConfig
 
@@ -35,7 +34,12 @@ class PolyLRConfig(SchedulerConfig):
 
     def get_instance(self, optimizer: Optimizer):
         l = partial(self._poly_lr_lambda, max_iter=self.max_iter, power=self.power)
-        return super().get_instance(LambdaLR, optimizer=optimizer, lr_lambda=l)
+        return super().get_instance(
+            LambdaLR,
+            optimizer=optimizer,
+            lr_lambda=l,
+            known_unused={"max_iter", "power"},
+        )
 
 
 @dataclass(kw_only=True)
@@ -50,7 +54,9 @@ class CosineLRConfig(SchedulerConfig):
 
     def get_instance(self, optimizer: Optimizer):
         l = partial(self._cosine_lr_lambda, max_iter=self.max_iter)
-        return super().get_instance(LambdaLR, optimizer=optimizer, lr_lambda=l)
+        return super().get_instance(
+            LambdaLR, optimizer=optimizer, lr_lambda=l, known_unused={"max_iter"}
+        )
 
 
 @dataclass

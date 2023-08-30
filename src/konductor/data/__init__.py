@@ -1,12 +1,13 @@
 import abc
 import enum
-from dataclasses import dataclass, field
+import logging
 import os
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
-from ..registry import Registry, BaseConfig
-from ..init import ModuleInitConfig, DatasetInitConfig, ExperimentInitConfig
+from ..init import DatasetInitConfig, ExperimentInitConfig, ModuleInitConfig
+from ..registry import BaseConfig, Registry
 
 DATASET_REGISTRY = Registry("dataset")
 SAMPLER_REGISTRY = Registry("data_sampler")
@@ -98,21 +99,24 @@ class DataloaderConfig(BaseConfig):
 
 try:
     import torch
+
     from . import _pytorch
 except ImportError:
-    print("pytorch data modules disabled")
+    logging.debug("pytorch data modules disabled")
 
 try:
     import nvidia.dali
+
     from . import dali
 except ImportError:
-    print("dali dataloader support disabled")
+    logging.debug("dali dataloader support disabled")
 
 try:
     import tensorflow
+
     from . import _tensorflow
 except ImportError:
-    print("tensoflow data modules disabled")
+    logging.debug("tensoflow data modules disabled")
 
 
 def get_dataset_config(config: ExperimentInitConfig, idx: int = 0) -> DatasetConfig:

@@ -1,32 +1,33 @@
-from typing import Any, Callable, List, Type
 from dataclasses import dataclass
-
-from ...utilities.comm import get_world_size, in_distributed_mode
-from .. import DataloaderConfig, DATALOADER_REGISTRY, Registry
+from logging import warning
+from typing import Any, Callable, List, Type
 
 from torch.utils.data import (
+    BatchSampler,
     DataLoader,
     DistributedSampler,
-    SequentialSampler,
     RandomSampler,
     Sampler,
-    BatchSampler,
+    SequentialSampler,
     default_collate,
 )
+
+from ...utilities.comm import get_world_size, in_distributed_mode
+from .. import DATALOADER_REGISTRY, DataloaderConfig, Registry
 
 DATAPIPE_AUG = Registry("datapipe_augmentations")
 
 try:
-    from torchdata.datapipes.utils import pin_memory_fn
-    from torchdata.datapipes.iter import IterableWrapper
     from torchdata.dataloader2 import DataLoader2
     from torchdata.dataloader2.reading_service import (
-        MultiProcessingReadingService,
         DistributedReadingService,
+        MultiProcessingReadingService,
         SequentialReadingService,
     )
+    from torchdata.datapipes.iter import IterableWrapper
+    from torchdata.datapipes.utils import pin_memory_fn
 except ImportError:
-    print("torchdata unavailable")
+    warning("torchdata unavailable")
 
 
 @dataclass

@@ -1,16 +1,15 @@
 import abc
-from dataclasses import dataclass, asdict
 import itertools
-from typing import Any, Dict, Type, Iterator
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, Iterator, Type
 
 from torch import nn
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler, ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, _LRScheduler
 
 from ...init import ModuleInitConfig
-from ...registry import Registry
 from ...optimizers import OptimizerConfig
-
+from ...registry import Registry
 
 # Registry for custom parameter grouping functions
 PG_REGISTRY = Registry("param_group_fn")
@@ -70,7 +69,16 @@ class PytorchOptimizer(OptimizerConfig):
         else:
             params = model.parameters()
 
-        optim = self.init_auto_filter(optim_cls, params=params, **kwargs)
+        # Known config parameters that aren't used in the optim module itself
+        known_unused = {
+            "scheduler",
+            "step_interval",
+            "param_group_fn",
+            "gradient_clipping",
+        }
+        optim = self.init_auto_filter(
+            optim_cls, params=params, known_unused=known_unused, **kwargs
+        )
         setattr(optim, "step_interval", self.step_interval)
         return optim
 
@@ -82,4 +90,4 @@ class PytorchOptimizer(OptimizerConfig):
         return self.scheduler.get_instance(optimizer)
 
 
-from . import lamb, common  # TODO: Automatically import all modules in folder
+from . import common, lamb  # TODO: Automatically import all modules in folder

@@ -2,28 +2,29 @@
 Initialisation methods for Training/Validation etc.
 """
 import argparse
-from typing import Any, Dict, Type
-from pathlib import Path
 import hashlib
+import logging
 from io import StringIO
+from pathlib import Path
+from typing import Any, Dict, Type
 
 import yaml
 
-from .trainer import TrainerConfig, TrainerModules, TrainerT
-from ..models import get_training_model
-from ..losses import get_criterion
-from ..data import get_dataloader, get_dataset_properties, get_dataset_config
+from ..data import get_dataloader, get_dataset_config, get_dataset_properties
 from ..init import ExperimentInitConfig, ModuleInitConfig
+from ..losses import get_criterion
 from ..metadata import (
+    CkptConfig,
+    MetadataManager,
+    PerfLoggerConfig,
+    Statistic,
     get_metadata_manager,
     get_remote_config,
-    PerfLoggerConfig,
-    MetadataManager,
-    Statistic,
-    CkptConfig,
 )
 from ..metadata.statistics.scalar_dict import ScalarStatistic
+from ..models import get_training_model
 from ..utilities import comm
+from .trainer import TrainerConfig, TrainerModules, TrainerT
 
 
 def parser_add_common_args(parser: argparse.ArgumentParser) -> None:
@@ -128,10 +129,10 @@ def get_experiment_cfg(
         exp_path: Path = workspace / train_hash
 
         if not exp_path.exists() and comm.get_local_rank() == 0:
-            print(f"Creating experiment directory {exp_path}")
+            logging.info("Creating experiment directory %s", exp_path)
             exp_path.mkdir(parents=True)
         else:
-            print(f"Using experiment directory {exp_path}")
+            logging.info("Using experiment directory %s", exp_path)
 
         # Ensure the experiment configuration exists in the target directory
         if not (exp_path / "train_config.yml").exists() and comm.get_local_rank() == 0:
