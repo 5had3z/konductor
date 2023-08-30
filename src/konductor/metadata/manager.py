@@ -75,6 +75,7 @@ class Metadata:
             else:
                 unknown.add(k)
 
+        known.remove("filepath")  # This is set by path arg
         if len(known) > 0:
             warning(f"missing keys from metadata: {known}")
         if len(unknown) > 0:

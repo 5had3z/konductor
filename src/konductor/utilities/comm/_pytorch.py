@@ -89,7 +89,7 @@ def _get_global_gloo_group():
 
 def _serialize_to_tensor(data: Any, group) -> Tensor:
     backend = dist.get_backend(group)
-    assert backend in ["gloo", "nccl"]
+    assert backend in {"gloo", "nccl"}
     device = torch.device("cpu" if backend == "gloo" else "cuda")
 
     buffer = pickle.dumps(data)
@@ -101,9 +101,11 @@ def _serialize_to_tensor(data: Any, group) -> Tensor:
             len(buffer) / (1024**3),
             device,
         )
-    storage = torch.UntypedStorage.from_buffer(buffer)
-    tensor = torch.ByteTensor(storage).to(device=device)
-    return tensor
+
+    storage = torch.UntypedStorage.from_buffer(buffer, dtype=torch.uint8)
+    storage = storage.cpu() if backend == "gloo" else storage.cuda()
+
+    return torch.ByteTensor(storage, device=device)
 
 
 def _pad_to_largest_tensor(tensor: Tensor, group):
