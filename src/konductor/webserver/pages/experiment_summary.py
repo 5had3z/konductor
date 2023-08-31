@@ -28,8 +28,7 @@ layout = html.Div(
         dbc.Row(
             [
                 dbc.Col(
-                    [html.H4("Select by:", style={"text-align": "right"})],
-                    width=1,
+                    [html.H4("Select by:", style={"text-align": "right"})], width=2
                 ),
                 dbc.Col(
                     [
@@ -50,11 +49,7 @@ layout = html.Div(
                                 {
                                     "label": html.Span(
                                         "Hash",
-                                        style={
-                                            "font-size": 20,
-                                            "padding-left": 10,
-                                            "padding-right": 15,
-                                        },
+                                        style={"font-size": 20, "padding-left": 10},
                                     ),
                                     "value": "Hash",
                                 },
@@ -62,16 +57,16 @@ layout = html.Div(
                             inline=True,
                         )
                     ],
-                    width=1,
+                    width=2,
                 ),
-                dbc.Col([dcc.Dropdown(id="summary-select")]),
+                dbc.Col([dcc.Dropdown(id="summary-select")], width=8),
             ]
         ),
         dbc.Row(
             [
                 dbc.Col(
                     [html.H4("Experiment Path: ", style={"text-align": "right"})],
-                    width=2,
+                    width=3,
                 ),
                 dbc.Col([html.Div("Unknown", id="summary-exp-path")]),
             ]
