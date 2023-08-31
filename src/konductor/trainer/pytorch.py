@@ -209,7 +209,7 @@ class PyTorchTrainer(BaseTrainer):
                 self.data_manager.perflog.log(statistic, preds, data)
 
     def _train(
-        self, max_iter: int | None, pbar=None, profiler: profile | None = None
+        self, max_iter: int | None = None, pbar=None, profiler: profile | None = None
     ) -> None:
         """Train for one epoch over the dataset"""
         self.modules.model.train()
