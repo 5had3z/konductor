@@ -2,21 +2,21 @@
 
 """
 import enum
+import inspect
+import os
+import subprocess
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict, field
+from logging import getLogger, warning
 from pathlib import Path
 from typing import Any, Dict
-from logging import getLogger, warning
-import inspect
-import subprocess
-import os
 
 import yaml
 
-from .checkpointer import Checkpointer
-from .statistics.perflogger import PerfLogger
-from .remotesync import _RemoteSyncrhoniser
 from ..utilities import comm
+from .checkpointer import Checkpointer
+from .remotesync import _RemoteSyncrhoniser
+from .statistics.perflogger import PerfLogger
 
 
 def get_commit() -> str:
@@ -125,7 +125,7 @@ class CkptConfig:
 
     def __post_init__(self):
         if isinstance(self.mode, str):
-            self.mode = CkptConfig.Mode[self.mode.name.upper()]
+            self.mode = CkptConfig.Mode[self.mode.upper()]
 
         assert self.latest >= 1
         if self.extra is not None:
