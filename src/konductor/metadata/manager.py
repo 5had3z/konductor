@@ -195,10 +195,9 @@ class MetadataManager:
         self.perflog.config.write_path = path
 
     def write_brief(self, brief: str) -> None:
-        """Writes brief to metadata file"""
-        if len(brief) > 0 and comm.get_local_rank() == 0:
+        """Sets metadata briefly describing experiment if "brief" isn't empty"""
+        if len(brief) > 0:
             self.metadata.brief = brief
-            self.metadata.write()
 
     def resume(self) -> None:
         """Resume from checkpoint if available, pull from remote if necessary"""
