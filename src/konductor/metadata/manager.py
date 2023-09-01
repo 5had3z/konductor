@@ -167,20 +167,11 @@ class MetadataManager:
     def __post_init__(self) -> None:
         self.remote_timer = _Timer()
         self._logger = getLogger("DataManager")
-
-        metadata_path = self.workspace / "metadata.yaml"
-        self.metadata = (
-            Metadata.from_yaml(metadata_path)
-            if metadata_path.exists()
-            else Metadata(
-                commit_begin=get_commit(),
-                commit_last=get_commit(),
-                filepath=metadata_path,
-            )
+        self.metadata = Metadata(
+            commit_begin=get_commit(),
+            commit_last=get_commit(),
+            filepath=self.workspace / "metadata.yaml",
         )
-
-        if comm.get_local_rank() == 0:
-            self.metadata.write()
 
     @property
     def workspace(self):
@@ -217,6 +208,7 @@ class MetadataManager:
             self._logger.warning("No checkpoint to resume")
             return
 
+        self.metadata = Metadata.from_yaml(self.metadata.filepath)
         extras = self.checkpointer.resume()
 
         # Ensure that metadata file has same information as checkpoint
@@ -297,7 +289,3 @@ class MetadataManager:
             )
 
         comm.synchronize()
-
-        # Remake metadata from pulled file
-        if self.metadata.filepath.exists():
-            self.metadata = Metadata.from_yaml(self.metadata.filepath)
