@@ -14,7 +14,13 @@ SAMPLER_REGISTRY = Registry("data_sampler")
 DATALOADER_REGISTRY = Registry("dataloder")
 
 
-class Mode(enum.Enum):
+class Mode(str, enum.Enum):
+    @staticmethod
+    def _generate_next_value_(
+        name: str, start: int, count: int, last_values: list
+    ) -> str:
+        return name  # Use this for < python3.11 compat
+
     train = enum.auto()
     val = enum.auto()
     test = enum.auto()
