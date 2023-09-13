@@ -29,7 +29,7 @@ class PolyLRConfig(SchedulerConfig):
 
     @staticmethod
     def _poly_lr_lambda(index: int, max_iter: int, power: float = 0.9) -> float:
-        """Polynomal decay until maximum iteration (constant afterward)"""
+        """Polynomial decay until maximum iteration (constant afterward)"""
         return (1.0 - min(index, max_iter - 1) / max_iter) ** power
 
     def get_instance(self, optimizer: Optimizer):

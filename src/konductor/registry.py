@@ -2,7 +2,7 @@
 The design rationale for a configuration registry which returns models
 is that we can partially initialise and gather the relevant variables
 throughout the initialisation phase of the program. This allows for 
-circular dependices between classes such as the numebr of classes defined
+circular dependencies between classes such as the number of classes defined
 by a dataset can be used to configure the model 
 """
 

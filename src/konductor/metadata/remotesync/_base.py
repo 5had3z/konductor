@@ -86,7 +86,7 @@ class _RemoteSyncrhoniser(metaclass=ABCMeta):
         """Get a file from the remote"""
 
     def _generate_file_list_from_host(self) -> None:
-        """Generates the file list to be syncrhonised based on files in the host directory."""
+        """Generates the file list to be synchronised based on files in the host directory."""
         self.file_list = set(f.name for f in self._host_path.iterdir() if f.is_file())
 
         assert len(self.file_list) > 0, "No files to synchronise from host"
@@ -94,4 +94,4 @@ class _RemoteSyncrhoniser(metaclass=ABCMeta):
 
     @abstractmethod
     def _generate_file_list_from_remote(self) -> None:
-        """Generates the file list to be syncrhonised based on files on the remote."""
+        """Generates the file list to be synchronised based on files on the remote."""

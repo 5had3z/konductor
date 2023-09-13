@@ -30,7 +30,7 @@ def initialize(timeout: timedelta = timedelta(minutes=5)) -> None:
 
 
 def in_distributed_mode() -> bool:
-    """Check whether we're in data distrbuted mode"""
+    """Check whether we're in data distributed mode"""
     return dist.is_available() and dist.is_initialized()
 
 

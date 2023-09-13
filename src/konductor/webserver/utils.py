@@ -87,7 +87,7 @@ class OptionTree:
 
     Initialise this with the factory function OptionTree.make_root(),
     then add full options to the tree with root.add("train/loss/bbox")
-    You can then decend the tree later to find out what's available
+    You can then descend the tree later to find out what's available
     root["train/loss"].keys -> {"bbox", "cls", "obj"}
     """
 
