@@ -123,7 +123,7 @@ class ExperimentInitConfig:
 
     def set_workers(self, n: int):
         """Set number of workers for dataloader, divided evenly
-        amonst multiple datasets if there are multiple"""
+        amongst multiple datasets if there are multiple"""
         for data in self.data:
             data.val_loader.args["workers"] = n // len(self.data)
             data.train_loader.args["workers"] = n // len(self.data)

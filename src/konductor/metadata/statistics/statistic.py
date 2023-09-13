@@ -20,7 +20,7 @@ class Statistic(metaclass=ABCMeta):
     Method. During training epoch_data should be shaped as a list of numpy arrays with
     dimension that's the batch_size processed by the worker and then the statistic's shape.
     Hence at gather time, the list is first concatenated into a monolitic numpy array, and
-    if in distrbuted mode gathered and concatenated again.
+    if in distributed mode gathered and concatenated again.
     """
 
     # How to sort each of the statistics in ascending order (worst to best)
@@ -177,7 +177,7 @@ class Statistic(metaclass=ABCMeta):
 
         data = pa.table(self.data(all_gather=False))
 
-        if self.writepath.exists():  # Concatinate to original data
+        if self.writepath.exists():  # Concatenate to original data
             original_data = pq.read_table(
                 self.writepath, pre_buffer=False, memory_map=True, use_threads=True
             )
@@ -197,7 +197,7 @@ class Statistic(metaclass=ABCMeta):
     def _append_sample(self, name: str, value: float) -> None:
         """Add a single sample to the logging array"""
         self._statistics[name][self._end_idx] = value
-        # This will be redundant but whatever, it'll still be syncrhonised between
+        # This will be redundant but whatever, it'll still be synchronised between
         # all statistics correctly this has to be done this way because of batching
         self._iteration_key[self._end_idx] = self._current_it
         self._timestamp_key[self._end_idx] = int(time.time())
@@ -206,7 +206,7 @@ class Statistic(metaclass=ABCMeta):
         """Append a batch to the logging array"""
         assert sz == values.shape[0], f"{sz=}!={values.shape[0]=}"
         self._statistics[name][self._end_idx : self._end_idx + sz] = values
-        # This will be redundant but whatever, it'll still be syncrhonised between
+        # This will be redundant but whatever, it'll still be synchronised between
         # all statistics correctly this has to be done this way because of batching
         self._iteration_key[self._end_idx : self._end_idx + sz] = self._current_it
         self._timestamp_key[self._end_idx : self._end_idx + sz] = int(time.time())

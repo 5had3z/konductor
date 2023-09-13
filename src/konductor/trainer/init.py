@@ -109,8 +109,8 @@ def get_experiment_cfg(
     workspace: Path, config_file: Path | None = None, run_hash: str | None = None
 ) -> ExperimentInitConfig:
     """
-    Returns a model config and its savepath given a list of directorys to search for the model.\n
-    Uses argparse for seraching for the model or config argument.
+    Returns a model config and its savepath given a list of directories to search for the model.\n
+    Uses argparse for searching for the model or config argument.
     """
 
     if run_hash is not None:

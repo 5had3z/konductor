@@ -41,7 +41,7 @@ class Checkpointer(BaseCheckpointer):
 
     def add_checkpointable(self, key: str, checkpointable: Any) -> None:
         """
-        Add checkpointable for logging, requres state_dict method.
+        Add checkpointable for logging, requires state_dict method.
         """
         assert (
             key not in self._ckpts

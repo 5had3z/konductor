@@ -152,7 +152,7 @@ class ThreaddedPbar(BasePbar, Thread):
         self.join()
 
     def run(self) -> None:
-        raise NotImplementedError("Run method of threadded pbar should be overrided")
+        raise NotImplementedError("Run method of threadded pbar should be overridden")
 
     def set_description(self, desc: str):
         with self.lk:

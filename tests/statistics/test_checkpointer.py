@@ -82,7 +82,7 @@ def test_filenames(sample_ckpt: Checkpointer):
 
 
 def test_no_file(sample_ckpt: Checkpointer):
-    """Can't load a non-existant file, resume returns None"""
+    """Can't load a non-existent file, resume returns None"""
     with pytest.raises(FileNotFoundError):
         sample_ckpt.load("foo")
 

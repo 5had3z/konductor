@@ -1,7 +1,7 @@
 This is SUPER in development and SUBJECT TO CHANGE
 --------------------------------------------------
 
-Yes, there is no documentation at the moment, its not really intended as useable to the outside world atm, I personally need a convenient pip install.
+Yes, there is no documentation at the moment, its not really intended as usable to the outside world atm, I personally need a convenient pip install.
 
 =========
 Konductor

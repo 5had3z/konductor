@@ -33,7 +33,7 @@ class DatasetConfig(BaseConfig):
     to configure is the second argument.
 
         :raises NotImplementedError: This is a base class that you should inherit from
-        :return: Creates a new dataset configuration to instanciate a dataset
+        :return: Creates a new dataset configuration to instantiate a dataset
     """
 
     train_loader: ModuleInitConfig = field(kw_only=True)

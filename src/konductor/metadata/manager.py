@@ -56,7 +56,7 @@ class Metadata:
 
     @property
     def train_duration(self):
-        """Differene between train begin and last timestamp"""
+        """Difference between train begin and last timestamp"""
         return self.train_last - self.train_begin
 
     @classmethod

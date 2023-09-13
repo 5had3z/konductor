@@ -74,7 +74,7 @@ class MinioSync(_RemoteSyncrhoniser):
         self.client = Minio(**minio_access)
         self.bucket_name = self._host_path.name if bucket_name is None else bucket_name
 
-        self.logger.info("Checking bucket existance %s", self.bucket_name)
+        self.logger.info("Checking bucket existence %s", self.bucket_name)
         if is_main_process() and not self.client.bucket_exists(self.bucket_name):
             self.logger.info("Creating bucket %s", self.bucket_name)
             self.client.make_bucket(self.bucket_name)

@@ -1,5 +1,5 @@
 """
-Synchonise workspace with folder of remote machine
+Synchronise workspace with folder of remote machine
 """
 
 from dataclasses import dataclass
@@ -20,7 +20,7 @@ from ...utilities.comm import is_main_process
 def _parse_ssh_config(filepath: Path, hostname: str) -> paramiko.SSHConfigDict:
     """
     Parses SSH config and returns dictionary
-    of arguments required fro paramiko for a specific hostname.
+    of arguments required for paramiko for a specific hostname.
     """
     cfg_map = {
         "identityfile": "key_filename",
@@ -114,7 +114,7 @@ class SshSync(_RemoteSyncrhoniser):
         If ssh_cfg is not none, create paramiko config based on ssh config file.
         Otherwise define pk_cfg directly. One of these must not be none.
 
-        :param remote_path: path on remote to syncrhonise to
+        :param remote_path: path on remote to synchronise to
         :param ssh_cfg: path and hostname for ssh config file, defaults to None
         :param pk_cfg: configuration for paramiko client, defaults to None
         """
@@ -297,7 +297,7 @@ class SshSync(_RemoteSyncrhoniser):
     @retry_connection
     def remote_existance(self) -> bool:
         _, _, stderr = self._session.exec_command(f"ls {self._remote_path}")
-        for _ in stderr:  # Not empty if an error occured i.e folder doesn't exist
+        for _ in stderr:  # Not empty if an error occurred i.e folder doesn't exist
             return False
         return True
 

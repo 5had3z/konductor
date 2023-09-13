@@ -5,7 +5,7 @@ import numpy as np
 
 
 def in_distributed_mode() -> bool:
-    """Check whether we're in data distrbuted mode"""
+    """Check whether we're in data distributed mode"""
     raise NotImplementedError()
 
 
