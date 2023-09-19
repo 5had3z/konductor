@@ -33,8 +33,8 @@ class Statistic(metaclass=ABCMeta):
 
     def __init__(
         self,
-        buffer_length: int,
         writepath: Path,
+        buffer_length: int = 1000,
         logger_name: str | None = None,
         reduce_batch: bool = True,
         **kwargs,  # ignore additional

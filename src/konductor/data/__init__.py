@@ -129,7 +129,7 @@ def get_dataset_config(config: ExperimentInitConfig, idx: int = 0) -> DatasetCon
     return DATASET_REGISTRY[config.data[idx].dataset.type].from_config(config, idx)
 
 
-def get_dataloder_config(dataset: DatasetConfig, mode: Mode | str) -> DataloaderConfig:
+def get_dataloader_config(dataset: DatasetConfig, mode: Mode | str) -> DataloaderConfig:
     if isinstance(mode, str):
         mode = Mode[mode]
     name_ = dataset.train_loader.type if mode == Mode.train else dataset.val_loader.type
@@ -141,7 +141,7 @@ def get_dataloader(dataset: DatasetConfig, mode: Mode | str) -> Sequence:
     if isinstance(mode, str):
         mode = Mode[mode]
 
-    return get_dataloder_config(dataset, mode).get_instance()
+    return get_dataloader_config(dataset, mode).get_instance()
 
 
 def get_dataset_properties(config: ExperimentInitConfig) -> Dict[str, Any]:

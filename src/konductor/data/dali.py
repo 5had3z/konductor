@@ -27,11 +27,13 @@ class DaliLoaderConfig(DataloaderConfig):
             mode=self.mode, random_shuffle=self.mode == Mode.train, **pipe_kwargs
         )
 
+        last_batch = LastBatchPolicy.DROP if self.drop_last else LastBatchPolicy.PARTIAL
+
         return DALIGenericIterator(
             dali_pipe,
             out_map,
             reader_name=reader_name,
             size=size,
             auto_reset=True,
-            last_batch_policy=LastBatchPolicy.DROP,
+            last_batch_policy=last_batch,
         )

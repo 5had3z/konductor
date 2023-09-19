@@ -71,7 +71,7 @@ class DatasetInitConfig:
             train_loader = ModuleInitConfig(**parsed_dict["train_loader"])
             val_loader = ModuleInitConfig(**parsed_dict["val_loader"])
 
-        # Transform augmentations to ModuleInitConfig
+        # Transform augmentations from dict to ModuleInitConfig
         if "augmentations" in train_loader.args:
             train_loader.args["augmentations"] = [
                 ModuleInitConfig(**aug) for aug in train_loader.args["augmentations"]
@@ -122,8 +122,10 @@ class ExperimentInitConfig:
         )
 
     def set_workers(self, n: int):
-        """Set number of workers for dataloader, divided evenly
-        amongst multiple datasets if there are multiple"""
+        """
+        Set number of workers for dataloaders.
+        These are divided evenly if there are multple datasets.
+        """
         for data in self.data:
             data.val_loader.args["workers"] = n // len(self.data)
             data.train_loader.args["workers"] = n // len(self.data)
@@ -137,3 +139,15 @@ class ExperimentInitConfig:
                 data.val_loader.args["batch_size"] = n
             elif split == "train":
                 data.train_loader.args["batch_size"] = n
+
+    def get_batch_size(self, split: Literal["val", "train", "test"]) -> int | List[int]:
+        assert split in {"train", "val", "test"}, f"Invalid split {split}"
+
+        batch_size: List[int] = []
+        for data in self.data:
+            if split in {"val", "test"}:
+                batch_size.append(data.val_loader.args["batch_size"])
+            elif split == "train":
+                batch_size.append(data.train_loader.args["batch_size"])
+
+        return batch_size[0] if len(batch_size) == 1 else batch_size
