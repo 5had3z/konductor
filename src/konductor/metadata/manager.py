@@ -149,7 +149,7 @@ class CkptConfig:
 
 
 @dataclass
-class MetadataManager:
+class DataManager:
     """
     Manages the lifecycle for statistics, checkpoints and
     any other relevant logs during training.
@@ -187,12 +187,6 @@ class MetadataManager:
     def iteration(self):
         """Current training iteration"""
         return self.metadata.iteration
-
-    @workspace.setter
-    def workspace(self, path: Path):
-        assert path.exists(), f"New workspace folder does not exist: {path}"
-        self.checkpointer.rootdir = path
-        self.perflog.config.write_path = path
 
     def write_brief(self, brief: str) -> None:
         """Sets metadata briefly describing experiment if "brief" isn't empty"""
@@ -233,7 +227,7 @@ class MetadataManager:
     def iter_step(self) -> None:
         """Step iteration"""
         self.metadata.iteration += 1
-        self.perflog.set_iteration(self.iteration)
+        self.perflog.iteration = self.iteration
         if self.ckpt_cfg.iter_mode and self.ckpt_cfg.save_latest(self.iteration):
             filename = (
                 f"iteration_{self.iteration}"
@@ -253,7 +247,7 @@ class MetadataManager:
             self.checkpointer.save(filename, epoch=self.epoch, iteration=self.iteration)
             self.metadata.write()
 
-        self.perflog.commit()  # Ensure all perf data is logged, move to next shard
+        self.perflog.flush()  # Ensure all perf data is logged, move to next shard
         comm.synchronize()  # Ensure all workers have saved data before push
 
         if self.remote_timer.elapsed() > self.sync_interval or force_push:

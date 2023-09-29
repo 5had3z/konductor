@@ -22,7 +22,7 @@ else:
         return data
 
 
-from .statistic import Statistic, STATISTICS_REGISTRY
+from .base_writer import Statistic, STATISTICS_REGISTRY
 
 
 @dataclass

@@ -48,7 +48,7 @@ def test_bad_statistic_key(scalar_perf: PerfLogger):
 def test_writing_no_issue(scalar_perf: PerfLogger):
     scalar_perf.train()
     for i in range(100):
-        scalar_perf.set_iteration(i)
+        scalar_perf.iteration = i
         scalar_perf.log(
             "loss", {"l2": randint(0, 10) / 10, "mse": randint(0, 100) / 10}
         )

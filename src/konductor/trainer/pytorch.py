@@ -16,7 +16,7 @@ from .trainer import (
     BaseTrainer,
     TrainerModules,
     TrainerConfig,
-    MetadataManager,
+    DataManager,
     TrainingError,
 )
 
@@ -55,7 +55,7 @@ class AsyncFiniteMonitor(Thread):
         super().__init__()
         self.stop_token = Event()
         self.is_ready = Event()
-        self.lk = Lock()
+        self.mtx = Lock()
         self.data: Dict[str, Tensor] = {}
         self.err = None
 
@@ -63,7 +63,7 @@ class AsyncFiniteMonitor(Thread):
         try:
             while not self.stop_token.is_set():
                 self.is_ready.wait()
-                with self.lk:
+                with self.mtx:
                     for key, data in self.data.items():
                         assert torch.isfinite(data), f"Invalid loss found in {key}"
                     self.is_ready.clear()
@@ -82,19 +82,39 @@ class AsyncFiniteMonitor(Thread):
         if not self.is_alive():
             self.start()
 
-        with self.lk:
+        with self.mtx:
             self.data = data
             self.is_ready.set()
 
     def stop(self):
+        """Stop and join thread"""
         self.stop_token.set()
         # Give dummy data to awake thread
-        with self.lk:
+        with self.mtx:
             self.data = {}
             self.is_ready.set()
         self.join()
         if self.err is not None:
             raise self.err
+
+
+class RunningMean:
+    """Simple class to accumulate running mean, useful
+    for calculating average loss over validation"""
+
+    def __init__(self) -> None:
+        self.count = 0
+        self.value = 0
+
+    def update(self, value: float):
+        """Add value to running mean"""
+        self.value = (self.count * self.value + value) / (self.count + 1)
+        self.count += 1
+
+    def reset(self):
+        """Reset count and value to zero"""
+        self.count = 0
+        self.value = 0
 
 
 class PyTorchTrainer(BaseTrainer):
@@ -106,7 +126,7 @@ class PyTorchTrainer(BaseTrainer):
         self,
         config: PyTorchTrainerConfig,
         modules: PyTorchTrainerModules,
-        data_manager: MetadataManager,
+        data_manager: DataManager,
     ):
         # If AMP is enabled, wrap train and eval loops and add grad_scaler
         if config.amp:
@@ -120,11 +140,7 @@ class PyTorchTrainer(BaseTrainer):
         super().__init__(config, modules, data_manager)
 
         self.loss_monitor = config.loss_monitor
-
-        if isinstance(self.modules.scheduler, ReduceLROnPlateau):
-            self._logger.warning(
-                "Using ReduceLROnPlateau scheduler, ensure you calculate loss during validation"
-            )
+        self.plateau_loss = RunningMean()  # Used for ReduceLROnPlateau
 
         # Optimizer and scheduler needs extra attributes injected
         # to check when they need to be stepped
@@ -158,22 +174,22 @@ class PyTorchTrainer(BaseTrainer):
             all_loss.backward()
 
     def _maybe_step_scheduler(self, is_epoch: bool):
+        # Don't step if is_epoch and epoch_step do not match
         if self.modules.scheduler.epoch_step != is_epoch:
             return
 
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):
-            if self.modules.scheduler.epoch_step == False:
-                self._logger.warn(
-                    "Reduce on plateau uses validation"
-                    "epoch loss for stepping by default"
-                )
-            self.modules.scheduler.step(self.data_manager.perflog.epoch_loss())
+            assert (
+                self.plateau_loss.count > 0
+            ), "Appropriate use of self.plateau_loss.update() required"
+            self.modules.scheduler.step(self.plateau_loss.value)
+            self.plateau_loss.reset()
         else:
             self.modules.scheduler.step()
 
-    def _maybe_step_optimiser(self, iter_: int) -> None:
+    def _maybe_step_optimiser(self) -> None:
         with record_function("optimizer"):
-            if iter_ % self.modules.optimizer.step_interval == 0:
+            if self.data_manager.iteration % self.modules.optimizer.step_interval == 0:
                 if self.modules.grad_scaler is not None:
                     self.modules.grad_scaler.step(self.modules.optimizer)
                     self.modules.grad_scaler.update()
@@ -191,10 +207,9 @@ class PyTorchTrainer(BaseTrainer):
         losses: Dict[str, Tensor] | None,
     ) -> None:
         """
-        Logging things, statistics should have "losses" tracker, all losses are forwarded
-        to that. If losses are missing logging of them will be skipped (if you don't want
-        to log loss during eval). If predictions are missing then accuracy logging will
-        be skipped (if you don't want to log acc during training)
+        If losses are missing logging of them will be skipped (if you don't want
+        to log loss during eval). If predictions are missing then accuracy logging
+        will be skipped (if you don't want to log acc during training)
         """
         with record_function("statistics"):
             if losses is not None:
@@ -204,8 +219,6 @@ class PyTorchTrainer(BaseTrainer):
                 return
 
             for statistic in self.data_manager.perflog.keys:
-                if statistic == "loss":
-                    continue
                 self.data_manager.perflog.log(statistic, preds, data)
 
     def _train(
@@ -215,21 +228,19 @@ class PyTorchTrainer(BaseTrainer):
         self.modules.model.train()
         self.data_manager.perflog.train()
 
-        gidx = len(self.modules.trainloader) * self.data_manager.epoch
         for data in self.modules.trainloader:
             try:
                 data = self.data_transform(data)
                 losses, preds = self.train_step(data)
                 self.log_step(data, preds, losses)
                 self._accumulate_losses(losses)
-                self._maybe_step_optimiser(gidx)
+                self._maybe_step_optimiser()
             except TrainingError as err:
                 self.training_exception(err, data)
 
             if max_iter is not None and self.data_manager.iteration >= max_iter:
                 break
 
-            gidx += 1
             if pbar is not None:
                 pbar.update(1)
             if profiler is not None:

@@ -14,16 +14,16 @@ SAMPLER_REGISTRY = Registry("data_sampler")
 DATALOADER_REGISTRY = Registry("dataloder")
 
 
-class Mode(str, enum.Enum):
+class Split(str, enum.Enum):
     @staticmethod
     def _generate_next_value_(
         name: str, start: int, count: int, last_values: list
     ) -> str:
         return name  # Use this for < python3.11 compat
 
-    train = enum.auto()
-    val = enum.auto()
-    test = enum.auto()
+    TRAIN = enum.auto()
+    VAL = enum.auto()
+    TEST = enum.auto()
 
 
 @dataclass
@@ -67,7 +67,7 @@ class DatasetConfig(BaseConfig):
         return {}
 
     @abc.abstractmethod
-    def get_instance(self, mode: Mode, **kwargs) -> Any:
+    def get_instance(self, split: Split, **kwargs) -> Any:
         raise NotImplementedError()
 
 
@@ -80,7 +80,7 @@ class DataloaderConfig(BaseConfig):
     """
 
     dataset: DatasetConfig
-    mode: Mode
+    mode: Split
     batch_size: int
     workers: int = 0
     shuffle: bool = False
@@ -88,15 +88,15 @@ class DataloaderConfig(BaseConfig):
     augmentations: List[ModuleInitConfig] = field(default_factory=lambda: [])
 
     @classmethod
-    def from_config(cls, dataset: DatasetConfig, mode: Mode):
-        match mode:
-            case Mode.train:
+    def from_config(cls, dataset: DatasetConfig, split: Split):
+        match split:
+            case Split.TRAIN:
                 loader_cfg = dataset.train_loader
-            case Mode.val | Mode.test:
+            case Split.VAL | Split.TEST:
                 loader_cfg = dataset.val_loader
             case _:
                 raise RuntimeError("How did I get here?")
-        return cls(dataset=dataset, mode=mode, **loader_cfg.args)
+        return cls(dataset=dataset, mode=split, **loader_cfg.args)
 
     @abc.abstractmethod
     def get_instance(self, *args, **kwargs) -> Sequence:
@@ -129,17 +129,21 @@ def get_dataset_config(config: ExperimentInitConfig, idx: int = 0) -> DatasetCon
     return DATASET_REGISTRY[config.data[idx].dataset.type].from_config(config, idx)
 
 
-def get_dataloader_config(dataset: DatasetConfig, mode: Mode | str) -> DataloaderConfig:
+def get_dataloader_config(
+    dataset: DatasetConfig, mode: Split | str
+) -> DataloaderConfig:
     if isinstance(mode, str):
-        mode = Mode[mode]
-    name_ = dataset.train_loader.type if mode == Mode.train else dataset.val_loader.type
+        mode = Split[mode]
+    name_ = (
+        dataset.train_loader.type if mode == Split.TRAIN else dataset.val_loader.type
+    )
     return DATALOADER_REGISTRY[name_].from_config(dataset, mode)
 
 
-def get_dataloader(dataset: DatasetConfig, mode: Mode | str) -> Sequence:
+def get_dataloader(dataset: DatasetConfig, mode: Split | str) -> Sequence:
     """"""
     if isinstance(mode, str):
-        mode = Mode[mode]
+        mode = Split[mode]
 
     return get_dataloader_config(dataset, mode).get_instance()
 

@@ -10,18 +10,16 @@ from typing import Any, Dict, Type
 
 import yaml
 
-from ..data import get_dataloader, get_dataset_config, get_dataset_properties
 from ..init import ExperimentInitConfig, ModuleInitConfig
-from ..losses import get_criterion
 from ..metadata import (
     CkptConfig,
-    MetadataManager,
-    PerfLoggerConfig,
+    DataManager,
+    PerfLogger,
     Statistic,
-    get_metadata_manager,
+    Checkpointer,
+    LogWriter,
     get_remote_config,
 )
-from ..metadata.statistics.scalar_dict import ScalarStatistic
 from ..models import get_training_model
 from ..utilities import comm
 from .trainer import TrainerConfig, TrainerModules, TrainerT
@@ -144,54 +142,15 @@ def get_experiment_cfg(
     return ExperimentInitConfig.from_yaml(exp_cfg)
 
 
-def init_training_modules(
-    exp_config: ExperimentInitConfig,
-    train_module_cls: Type[TrainerModules] = TrainerModules,
-) -> TrainerModules:
-    """
-    Initialise training modules from experiment init config
-    optional custom init modules available.
-    """
-    dataset_cfgs = [
-        get_dataset_config(exp_config, idx) for idx in range(len(exp_config.data))
-    ]
-    train_loaders = [get_dataloader(cfg, "train") for cfg in dataset_cfgs]
-    val_loaders = [get_dataloader(cfg, "val") for cfg in dataset_cfgs]
-
-    modules = [
-        get_training_model(exp_config, idx) for idx in range(len(exp_config.model))
-    ]
-    # Unpack tuple into each category
-    models = [m[0] for m in modules]
-    optims = [m[1] for m in modules]
-    scheds = [m[2] for m in modules]
-
-    criterion = get_criterion(exp_config)
-
-    return train_module_cls(
-        models, criterion, optims, scheds, train_loaders, val_loaders
-    )
-
-
 def init_data_manager(
     exp_config: ExperimentInitConfig,
     train_modules: TrainerModules,
-    statistics: Dict[str, Type[Statistic]],
-    perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
-) -> MetadataManager:
+    statistics: Dict[str, Statistic],
+    log_writer: LogWriter,
+) -> DataManager:
     """
     Initialise the data manager that handles statistics and checkpoints
     """
-    # Add tracker for losses
-    statistics["loss"] = ScalarStatistic
-
-    # Initialise metadata management engine
-    log_config = perf_log_cfg_cls(
-        exp_config.work_dir,
-        statistics,
-        dataset_properties=get_dataset_properties(exp_config),
-        **exp_config.log_kwargs,
-    )
 
     remote_sync = (
         None
@@ -199,13 +158,20 @@ def init_data_manager(
         else get_remote_config(exp_config).get_instance()
     )
 
-    manager = get_metadata_manager(
-        log_config,
-        CkptConfig(**exp_config.ckpt_kwargs),
-        remote_sync=remote_sync,
+    checkpointer = Checkpointer(
+        exp_config.work_dir,
         model=train_modules.model,
         optim=train_modules.optimizer,
         scheduler=train_modules.scheduler,
+    )
+
+    perf_logger = PerfLogger(log_writer, statistics, **exp_config.log_kwargs)
+
+    manager = DataManager(
+        perf_logger,
+        checkpointer,
+        CkptConfig(**exp_config.ckpt_kwargs),
+        remote_sync=remote_sync,
     )
 
     manager.write_brief(exp_config.brief)
@@ -238,14 +204,10 @@ def init_training(
     exp_config: ExperimentInitConfig,
     trainer_cls: Type[TrainerT],
     trainer_config: TrainerConfig,
-    statistics: Dict[str, type[Statistic]],
-    train_module_cls: Type[TrainerModules] = TrainerModules,
-    perf_log_cfg_cls: Type[PerfLoggerConfig] = PerfLoggerConfig,
+    statistics: Dict[str, Statistic],
 ) -> TrainerT:
     """Initialize training manager class"""
-    train_modules = init_training_modules(exp_config, train_module_cls)
-    data_manager = init_data_manager(
-        exp_config, train_modules, statistics, perf_log_cfg_cls
-    )
+    train_modules = TrainerModules.from_config(exp_config)
+    data_manager = init_data_manager(exp_config, train_modules, statistics)
 
     return trainer_cls(trainer_config, train_modules, data_manager)

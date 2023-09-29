@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 import numpy as np
 from konductor.metadata import (
-    MetadataManager,
+    DataManager,
     PerfLogger,
     PerfLoggerConfig,
     Checkpointer,
@@ -42,16 +42,16 @@ def scalar_perf(tmp_path):
 @pytest.fixture
 def basic_manager(
     scalar_perf: PerfLogger, empty_checkpointer: Checkpointer
-) -> MetadataManager:
-    return MetadataManager(scalar_perf, empty_checkpointer)
+) -> DataManager:
+    return DataManager(scalar_perf, empty_checkpointer)
 
 
-def test_forgot_train_eval(basic_manager: MetadataManager):
+def test_forgot_train_eval(basic_manager: DataManager):
     with pytest.raises(AssertionError):
         basic_manager.perflog.log("loss", {"mse": 10})
 
 
-def test_success(basic_manager: MetadataManager):
+def test_success(basic_manager: DataManager):
     basic_manager.perflog.train()
     rand_loss = np.random.normal(1, 3, size=152)
     for loss in rand_loss:
