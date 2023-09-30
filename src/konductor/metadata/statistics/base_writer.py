@@ -1,13 +1,21 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from typing import List, Dict
 
 from ...data import Split
 
 
-class LogWriter(metaclass=ABCMeta):
+class LogWriter(ABC):
     """
     Abstract base class to standardize api for different logging methods.
     """
+
+    @staticmethod
+    def get_prefix(split: Split, category: str | None = None) -> str:
+        """Prefix for string path logging i.e. prefix=split(/category)"""
+        prefix = split.name.lower()
+        if category is not None:
+            prefix += f"/{category}"
+        return prefix
 
     @abstractmethod
     def __call__(

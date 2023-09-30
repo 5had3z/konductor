@@ -1,27 +1,23 @@
-import pytest
 from pathlib import Path
 
+import pytest
 import torch
-from konductor.trainer.init import get_experiment_cfg, init_training
+
+from konductor.trainer.init import get_experiment_cfg, init_data_manager
 from konductor.trainer.pytorch import (
+    AsyncFiniteMonitor,
     PyTorchTrainer,
     PyTorchTrainerConfig,
     PyTorchTrainerModules,
-    AsyncFiniteMonitor,
 )
 
 
 @pytest.fixture
 def trainer(tmp_path):
     cfg = get_experiment_cfg(tmp_path, Path(__file__).parent.parent / "base.yml")
-    trainer = init_training(
-        cfg,
-        PyTorchTrainer,
-        PyTorchTrainerConfig(),
-        {},
-        train_module_cls=PyTorchTrainerModules,
-    )
-    return trainer
+    train_modules = PyTorchTrainerModules.from_config(cfg)
+    data_manager = init_data_manager(cfg, train_modules, statistics={})
+    return PyTorchTrainer(PyTorchTrainerConfig(), train_modules, data_manager)
 
 
 def test_nan_detection(trainer: PyTorchTrainer):

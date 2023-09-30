@@ -1,12 +1,21 @@
-from abc import ABCMeta, abstractmethod
-from typing import Dict
+from abc import ABC, abstractmethod
+from typing import Dict, List
 
 from ...registry import Registry
 
 STATISTICS_REGISTRY = Registry("STATISTICS")
 
 
-class Statistic(ABCMeta):
+class Statistic(ABC):
+    """Base interface for statistics modules"""
+
+    @abstractmethod
+    def get_keys(self) -> List[str]:
+        """
+        Return keys that this statistic calculates, might be used
+        by loggers which need to know keys before logging
+        """
+
     @abstractmethod
     def __call__(self, *args, **kwargs) -> Dict[str, float]:
-        """Calculate Performance Statistics"""
+        """Calculate and Return Dictionary of Statistics"""

@@ -1,5 +1,5 @@
-import abc
 import itertools
+from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, Iterator, Type
 
@@ -82,7 +82,7 @@ class PytorchOptimizer(OptimizerConfig):
         setattr(optim, "step_interval", self.step_interval)
         return optim
 
-    @abc.abstractmethod
+    @abstractmethod
     def get_instance(self, model: nn.Module) -> Optimizer:
         raise NotImplementedError()
 

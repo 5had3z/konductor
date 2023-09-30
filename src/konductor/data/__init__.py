@@ -1,7 +1,7 @@
-import abc
 import enum
 import logging
 import os
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
@@ -66,7 +66,7 @@ class DatasetConfig(BaseConfig):
         """
         return {}
 
-    @abc.abstractmethod
+    @abstractmethod
     def get_instance(self, split: Split, **kwargs) -> Any:
         raise NotImplementedError()
 
@@ -98,7 +98,7 @@ class DataloaderConfig(BaseConfig):
                 raise RuntimeError("How did I get here?")
         return cls(dataset=dataset, mode=split, **loader_cfg.args)
 
-    @abc.abstractmethod
+    @abstractmethod
     def get_instance(self, *args, **kwargs) -> Sequence:
         raise NotImplementedError()
 

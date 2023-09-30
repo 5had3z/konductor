@@ -6,8 +6,8 @@ circular dependencies between classes such as the number of classes defined
 by a dataset can be used to configure the model 
 """
 
-import abc
 import inspect
+from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 from logging import getLogger, warning
 from typing import Any, Dict, Set, Type
@@ -16,18 +16,18 @@ from .init import ExperimentInitConfig
 
 
 @dataclass
-class BaseConfig(metaclass=abc.ABCMeta):
+class BaseConfig(ABC):
     """
     All configuration modules require from_config to initialise and
     get_instance to return an instance
     """
 
     @classmethod
-    @abc.abstractmethod
+    @abstractmethod
     def from_config(cls, config: ExperimentInitConfig, *args, **kwargs) -> Any:
         """Run configuration stage of the module"""
 
-    @abc.abstractmethod
+    @abstractmethod
     def get_instance(self, *args, **kwargs) -> Any:
         """Get initialised module from configuration"""
 
@@ -98,11 +98,11 @@ class Registry:
 
         if name in self._module_dict:
             if force_override:
-                self._logger.warning(f"Overriding {name}")
+                self._logger.warning("Overriding %s", name)
             else:
                 raise KeyError(f"{name} is already registered")
         else:
-            self._logger.info(f"adding new module {name}")
+            self._logger.info("adding new module %s", name)
 
         self._module_dict[name] = module
 

@@ -78,9 +78,11 @@ class PerfLogger:
 
     def calculate_and_log(self, name: str, *args, **kwargs):
         """
-        Calculate and log performance, this runs every step in validation
-        or at each self.log_interval step during training
+        Calculate and log performance.
+        This is skipped if training and not at log_interval.
         """
+        assert self.split is not None, PerfLogger._not_init_msg
+
         # Log if testing or at training log interval
         if self.split == Split.VAL or self.iteration % self.log_interval == 0:
             result = self.statistics[name](*args, **kwargs)
@@ -88,8 +90,9 @@ class PerfLogger:
 
     def log(self, name: str, data: Dict[str, float]) -> None:
         """Log dictionary of data"""
+        assert self.split is not None, PerfLogger._not_init_msg
         assert (
             PerfLogger._valid_name_re.match(name) is not None
-        ), f"Invalid character in name {name}"
+        ), f"Invalid character in name {name}, requires {PerfLogger._valid_name_re}"
 
         self.writer(self.split, self.iteration, data, name)

@@ -1,5 +1,5 @@
-import abc
 import inspect
+from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
@@ -27,7 +27,7 @@ class OptimizerConfig(BaseConfig):
         }
         return cls(scheduler=sched_cfg, **filtered)
 
-    @abc.abstractmethod
+    @abstractmethod
     def get_instance(self, model: Any) -> Any:
         raise NotImplementedError()
 

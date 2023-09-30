@@ -1,5 +1,5 @@
-from itertools import product
 import re
+from itertools import product
 
 from konductor.utilities import metadata as meta_utils
 

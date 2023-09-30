@@ -237,7 +237,11 @@ class DataManager:
             self.save(filename)
 
     def save(self, filename: str, force_push: bool = False) -> None:
-        """Save metadata and checkpoint, optionally force push to remote"""
+        """
+        Save metadata and checkpoint
+        filename: name of checkpoint
+        force_push: push data to remote
+        """
 
         self.metadata.commit_last = get_commit()
         self.metadata.train_last = datetime.now()

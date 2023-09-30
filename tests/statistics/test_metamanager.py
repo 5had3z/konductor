@@ -1,17 +1,13 @@
 """
 Testing metadata manager
 """
-import pytest
 from typing import Any, Dict
 
 import numpy as np
-from konductor.metadata import (
-    DataManager,
-    PerfLogger,
-    PerfLoggerConfig,
-    Checkpointer,
-)
-from konductor.metadata.statistics.scalar_dict import ScalarStatistic
+import pytest
+
+from konductor.metadata import Checkpointer, DataManager, PerfLogger
+from konductor.metadata.statistics.pq_writer import ParquetLogger
 
 pytestmark = pytest.mark.statistics
 
@@ -24,34 +20,21 @@ class DummyModel:
 
 
 @pytest.fixture
-def empty_checkpointer(tmp_path):
-    """Basic checkpointer with nothing to save"""
-    return Checkpointer(tmp_path, model=DummyModel())
+def basic_manager(tmp_path) -> DataManager:
+    """Create basic data manager"""
+    perf_logger = PerfLogger(writer=ParquetLogger(tmp_path), statistics={})
+    checkpointer = Checkpointer(tmp_path, model=DummyModel())
+    return DataManager(perf_logger, checkpointer)
 
 
-@pytest.fixture
-def scalar_perf(tmp_path):
-    """Basic perf logger with "loss" and "accuracy" statistics"""
-    config = PerfLoggerConfig(
-        write_path=tmp_path,
-        statistics={"loss": ScalarStatistic, "accuracy": ScalarStatistic},
-    )
-    return PerfLogger(config)
-
-
-@pytest.fixture
-def basic_manager(
-    scalar_perf: PerfLogger, empty_checkpointer: Checkpointer
-) -> DataManager:
-    return DataManager(scalar_perf, empty_checkpointer)
-
-
-def test_forgot_train_eval(basic_manager: DataManager):
+def test_forgot_split(basic_manager: DataManager):
+    """Ensure that error raised if split hasn't been specified"""
     with pytest.raises(AssertionError):
         basic_manager.perflog.log("loss", {"mse": 10})
 
 
-def test_success(basic_manager: DataManager):
+def test_basic_usage(basic_manager: DataManager):
+    """Check no errors raised with basic usage"""
     basic_manager.perflog.train()
     rand_loss = np.random.normal(1, 3, size=152)
     for loss in rand_loss:
@@ -65,4 +48,4 @@ def test_success(basic_manager: DataManager):
         basic_manager.perflog.log("accuracy", {"iou": acc})
     basic_manager.epoch_step()
 
-    assert basic_manager.perflog.epoch_loss() == rand_loss[: rand_acc.shape[0]].mean()
+    basic_manager.save("latest")

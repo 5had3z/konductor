@@ -1,19 +1,19 @@
-import abc
 import logging
+from abc import ABC, abstractmethod
 from typing import Any, Dict
 from pathlib import Path
 import shutil
 
 
-class BaseCheckpointer(abc.ABC):
+class BaseCheckpointer(ABC):
     EXTENSION = ".ckpt"
 
     def __init__(self, rootdir: Path) -> None:
         if not rootdir.exists():
-            logging.info(f"Creating Checkpoint Directory: {rootdir}")
+            logging.info("Creating Checkpoint Directory: %s", rootdir)
             rootdir.mkdir(parents=True)
         else:
-            logging.info(f"Using Checkpoint Directory: {rootdir}")
+            logging.info("Using Checkpoint Directory: %s", rootdir)
         self.rootdir = rootdir
 
     @property
@@ -21,15 +21,15 @@ class BaseCheckpointer(abc.ABC):
         """Path to latest checkpoint"""
         return self.rootdir / f"latest{self.EXTENSION}"
 
-    @abc.abstractmethod
+    @abstractmethod
     def add_checkpointable(self, key: str, checkpointable: Any) -> None:
         pass
 
-    @abc.abstractmethod
+    @abstractmethod
     def save(self, filename: str, **extras) -> None:
         pass
 
-    @abc.abstractmethod
+    @abstractmethod
     def load(self, filename: str) -> Dict[str, Any]:
         return {}
 
