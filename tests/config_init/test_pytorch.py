@@ -31,6 +31,6 @@ def test_optim_param_groups(example_config: ExperimentInitConfig):
     assert np.allclose(pg1["lr"] / lr_mult, pg2["lr"])
 
 
-def test_torchvision_weights(example_config: ExperimentInitConfig):
-    example_config.model[0].args["weights"] = "IMAGENET1K_V1"
+def test_model_arguments(example_config: ExperimentInitConfig):
+    example_config.model[0].args["some_other_parameter"] = "bar"
     model, _, _ = get_training_model(example_config)

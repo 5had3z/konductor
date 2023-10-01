@@ -7,8 +7,9 @@ markers = [
   "remote: remote sync functionality",
   "statistics: logging training statistics/metadata",
   "webui: webui components",
+  "e2e: end-to-end training test",
 ]
-addopts = "-m 'not remote'" # By default skip remote tests
+addopts = "-m 'not remote and not e2e'" # Skip these marks by default
 
 
 [tool.setuptools_scm]

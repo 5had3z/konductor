@@ -219,7 +219,7 @@ class PyTorchTrainer(BaseTrainer):
                 return
 
             for statistic in self.data_manager.perflog.keys:
-                self.data_manager.perflog.log(statistic, preds, data)
+                self.data_manager.perflog.calculate_and_log(statistic, preds, data)
 
     def _train(
         self, max_iter: int | None = None, pbar=None, profiler: profile | None = None
