@@ -188,11 +188,6 @@ class DataManager:
         """Current training iteration"""
         return self.metadata.iteration
 
-    def write_brief(self, brief: str) -> None:
-        """Sets metadata briefly describing experiment if "brief" isn't empty"""
-        if len(brief) > 0:
-            self.metadata.brief = brief
-
     def resume(self) -> None:
         """Resume from checkpoint if available, pull from remote if necessary"""
         self._remote_resume()

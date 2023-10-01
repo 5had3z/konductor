@@ -1,6 +1,19 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List
+import enum
+
+
+class Split(str, enum.Enum):
+    @staticmethod
+    def _generate_next_value_(
+        name: str, start: int, count: int, last_values: list
+    ) -> str:
+        return name  # Use this for < python3.11 compat
+
+    TRAIN = enum.auto()
+    VAL = enum.auto()
+    TEST = enum.auto()
 
 
 @dataclass
@@ -90,7 +103,6 @@ class ExperimentInitConfig:
     Configuration for all the modules for training
     """
 
-    brief: str  # Short description for experiment
     work_dir: Path  # Directory for saving everything
     model: List[ModelInitConfig]
     data: List[DatasetInitConfig]
@@ -108,7 +120,6 @@ class ExperimentInitConfig:
             remote_sync = None
 
         return cls(
-            brief=parsed_dict.get("brief", ""),
             model=[ModelInitConfig.from_yaml(cfg) for cfg in parsed_dict["model"]],
             data=[DatasetInitConfig.from_yaml(cfg) for cfg in parsed_dict["dataset"]],
             criterion=[
@@ -121,33 +132,35 @@ class ExperimentInitConfig:
             trainer_kwargs=parsed_dict.get("trainer", {}),
         )
 
-    def set_workers(self, n: int):
+    def set_workers(self, num: int):
         """
         Set number of workers for dataloaders.
         These are divided evenly if there are multple datasets.
         """
         for data in self.data:
-            data.val_loader.args["workers"] = n // len(self.data)
-            data.train_loader.args["workers"] = n // len(self.data)
+            data.val_loader.args["workers"] = num // len(self.data)
+            data.train_loader.args["workers"] = num // len(self.data)
 
-    def set_batch_size(self, n: int, split: Literal["val", "train", "test"]):
+    def set_batch_size(self, num: int, split: Split):
         """Set the loaded batch size for the dataloader"""
-        assert split in {"val", "train", "test"}, f"Invalid split {split}"
-
         for data in self.data:
-            if split in {"val", "test"}:
-                data.val_loader.args["batch_size"] = n
-            elif split == "train":
-                data.train_loader.args["batch_size"] = n
+            match split:
+                case Split.VAL | Split.TEST:
+                    data.val_loader.args["batch_size"] = num
+                case Split.TRAIN:
+                    data.train_loader.args["batch_size"] = num
+                case _:
+                    raise ValueError(f"Invalid split {split}")
 
-    def get_batch_size(self, split: Literal["val", "train", "test"]) -> int | List[int]:
-        assert split in {"train", "val", "test"}, f"Invalid split {split}"
-
+    def get_batch_size(self, split: Split) -> int | List[int]:
+        """Get the batch size of the dataloader for a split"""
         batch_size: List[int] = []
         for data in self.data:
-            if split in {"val", "test"}:
-                batch_size.append(data.val_loader.args["batch_size"])
-            elif split == "train":
-                batch_size.append(data.train_loader.args["batch_size"])
-
+            match split:
+                case Split.VAL | Split.TEST:
+                    batch_size.append(data.val_loader.args["batch_size"])
+                case Split.TRAIN:
+                    batch_size.append(data.train_loader.args["batch_size"])
+                case _:
+                    raise ValueError(f"Invalid split {split}")
         return batch_size[0] if len(batch_size) == 1 else batch_size

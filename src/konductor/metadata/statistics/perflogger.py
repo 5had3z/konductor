@@ -43,12 +43,12 @@ class PerfLogger:
     _valid_name_re = re.compile(r"\A[a-zA-Z0-9-]+\Z")
 
     def __init__(
-        self, writer: LogWriter, statistics: Dict[str, Statistic], log_interval: int = 1
+        self, writer: LogWriter, statistics: Dict[str, Statistic], interval: int = 1
     ):
         self.split: Split | None = None
         self.writer = writer
         self.statistics = statistics
-        self.log_interval = log_interval
+        self.log_interval = interval
         self.iteration = 0
         self._logger = getLogger(type(self).__name__)
 

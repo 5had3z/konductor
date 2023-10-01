@@ -109,6 +109,4 @@ def init_data_manager(
         remote_sync=remote_sync,
     )
 
-    manager.write_brief(exp_config.brief)
-
     return manager

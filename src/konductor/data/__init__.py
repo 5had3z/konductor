@@ -1,29 +1,16 @@
-import enum
 import logging
 import os
 from abc import abstractmethod
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
-from ..init import DatasetInitConfig, ExperimentInitConfig, ModuleInitConfig
+from ..init import DatasetInitConfig, ExperimentInitConfig, ModuleInitConfig, Split
 from ..registry import BaseConfig, Registry
 
 DATASET_REGISTRY = Registry("dataset")
 SAMPLER_REGISTRY = Registry("data_sampler")
 DATALOADER_REGISTRY = Registry("dataloder")
-
-
-class Split(str, enum.Enum):
-    @staticmethod
-    def _generate_next_value_(
-        name: str, start: int, count: int, last_values: list
-    ) -> str:
-        return name  # Use this for < python3.11 compat
-
-    TRAIN = enum.auto()
-    VAL = enum.auto()
-    TEST = enum.auto()
 
 
 @dataclass
