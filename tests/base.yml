@@ -1,9 +1,9 @@
 # Example configuration with MNIST
 model:
-  - type: resnet50
+  - type: my-resnet18
     args: {}
     optimizer:
-      type: Adam
+      type: SGD
       args:
         lr: 1.e-6
       scheduler:
@@ -16,8 +16,8 @@ dataset:
     loader:
       type: PYTORCH_V1
       args:
-        batch_size: 8
+        batch_size: 32
+        workers: 8
 criterion:
-  - type: bce
-    args:
-      weight: 1.0
+  - type: ce
+    args: {}

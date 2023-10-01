@@ -1,12 +1,12 @@
-from typing import Any, Dict
 from dataclasses import dataclass
+from typing import Any, Dict
 
 from torch import nn
 
 from .. import (
-    MODEL_REGISTRY,
-    ENCODER_REGISTRY,
     DECODER_REGISTRY,
+    ENCODER_REGISTRY,
+    MODEL_REGISTRY,
     POSTPROCESSOR_REGISTRY,
     BaseConfig,
     ExperimentInitConfig,

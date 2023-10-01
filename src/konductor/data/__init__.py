@@ -2,7 +2,7 @@ import enum
 import logging
 import os
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
@@ -126,12 +126,14 @@ except ImportError:
 
 
 def get_dataset_config(config: ExperimentInitConfig, idx: int = 0) -> DatasetConfig:
+    """Get dataset configuration at index"""
     return DATASET_REGISTRY[config.data[idx].dataset.type].from_config(config, idx)
 
 
 def get_dataloader_config(
     dataset: DatasetConfig, mode: Split | str
 ) -> DataloaderConfig:
+    """Get dataloader config for split from dataset config"""
     if isinstance(mode, str):
         mode = Split[mode]
     name_ = (
@@ -141,7 +143,7 @@ def get_dataloader_config(
 
 
 def get_dataloader(dataset: DatasetConfig, mode: Split | str) -> Sequence:
-    """"""
+    """Get dataloader instance from dataset with split"""
     if isinstance(mode, str):
         mode = Split[mode]
 
@@ -149,6 +151,7 @@ def get_dataloader(dataset: DatasetConfig, mode: Split | str) -> Sequence:
 
 
 def get_dataset_properties(config: ExperimentInitConfig) -> Dict[str, Any]:
+    """Get properties of all datasets in experiment"""
     properties = {}
     for idx in range(len(config.data)):
         properties.update(get_dataset_config(config, idx).properties)
