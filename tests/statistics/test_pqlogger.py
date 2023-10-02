@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from pyarrow import parquet as pq
 
-from konductor.metadata.statistics.pq_writer import ParquetLogger, Split, _ParquetWriter
+from konductor.metadata.loggers.pq_writer import ParquetLogger, Split, _ParquetWriter
 
 pytestmark = pytest.mark.statistics
 

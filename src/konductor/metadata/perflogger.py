@@ -1,33 +1,9 @@
 import re
-from dataclasses import dataclass
 from logging import getLogger
 from typing import Dict, List
 
-from .base_writer import LogWriter, Split
 from .base_statistic import Statistic
-
-
-@dataclass
-class PerfLoggerConfig:
-    """
-    Contains collection of useful attributes required
-    for many performance evaluation methods.
-    """
-
-    # Log writer backend for statistics
-    writer: LogWriter
-
-    # List of named statistics to track
-    statistics: Dict[str, Statistic]
-
-    # Interval to log training statistics
-    interval: int = 1
-
-    def __post_init__(self):
-        for stat in self.statistics:
-            assert re.match(
-                r"\A[a-zA-Z0-9-]+\Z", stat
-            ), f"Invalid character in name {stat}"
+from .loggers.base_writer import LogWriter, Split
 
 
 class PerfLogger:
@@ -51,6 +27,12 @@ class PerfLogger:
         self.log_interval = interval
         self.iteration = 0
         self._logger = getLogger(type(self).__name__)
+
+        # Try to forward register topics
+        for name, statistic in self.statistics.items():
+            keys = statistic.get_keys()
+            if keys is not None:
+                self.writer.add_topic(name, keys)
 
     def resume(self, iteration: int):
         """Resume log, i.e. set file suffix as next iteration"""

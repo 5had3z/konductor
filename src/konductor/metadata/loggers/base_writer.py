@@ -31,6 +31,14 @@ class LogWriter(ABC):
     def flush(self):
         """Flush logger data to disk if applicable"""
 
+    @abstractmethod
+    def add_topic(self, category: str, column_names: List[str]):
+        """
+        Pre-declare categories with column names.
+        Required for backends that can't dynamically add more columns
+        if not all columns are logged on the first iteration.
+        """
+
 
 class MultiWriter(LogWriter):
     """Forwards write to multple backends"""

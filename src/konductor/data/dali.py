@@ -13,7 +13,7 @@ DALI_AUGMENTATIONS = Registry("DALI_AUGMENTATIONS")
 @dataclass
 @DATALOADER_REGISTRY.register_module("DALI")
 class DaliLoaderConfig(DataloaderConfig):
-    def get_instance(self, *args):
+    def get_instance(self, *args, **kwargs):
         pipe_kwargs = {
             "shard_id": get_rank(),
             "num_shards": get_world_size(),

@@ -5,7 +5,7 @@ from torch import Tensor, nn
 from torchvision.models.resnet import BasicBlock, ResNet
 from konductor.init import ExperimentInitConfig
 from konductor.trainer.pytorch import PyTorchTrainer
-from konductor.metadata.statistics import Statistic
+from konductor.metadata import Statistic
 from konductor.models import MODEL_REGISTRY
 from konductor.models._pytorch import TorchModelConfig
 from konductor.data import get_dataset_properties

@@ -1,26 +1,25 @@
 """ 
 Initialisation methods for Training/Validation etc.
 """
-import argparse
 import hashlib
 import logging
 from io import StringIO
 from pathlib import Path
-from typing import Any, Dict, Type
+from typing import Any, Dict
 
 import yaml
 
 from ..init import ExperimentInitConfig
 from ..metadata import (
+    Checkpointer,
     CkptConfig,
     DataManager,
+    LogWriter,
     PerfLogger,
     Statistic,
-    Checkpointer,
-    LogWriter,
     get_remote_config,
 )
-from ..metadata.statistics.pq_writer import ParquetLogger
+from ..metadata.loggers import ParquetLogger
 from ..utilities import comm
 from .trainer import TrainerConfig, TrainerModules, TrainerT
 

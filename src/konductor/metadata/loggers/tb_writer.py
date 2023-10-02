@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 from pathlib import Path
 
 
@@ -30,6 +30,9 @@ class TBLogger(LogWriter):
         renamed_data = {f"{prefix}/{k}": v for k, v in data.items()}
         for name, value in renamed_data.items():
             self.writer.add_scalar(name, value, step=iteration)
+
+    def add_topic(self, category: str, column_names: List[str]):
+        pass  # Not required for tensorboard backend
 
     def flush(self):
         self.writer.flush()

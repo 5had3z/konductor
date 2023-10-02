@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 try:
     import wandb
@@ -29,6 +29,9 @@ class WandBLogger(LogWriter):
         prefix = LogWriter.get_prefix(split, category)
         renamed_data = {f"{prefix}/{k}": v for k, v in data.items()}
         wandb.log(data=renamed_data, step=iteration)
+
+    def add_topic(self, category: str, column_names: List[str]):
+        pass  # Not required for W&B logging
 
     def flush(self):
         pass  # Don't need to do that for w&b

@@ -5,7 +5,7 @@ import pytest
 pytestmark = pytest.mark.statistics
 
 from konductor.metadata import PerfLogger
-from konductor.metadata.statistics.pq_writer import ParquetLogger
+from konductor.metadata.loggers import ParquetLogger
 
 
 @pytest.fixture

@@ -16,7 +16,7 @@ import yaml
 from ..utilities import comm
 from .checkpointer import Checkpointer
 from .remotesync import _RemoteSyncrhoniser
-from .statistics.perflogger import PerfLogger
+from .perflogger import PerfLogger
 
 
 def get_commit() -> str:
