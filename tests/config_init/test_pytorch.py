@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 from torch import nn
 
@@ -6,6 +7,7 @@ from konductor.models import get_training_model
 from konductor.optimizers._pytorch import PG_REGISTRY
 
 from ..init_config import example_config
+from .. import utils
 
 
 @PG_REGISTRY.register_module("custom_pg")
@@ -32,5 +34,14 @@ def test_optim_param_groups(example_config: ExperimentInitConfig):
 
 
 def test_model_arguments(example_config: ExperimentInitConfig):
-    example_config.model[0].args["some_other_parameter"] = "bar"
     model, _, _ = get_training_model(example_config)
+    assert model.some_valid_param == "foo"
+
+    example_config.model[0].args["some_valid_param"] = "bar"
+    model, _, _ = get_training_model(example_config)
+
+    assert model.some_valid_param == "bar"
+
+    with pytest.raises(TypeError):  # TODO: Change to KeyError
+        example_config.model[0].args["some_invalid_param"] = "baz"
+        model, _, _ = get_training_model(example_config)

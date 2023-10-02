@@ -12,11 +12,14 @@ from konductor.data import get_dataset_properties
 
 
 class MyResNet(ResNet):
-    """Change input channels to 1 for mnist image"""
+    """
+    Change input channels to 1 for mnist image
+    Add some_valid_param for testing purposes
+    """
 
-    def __init__(self, *args, some_other_parameter: str = "foo", **kwargs) -> None:
+    def __init__(self, *args, some_valid_param: str = "foo", **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.some_other_parameter = some_other_parameter
+        self.some_valid_param = some_valid_param
         self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
 
 
@@ -24,7 +27,7 @@ class MyResNet(ResNet):
 @MODEL_REGISTRY.register_module("my-resnet18")
 class MyResnetConfig(TorchModelConfig):
     n_classes: int
-    some_other_parameter: str = "foo"
+    some_valid_param: str = "foo"
 
     @classmethod
     def from_config(cls, config: ExperimentInitConfig, idx: int = 0, **kwargs) -> Any:
@@ -33,7 +36,12 @@ class MyResnetConfig(TorchModelConfig):
         return super().from_config(config, idx)
 
     def get_instance(self, *args, **kwargs) -> Any:
-        return MyResNet(BasicBlock, [2, 2, 2, 2], num_classes=self.n_classes)
+        return MyResNet(
+            BasicBlock,
+            [2, 2, 2, 2],
+            num_classes=self.n_classes,
+            some_valid_param=self.some_valid_param,
+        )
 
 
 class MnistTrainer(PyTorchTrainer):
