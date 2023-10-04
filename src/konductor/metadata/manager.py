@@ -16,7 +16,7 @@ import yaml
 from ..utilities import comm
 from .checkpointer import Checkpointer
 from .remotesync import _RemoteSyncrhoniser
-from .statistics.perflogger import PerfLogger
+from .perflogger import PerfLogger
 
 
 def get_commit() -> str:
@@ -149,7 +149,7 @@ class CkptConfig:
 
 
 @dataclass
-class MetadataManager:
+class DataManager:
     """
     Manages the lifecycle for statistics, checkpoints and
     any other relevant logs during training.
@@ -188,17 +188,6 @@ class MetadataManager:
         """Current training iteration"""
         return self.metadata.iteration
 
-    @workspace.setter
-    def workspace(self, path: Path):
-        assert path.exists(), f"New workspace folder does not exist: {path}"
-        self.checkpointer.rootdir = path
-        self.perflog.config.write_path = path
-
-    def write_brief(self, brief: str) -> None:
-        """Sets metadata briefly describing experiment if "brief" isn't empty"""
-        if len(brief) > 0:
-            self.metadata.brief = brief
-
     def resume(self) -> None:
         """Resume from checkpoint if available, pull from remote if necessary"""
         self._remote_resume()
@@ -233,7 +222,7 @@ class MetadataManager:
     def iter_step(self) -> None:
         """Step iteration"""
         self.metadata.iteration += 1
-        self.perflog.set_iteration(self.iteration)
+        self.perflog.iteration = self.iteration
         if self.ckpt_cfg.iter_mode and self.ckpt_cfg.save_latest(self.iteration):
             filename = (
                 f"iteration_{self.iteration}"
@@ -243,7 +232,11 @@ class MetadataManager:
             self.save(filename)
 
     def save(self, filename: str, force_push: bool = False) -> None:
-        """Save metadata and checkpoint, optionally force push to remote"""
+        """
+        Save metadata and checkpoint
+        filename: name of checkpoint
+        force_push: push data to remote
+        """
 
         self.metadata.commit_last = get_commit()
         self.metadata.train_last = datetime.now()
@@ -253,7 +246,7 @@ class MetadataManager:
             self.checkpointer.save(filename, epoch=self.epoch, iteration=self.iteration)
             self.metadata.write()
 
-        self.perflog.commit()  # Ensure all perf data is logged, move to next shard
+        self.perflog.flush()  # Ensure all perf data is logged, move to next shard
         comm.synchronize()  # Ensure all workers have saved data before push
 
         if self.remote_timer.elapsed() > self.sync_interval or force_push:

@@ -12,8 +12,8 @@ class MSELoss(nn.MSELoss):
         super().__init__(reduction=reduction)
         self.weight = weight
 
-    def forward(self, input: Tensor, target: Tensor) -> Tensor:
-        return self.weight * super().forward(input, target)
+    def forward(self, inpt: Tensor, target: Tensor):
+        return {"mse": self.weight * super().forward(inpt, target)}
 
 
 @dataclass
@@ -26,9 +26,7 @@ class MSELossConfig(LossConfig):
         return super().from_config(config, idx, names=["mse"])
 
     def get_instance(self) -> Any:
-        kwargs = asdict(self)
-        del kwargs["names"]
-        return MSELoss(**kwargs)
+        return MSELoss(**asdict(self))
 
 
 class BCELoss(nn.BCELoss):
@@ -41,23 +39,30 @@ class BCELoss(nn.BCELoss):
         super().__init__(weight=weights, reduction=reduction)
         self._weight = weight
 
-    def forward(self, input: Tensor, target: Tensor) -> Tensor:
-        return self._weight * super().forward(input, target)
+    def forward(self, inpt: Tensor, target: Tensor):
+        return {"bce": self._weight * super().forward(inpt, target)}
 
 
 @dataclass
 @REGISTRY.register_module("bce")
 class BCELossConfig(LossConfig):
+    weight: float = 1.0
     weights: List[float] | Tensor | None = None
     reduction: str = "mean"
-
-    @classmethod
-    def from_config(cls, config: ExperimentInitConfig, idx: int):
-        return super().from_config(config, idx, names=["bce"])
 
     def get_instance(self) -> Any:
         if isinstance(self.weights, list):
             self.weights = torch.tensor(self.weights)
-        kwargs = asdict(self)
-        del kwargs["names"]
-        return BCELoss(**kwargs)
+        return BCELoss(**asdict(self))
+
+
+class CELoss(nn.CrossEntropyLoss):
+    def forward(self, inpt: Tensor, target: Tensor):
+        return {"ce": super().forward(inpt, target)}
+
+
+@dataclass
+@REGISTRY.register_module("ce")
+class CELossConfig(LossConfig):
+    def get_instance(self, *args, **kwargs) -> Any:
+        return CELoss(**asdict(self))

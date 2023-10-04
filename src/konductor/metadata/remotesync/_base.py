@@ -1,14 +1,14 @@
 """Abstract Base remote syncrhonisation that defines
 interfaces required for remote synchronisation.
 """
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from logging import getLogger
 from pathlib import Path
 import re
 from typing import List, Set
 
 
-class _RemoteSyncrhoniser(metaclass=ABCMeta):
+class _RemoteSyncrhoniser(ABC):
     """Synchronises set of files(objects) between host and remote
     data source.
     """

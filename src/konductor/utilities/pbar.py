@@ -258,9 +258,11 @@ class IntervalPbar(BasePbar):
         if fraction != -1.0:
             assert 0 < fraction < 1, "Fraction should be sensible (0<f<1)"
             self.step = int(total * fraction)
-        if interval != -1:
+        elif interval != -1:
             assert 0 < interval < total, "Interval should be sensible (0<i<total)"
             self.step = interval
+        else:
+            raise ValueError("Neither interval or fraction is specified")
 
     def update(self, update):
         super().update(update)

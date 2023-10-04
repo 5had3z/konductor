@@ -1,9 +1,10 @@
-from dataclasses import dataclass
-from typing import Any
-
-from .. import Mode, DatasetConfig, DATASET_REGISTRY
+from dataclasses import dataclass, asdict
+from typing import Any, Dict
 
 from torchvision.datasets import MNIST
+from torchvision.transforms.v2 import Compose, ConvertImageDtype, ToImageTensor
+
+from .. import DATASET_REGISTRY, DatasetConfig, Split
 
 
 @dataclass
@@ -11,5 +12,17 @@ from torchvision.datasets import MNIST
 class MNISTConfig(DatasetConfig):
     """Wrapper to use torchvision dataset"""
 
-    def get_instance(self, mode: Mode) -> Any:
-        return MNIST(self.basepath, train=mode == Mode.train, download=True)
+    n_classes: int = 10
+
+    @property
+    def properties(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    def get_instance(self, split: Split) -> Any:
+        return MNIST(
+            str(self.basepath),
+            train=split == Split.TRAIN,
+            download=True,
+            transform=Compose([ToImageTensor(), ConvertImageDtype()]),
+            target_transform=ToImageTensor(),
+        )

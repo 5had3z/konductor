@@ -1,29 +1,16 @@
-import abc
-import enum
 import logging
 import os
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
-from ..init import DatasetInitConfig, ExperimentInitConfig, ModuleInitConfig
+from ..init import DatasetInitConfig, ExperimentInitConfig, ModuleInitConfig, Split
 from ..registry import BaseConfig, Registry
 
 DATASET_REGISTRY = Registry("dataset")
 SAMPLER_REGISTRY = Registry("data_sampler")
 DATALOADER_REGISTRY = Registry("dataloder")
-
-
-class Mode(str, enum.Enum):
-    @staticmethod
-    def _generate_next_value_(
-        name: str, start: int, count: int, last_values: list
-    ) -> str:
-        return name  # Use this for < python3.11 compat
-
-    train = enum.auto()
-    val = enum.auto()
-    test = enum.auto()
 
 
 @dataclass
@@ -66,8 +53,8 @@ class DatasetConfig(BaseConfig):
         """
         return {}
 
-    @abc.abstractmethod
-    def get_instance(self, mode: Mode, **kwargs) -> Any:
+    @abstractmethod
+    def get_instance(self, split: Split, **kwargs) -> Any:
         raise NotImplementedError()
 
 
@@ -80,7 +67,7 @@ class DataloaderConfig(BaseConfig):
     """
 
     dataset: DatasetConfig
-    mode: Mode
+    split: Split
     batch_size: int
     workers: int = 0
     shuffle: bool = False
@@ -88,17 +75,17 @@ class DataloaderConfig(BaseConfig):
     augmentations: List[ModuleInitConfig] = field(default_factory=lambda: [])
 
     @classmethod
-    def from_config(cls, dataset: DatasetConfig, mode: Mode):
-        match mode:
-            case Mode.train:
+    def from_config(cls, dataset: DatasetConfig, split: Split):
+        match split:
+            case Split.TRAIN:
                 loader_cfg = dataset.train_loader
-            case Mode.val | Mode.test:
+            case Split.VAL | Split.TEST:
                 loader_cfg = dataset.val_loader
             case _:
                 raise RuntimeError("How did I get here?")
-        return cls(dataset=dataset, mode=mode, **loader_cfg.args)
+        return cls(dataset=dataset, split=split, **loader_cfg.args)
 
-    @abc.abstractmethod
+    @abstractmethod
     def get_instance(self, *args, **kwargs) -> Sequence:
         raise NotImplementedError()
 
@@ -126,25 +113,32 @@ except ImportError:
 
 
 def get_dataset_config(config: ExperimentInitConfig, idx: int = 0) -> DatasetConfig:
+    """Get dataset configuration at index"""
     return DATASET_REGISTRY[config.data[idx].dataset.type].from_config(config, idx)
 
 
-def get_dataloader_config(dataset: DatasetConfig, mode: Mode | str) -> DataloaderConfig:
+def get_dataloader_config(
+    dataset: DatasetConfig, mode: Split | str
+) -> DataloaderConfig:
+    """Get dataloader config for split from dataset config"""
     if isinstance(mode, str):
-        mode = Mode[mode]
-    name_ = dataset.train_loader.type if mode == Mode.train else dataset.val_loader.type
+        mode = Split[mode]
+    name_ = (
+        dataset.train_loader.type if mode == Split.TRAIN else dataset.val_loader.type
+    )
     return DATALOADER_REGISTRY[name_].from_config(dataset, mode)
 
 
-def get_dataloader(dataset: DatasetConfig, mode: Mode | str) -> Sequence:
-    """"""
+def get_dataloader(dataset: DatasetConfig, mode: Split | str) -> Sequence:
+    """Get dataloader instance from dataset with split"""
     if isinstance(mode, str):
-        mode = Mode[mode]
+        mode = Split[mode]
 
     return get_dataloader_config(dataset, mode).get_instance()
 
 
 def get_dataset_properties(config: ExperimentInitConfig) -> Dict[str, Any]:
+    """Get properties of all datasets in experiment"""
     properties = {}
     for idx in range(len(config.data)):
         properties.update(get_dataset_config(config, idx).properties)

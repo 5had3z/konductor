@@ -1,7 +1,8 @@
-import pytest
 from copy import deepcopy
 
-from torch import nn, optim, no_grad
+import pytest
+from torch import nn, no_grad, optim
+
 from konductor.metadata.checkpointer._pytorch import Checkpointer
 
 

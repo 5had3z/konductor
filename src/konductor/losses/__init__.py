@@ -21,11 +21,7 @@ REGISTRY = Registry("losses")
 
 @dataclass
 class LossConfig(BaseConfig):
-    names: List[str]  # Names of losses returned by the module
-    weight: float = 1.0
-
-    def __post_init__(self):
-        assert len(self.names) == len(set(self.names)), f"Duplicate names {self.names}"
+    """Basic configuration data for loss modules"""
 
     @classmethod
     def from_config(cls, config: ExperimentInitConfig, idx: int, **kwargs):

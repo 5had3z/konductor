@@ -4,7 +4,7 @@ import torch
 from nvidia.dali.plugin.pytorch import DALIGenericIterator
 from nvidia.dali.plugin.pytorch import LastBatchPolicy
 
-from . import DataloaderConfig, DATALOADER_REGISTRY, Mode, Registry
+from . import DataloaderConfig, DATALOADER_REGISTRY, Split, Registry
 from ..utilities.comm import get_rank, get_world_size
 
 DALI_AUGMENTATIONS = Registry("DALI_AUGMENTATIONS")
@@ -13,7 +13,7 @@ DALI_AUGMENTATIONS = Registry("DALI_AUGMENTATIONS")
 @dataclass
 @DATALOADER_REGISTRY.register_module("DALI")
 class DaliLoaderConfig(DataloaderConfig):
-    def get_instance(self, *args):
+    def get_instance(self, *args, **kwargs):
         pipe_kwargs = {
             "shard_id": get_rank(),
             "num_shards": get_world_size(),
@@ -24,7 +24,7 @@ class DaliLoaderConfig(DataloaderConfig):
         }
 
         dali_pipe, out_map, reader_name, size = self.dataset.get_instance(
-            mode=self.mode, random_shuffle=self.mode == Mode.train, **pipe_kwargs
+            split=self.split, random_shuffle=self.shuffle, **pipe_kwargs
         )
 
         last_batch = LastBatchPolicy.DROP if self.drop_last else LastBatchPolicy.PARTIAL

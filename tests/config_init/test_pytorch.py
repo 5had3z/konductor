@@ -1,10 +1,13 @@
-from ..init_config import example_config
-
+import pytest
 import numpy as np
 from torch import nn
+
 from konductor.init import ExperimentInitConfig
-from konductor.optimizers._pytorch import PG_REGISTRY
 from konductor.models import get_training_model
+from konductor.optimizers._pytorch import PG_REGISTRY
+
+from ..init_config import example_config
+from .. import utils
 
 
 @PG_REGISTRY.register_module("custom_pg")
@@ -30,6 +33,15 @@ def test_optim_param_groups(example_config: ExperimentInitConfig):
     assert np.allclose(pg1["lr"] / lr_mult, pg2["lr"])
 
 
-def test_torchvision_weights(example_config: ExperimentInitConfig):
-    example_config.model[0].args["weights"] = "IMAGENET1K_V1"
+def test_model_arguments(example_config: ExperimentInitConfig):
     model, _, _ = get_training_model(example_config)
+    assert model.some_valid_param == "foo"
+
+    example_config.model[0].args["some_valid_param"] = "bar"
+    model, _, _ = get_training_model(example_config)
+
+    assert model.some_valid_param == "bar"
+
+    with pytest.raises(TypeError):  # TODO: Change to KeyError
+        example_config.model[0].args["some_invalid_param"] = "baz"
+        model, _, _ = get_training_model(example_config)

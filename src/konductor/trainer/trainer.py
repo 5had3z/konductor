@@ -4,7 +4,11 @@ from logging import getLogger
 from typing import Any, Callable, Dict, List, Sequence, TypeVar
 
 from ..utilities import comm
-from ..metadata import MetadataManager
+from ..metadata import DataManager
+from ..data import get_dataloader, Split, get_dataset_config
+from ..models import get_training_model
+from ..init import ExperimentInitConfig
+from ..losses import get_criterion
 
 
 @dataclass
@@ -17,6 +21,26 @@ class TrainerModules:
     scheduler: Any  # Learning rate scheduler
     trainloader: Sequence
     valloader: Sequence
+
+    @classmethod
+    def from_config(cls, exp_config: ExperimentInitConfig):
+        dataset_cfgs = [
+            get_dataset_config(exp_config, idx) for idx in range(len(exp_config.data))
+        ]
+        train_loaders = [get_dataloader(cfg, Split.TRAIN) for cfg in dataset_cfgs]
+        val_loaders = [get_dataloader(cfg, Split.VAL) for cfg in dataset_cfgs]
+
+        modules = [
+            get_training_model(exp_config, idx) for idx in range(len(exp_config.model))
+        ]
+        # Unpack tuple into each category
+        models = [m[0] for m in modules]
+        optims = [m[1] for m in modules]
+        scheds = [m[2] for m in modules]
+
+        criterion = get_criterion(exp_config)
+
+        return cls(models, criterion, optims, scheds, train_loaders, val_loaders)
 
     def __post_init__(self):
         # Remove list wrapper if only one model/dataset etc
@@ -59,7 +83,7 @@ class BaseTrainer(ABC):
         self,
         config: TrainerConfig,
         modules: TrainerModules,
-        data_manager: MetadataManager,
+        data_manager: DataManager,
     ):
         self.modules = modules
         self.data_manager = data_manager
@@ -96,7 +120,9 @@ class BaseTrainer(ABC):
 
             while self.data_manager.iteration < iteration:
                 self._logger.info(
-                    f"Training {self.data_manager.iteration} of {iteration} iterations"
+                    "Training %d of %d iterations",
+                    self.data_manager.iteration,
+                    iteration,
                 )
                 self.run_epoch(iteration)
         else:
@@ -108,7 +134,7 @@ class BaseTrainer(ABC):
 
             while self.data_manager.epoch < epoch:
                 self._logger.info(
-                    f"Training {self.data_manager.epoch} of {epoch} epochs"
+                    "Training %d of %d epochs", self.data_manager.epoch, epoch
                 )
                 self.run_epoch(iteration)
 
@@ -133,7 +159,7 @@ class BaseTrainer(ABC):
         grad scaler here if using amp"""
 
     @abstractmethod
-    def _maybe_step_optimiser(self, iter_: int) -> None:
+    def _maybe_step_optimiser(self) -> None:
         """Step optimizer if iteration is divisible by interval"""
 
     @abstractmethod
