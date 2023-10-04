@@ -12,7 +12,7 @@ class MSELoss(nn.MSELoss):
         super().__init__(reduction=reduction)
         self.weight = weight
 
-    def forward(self, inpt: Tensor, target: Tensor) -> Tensor:
+    def forward(self, inpt: Tensor, target: Tensor):
         return {"mse": self.weight * super().forward(inpt, target)}
 
 
@@ -39,7 +39,7 @@ class BCELoss(nn.BCELoss):
         super().__init__(weight=weights, reduction=reduction)
         self._weight = weight
 
-    def forward(self, inpt: Tensor, target: Tensor) -> Tensor:
+    def forward(self, inpt: Tensor, target: Tensor):
         return {"bce": self._weight * super().forward(inpt, target)}
 
 

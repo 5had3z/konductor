@@ -39,7 +39,7 @@ class DataloaderV1Config(DataloaderConfig):
     collate_fn: Callable[[List[Any]], Any] | None = None
 
     def get_instance(self, *args):
-        dataset: Any = self.dataset.get_instance(self.mode)
+        dataset: Any = self.dataset.get_instance(self.split)
 
         if self.sampler is not None:
             sampler = self.sampler(dataset)
@@ -84,7 +84,7 @@ class DataloaderV2Config(DataloaderConfig):
     pin_memory: bool = True
 
     def get_instance(self, *args, **kwargs):
-        datapipe = IterableWrapper(self.dataset.get_instance(self.mode))
+        datapipe = IterableWrapper(self.dataset.get_instance(self.split))
 
         if self.shuffle:
             datapipe = datapipe.shuffle()

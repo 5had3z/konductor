@@ -20,7 +20,7 @@ class MNISTConfig(DatasetConfig):
 
     def get_instance(self, split: Split) -> Any:
         return MNIST(
-            self.basepath,
+            str(self.basepath),
             train=split == Split.TRAIN,
             download=True,
             transform=Compose([ToImageTensor(), ConvertImageDtype()]),

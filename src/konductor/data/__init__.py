@@ -67,7 +67,7 @@ class DataloaderConfig(BaseConfig):
     """
 
     dataset: DatasetConfig
-    mode: Split
+    split: Split
     batch_size: int
     workers: int = 0
     shuffle: bool = False
@@ -83,7 +83,7 @@ class DataloaderConfig(BaseConfig):
                 loader_cfg = dataset.val_loader
             case _:
                 raise RuntimeError("How did I get here?")
-        return cls(dataset=dataset, mode=split, **loader_cfg.args)
+        return cls(dataset=dataset, split=split, **loader_cfg.args)
 
     @abstractmethod
     def get_instance(self, *args, **kwargs) -> Sequence:

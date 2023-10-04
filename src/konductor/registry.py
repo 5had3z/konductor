@@ -93,7 +93,8 @@ class Registry:
         if not any([inspect.isclass(module), inspect.isfunction(module)]):
             raise TypeError(f"module must be a class or a function, got {type(module)}")
 
-        name = module.__name__ if name is None else name
+        if name is None:
+            name = module.__name__
         name = name.lower()  # enforce lowercase
 
         if name in self._module_dict:

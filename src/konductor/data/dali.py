@@ -24,7 +24,7 @@ class DaliLoaderConfig(DataloaderConfig):
         }
 
         dali_pipe, out_map, reader_name, size = self.dataset.get_instance(
-            mode=self.mode, random_shuffle=self.mode == Split.TRAIN, **pipe_kwargs
+            split=self.split, random_shuffle=self.shuffle, **pipe_kwargs
         )
 
         last_batch = LastBatchPolicy.DROP if self.drop_last else LastBatchPolicy.PARTIAL
