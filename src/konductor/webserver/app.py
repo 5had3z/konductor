@@ -1,16 +1,17 @@
 # Run this app with `python app.py` and
 # visit http://127.0.0.1:8050/ in your web browser.
 
-from argparse import ArgumentParser
 from pathlib import Path
 from subprocess import Popen
 
 import dash
-from dash import Dash, html, dcc
 import dash_bootstrap_components as dbc
+import typer
+from dash import Dash, dcc, html
+from typing_extensions import Annotated
 
-
-app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=True)
+webapp = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=True)
+cliapp = typer.Typer()
 
 
 def get_basic_layout(root_dir: str, content_url: str):
@@ -37,28 +38,31 @@ def get_basic_layout(root_dir: str, content_url: str):
     )
 
 
-def add_base_args(parser: ArgumentParser):
-    """Add basic args for app"""
-    parser.add_argument("--workspace", type=Path, default=Path.cwd())
+@cliapp.command()
+def main(
+    workspace: Path,
+    enable_server: Annotated[bool, typer.Option()] = True,
+    server_port: Annotated[int, typer.Option()] = 8000,
+) -> None:
+    """Experiment performance and metadata visualisation tool"""
+    content_url = f"http://localhost:{server_port}"
+    webapp.layout = get_basic_layout(str(workspace), content_url=content_url)
+
+    try:
+        if enable_server:
+            proc = Popen(
+                f"python3 -m http.server {server_port} --directory {workspace}",
+                shell=True,
+            )
+        webapp.run()
+    finally:
+        if enable_server:
+            proc.terminate()
 
 
-def run_as_main() -> None:
-    """Main entrypoint for basic pages"""
-    parser = ArgumentParser()
-    add_base_args(parser)
-    args = parser.parse_args()
-    content_port = 8000
-    content_url = f"http://localhost:{content_port}"
-    app.layout = get_basic_layout(str(args.workspace), content_url=content_url)
-
-    proc = Popen(
-        f"python3 -m http.server {content_port} --directory {parser.parse_args().workspace}",
-        shell=True,
-    )
-
-    app.run()
-    proc.terminate()
+def _main():
+    cliapp()
 
 
 if __name__ == "__main__":
-    run_as_main()
+    cliapp()

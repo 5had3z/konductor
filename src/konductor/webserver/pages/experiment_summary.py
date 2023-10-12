@@ -1,19 +1,18 @@
 from pathlib import Path
 from typing import List
 
-
-import pandas as pd
 import dash
-from dash import html, dcc, Input, Output, callback
-from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
+import pandas as pd
 import plotly.graph_objects as go
+from dash import Input, Output, callback, dcc, html
+from dash.exceptions import PreventUpdate
 
 from konductor.webserver.utils import (
+    Experiment,
+    OptionTree,
     fill_experiments,
     fill_option_tree,
-    OptionTree,
-    Experiment,
 )
 
 dash.register_page(__name__, path="/experiment-summary")

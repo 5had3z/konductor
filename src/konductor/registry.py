@@ -31,9 +31,7 @@ class BaseConfig(ABC):
     def get_instance(self, *args, **kwargs) -> Any:
         """Get initialised module from configuration"""
 
-    def init_auto_filter(
-        self, target, known_unused: Set[str] | None = None, **extras
-    ) -> Dict[str, Any]:
+    def init_auto_filter(self, target, known_unused: Set[str] | None = None, **extras):
         """
         Make instance of target class with auto-filtered self.__dict__ + extras
         known_unused is a set of keyword arguments which may be present and are
