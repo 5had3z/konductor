@@ -1,22 +1,23 @@
+from copy import deepcopy
 from dataclasses import dataclass
+from threading import Event, Lock, Thread
 from typing import Any, Dict, List, Tuple
-from threading import Thread, Event, Lock
 
 import torch
+from torch import Tensor
 from torch import backends as tb
-from torch import optim, Tensor, nn
-from torch.autograd.grad_mode import no_grad
+from torch import nn, optim
 from torch.amp.autocast_mode import autocast
+from torch.autograd.grad_mode import no_grad
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.profiler import record_function, profile, ProfilerAction
-
+from torch.profiler import ProfilerAction, profile, record_function
 
 from .trainer import (
     BaseTrainer,
-    TrainerModules,
-    TrainerConfig,
     DataManager,
+    TrainerConfig,
+    TrainerModules,
     TrainingError,
 )
 
@@ -82,8 +83,8 @@ class AsyncFiniteMonitor(Thread):
         if not self.is_alive():
             self.start()
 
-        with self.mtx:
-            self.data = data
+        with self.mtx, torch.no_grad():
+            self.data = deepcopy(data)
             self.is_ready.set()
 
     def stop(self):

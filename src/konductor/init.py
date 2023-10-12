@@ -1,7 +1,10 @@
+""" 
+Initialisation configuration dataclasses for library modules
+"""
+import enum
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List
-import enum
 
 
 class Split(str, enum.Enum):

@@ -8,9 +8,9 @@ by a dataset can be used to configure the model
 
 import inspect
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from logging import getLogger, warning
-from typing import Any, Dict, Set, Type
+from typing import Any, Dict, Set
 
 from .init import ExperimentInitConfig
 
@@ -32,19 +32,21 @@ class BaseConfig(ABC):
         """Get initialised module from configuration"""
 
     def init_auto_filter(
-        self, target, known_unused: Set[str] | None = None, **kwargs
+        self, target, known_unused: Set[str] | None = None, **extras
     ) -> Dict[str, Any]:
         """
-        Make instance of target class with auto-filtered asdict(self) + kwargs
+        Make instance of target class with auto-filtered self.__dict__ + extras
         known_unused is a set of keyword arguments which may be present and are
         known to be not used by the module itself so we can skip the warning.
+        We use self.__dict__ instead of asdict to prevent recursive dataclass conversion
+        since the point of this is just to convert the immediate dataclass to kwargs.
         """
-        kwargs.update(asdict(self))
+        extras.update(self.__dict__)
         filtered = {
-            k: v for k, v in kwargs.items() if k in inspect.signature(target).parameters
+            k: v for k, v in extras.items() if k in inspect.signature(target).parameters
         }
 
-        diff = set(kwargs.keys()).difference(set(filtered.keys()))
+        diff = set(extras.keys()).difference(set(filtered.keys()))
         if known_unused is not None:
             diff = diff.difference(known_unused)
 
@@ -62,7 +64,7 @@ class Registry:
 
     def __init__(self, name: str):
         self._name = name.lower()
-        self._module_dict: Dict[str, Type[BaseConfig]] = {}
+        self._module_dict: Dict[str, Any] = {}
         self._logger = getLogger(name=f"{name}_registry")
 
     def __len__(self):
@@ -73,7 +75,7 @@ class Registry:
             f"{self.__class__.__name__} (name={self._name}, items={self._module_dict})"
         )
 
-    def __getitem__(self, name: str) -> Type[BaseConfig]:
+    def __getitem__(self, name: str) -> Any:
         return self._module_dict[name.lower()]
 
     @property

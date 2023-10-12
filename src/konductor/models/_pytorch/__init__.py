@@ -62,11 +62,14 @@ class TorchModelConfig(ModelConfig):
             logger = getLogger()
             if len(missing) > 0 or len(unused) > 0:
                 logger.warning(
-                    f"Loaded pretrained checkpoint from {ckpt_path} with "
-                    f"{len(missing)} missing and {len(unused)} unused weights"
+                    "Loaded pretrained checkpoint from %s "
+                    "with %d missing and %d unused weights",
+                    ckpt_path,
+                    len(missing),
+                    len(unused),
                 )
             else:
-                logger.info(f"Loaded pretrained checkpoint from {ckpt_path}")
+                logger.info("Loaded pretrained checkpoint from %s", ckpt_path)
 
         return model
 

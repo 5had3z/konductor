@@ -1,8 +1,9 @@
 from dataclasses import dataclass, asdict
 from typing import Any, Dict
 
+import torch
 from torchvision.datasets import MNIST
-from torchvision.transforms.v2 import Compose, ConvertImageDtype, ToImageTensor
+from torchvision.transforms.v2 import Compose, ToDtype, ToImage
 
 from .. import DATASET_REGISTRY, DatasetConfig, Split
 
@@ -23,6 +24,6 @@ class MNISTConfig(DatasetConfig):
             str(self.basepath),
             train=split == Split.TRAIN,
             download=True,
-            transform=Compose([ToImageTensor(), ConvertImageDtype()]),
-            target_transform=ToImageTensor(),
+            transform=Compose([ToImage(), ToDtype(torch.float32, scale=True)]),
+            target_transform=ToImage(),
         )
