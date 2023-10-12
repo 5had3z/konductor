@@ -1,19 +1,19 @@
+import difflib
 from pathlib import Path
 from typing import List
-import difflib
 
-import pandas as pd
 import dash
-from dash import html, dcc, Input, Output, callback
-from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
+import pandas as pd
 import plotly.graph_objects as go
+from dash import Input, Output, callback, dcc, html
+from dash.exceptions import PreventUpdate
 
 from konductor.webserver.utils import (
-    fill_experiments,
-    fill_option_tree,
     Experiment,
     OptionTree,
+    fill_experiments,
+    fill_option_tree,
 )
 
 dash.register_page(__name__, path="/simple-comparison")

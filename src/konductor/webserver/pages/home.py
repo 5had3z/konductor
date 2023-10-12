@@ -1,13 +1,13 @@
-from pathlib import Path
-from contextlib import closing
 import sqlite3
+from contextlib import closing
+from pathlib import Path
 from typing import List
 
 import dash
-from dash import html, dcc, callback, Input, Output, dash_table
-from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
+from dash import Input, Output, callback, dash_table, dcc, html
+from dash.exceptions import PreventUpdate
 
 dash.register_page(__name__, path="/")
 

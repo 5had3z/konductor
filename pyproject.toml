@@ -49,7 +49,7 @@ dependencies = [
 
 [project.scripts]
 konduct-metadata = "konductor.utilities.metadata:app"
-konduct-review = "konductor.webserver.app:run_as_main"
+konduct-review = "konductor.webserver.app:_main"
 
 [project.optional-dependencies]
 REMOTE = ["paramiko", "minio"]
