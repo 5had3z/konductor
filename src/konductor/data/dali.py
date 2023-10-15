@@ -23,6 +23,7 @@ class DaliLoaderConfig(DataloaderConfig):
             "device_id": torch.cuda.current_device(),
             "batch_size": self.batch_size // get_world_size(),
             "augmentations": self.augmentations,
+            "random_shuffle": self.shuffle,
         }
 
     def get_instance(
