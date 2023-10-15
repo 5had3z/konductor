@@ -4,6 +4,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
+from warnings import warn
 
 from ..init import ExperimentInitConfig, ModuleInitConfig, Split
 from ..registry import BaseConfig, Registry
@@ -77,8 +78,13 @@ class DatasetConfig(BaseConfig):
         return {}
 
     @abstractmethod
-    def get_dataloder(self, split: Split) -> Any:
+    def get_dataloader(self, split: Split) -> Any:
         """Create and return dataloader for dataset split"""
+
+    def get_instance(self, *args, **kwargs) -> Any:
+        """Redirect to get_dataloader"""
+        warn("get_dataloader should be used with split argument")
+        return self.get_dataloader(*args, **kwargs)
 
 
 try:

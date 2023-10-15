@@ -27,8 +27,8 @@ class TrainerModules:
         dataset_cfgs = [
             get_dataset_config(exp_config, idx) for idx in range(len(exp_config.data))
         ]
-        train_loaders = [cfg.get_instance(Split.TRAIN) for cfg in dataset_cfgs]
-        val_loaders = [cfg.get_instance(Split.VAL) for cfg in dataset_cfgs]
+        train_loaders = [cfg.get_dataloader(Split.TRAIN) for cfg in dataset_cfgs]
+        val_loaders = [cfg.get_dataloader(Split.VAL) for cfg in dataset_cfgs]
 
         modules = [
             get_training_model(exp_config, idx) for idx in range(len(exp_config.model))
