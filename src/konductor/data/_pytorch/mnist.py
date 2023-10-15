@@ -19,7 +19,7 @@ class MNISTConfig(DatasetConfig):
     def properties(self) -> Dict[str, Any]:
         return asdict(self)
 
-    def get_instance(self, split: Split) -> Any:
+    def get_dataloader(self, split: Split) -> Any:
         dataset = MNIST(
             str(self.basepath),
             train=split == Split.TRAIN,

@@ -77,8 +77,8 @@ class DatasetConfig(BaseConfig):
         return {}
 
     @abstractmethod
-    def get_instance(self, split: Split) -> Any:
-        """Return dataloader for split"""
+    def get_dataloder(self, split: Split) -> Any:
+        """Create and return dataloader for dataset split"""
 
 
 try:
