@@ -1,5 +1,5 @@
 """
-
+Single class which manages metadata, statistics and checkpoints during training.
 """
 import enum
 import inspect
@@ -15,11 +15,13 @@ import yaml
 
 from ..utilities import comm
 from .checkpointer import Checkpointer
-from .remotesync import _RemoteSyncrhoniser
-from .perflogger import PerfLogger
+from .remotesync import _RemoteSyncrhoniser, get_remote
+from .perflogger import PerfLogger, Statistic, LogWriter
+from .loggers.pq_writer import ParquetLogger
+from ..init import ExperimentInitConfig
 
 
-def get_commit() -> str:
+def _get_commit() -> str:
     try:
         git_hash = (
             subprocess.check_output(
@@ -114,7 +116,6 @@ class CkptConfig:
     """Configuration for saving checkpoints at iteration
     or epoch steps and at what interval"""
 
-    @dataclass
     class Mode(enum.Enum):
         EPOCH = enum.auto()
         ITERATION = enum.auto()
@@ -164,12 +165,42 @@ class DataManager:
     sync_interval: timedelta = timedelta(hours=1)
     metadata: Metadata = field(init=False)  # post_init handles creation logic
 
+    @classmethod
+    def default_build(
+        cls,
+        exp_config: ExperimentInitConfig,
+        checkpointables: Dict[str, Any],
+        statistics: Dict[str, Statistic],
+        log_writer: LogWriter | None = None,
+    ):
+        """
+        Typical method for initializing DataManager.
+        Remote synchroniser is constructed from exp_config if its not None.
+        Checkpointer created with passed checkpointables.
+        PerfLogger initialized with given statistics, if log_writer is
+        None the bundled parquet logging backend is used.
+        """
+        remote_sync = None if exp_config.remote_sync is None else get_remote(exp_config)
+
+        checkpointer = Checkpointer(exp_config.work_dir, **checkpointables)
+
+        if log_writer is None:
+            log_writer = ParquetLogger(exp_config.work_dir)
+        perf_logger = PerfLogger(log_writer, statistics, **exp_config.log_kwargs)
+
+        return cls(
+            perf_logger,
+            checkpointer,
+            CkptConfig(**exp_config.ckpt_kwargs),
+            remote_sync=remote_sync,
+        )
+
     def __post_init__(self) -> None:
         self.remote_timer = _Timer()
         self._logger = getLogger("DataManager")
         self.metadata = Metadata(
-            commit_begin=get_commit(),
-            commit_last=get_commit(),
+            commit_begin=_get_commit(),
+            commit_last=_get_commit(),
             filepath=self.workspace / "metadata.yaml",
         )
 
@@ -238,7 +269,7 @@ class DataManager:
         force_push: push data to remote
         """
 
-        self.metadata.commit_last = get_commit()
+        self.metadata.commit_last = _get_commit()
         self.metadata.train_last = datetime.now()
 
         # Only save checkpoint on local rank zero

@@ -51,6 +51,18 @@ class TrainerModules:
             if isinstance(obj, list) and len(obj) == 1:
                 setattr(self, field, obj[0])
 
+    def get_checkpointables(self):
+        """
+        Get dictionary of training modules which typically include
+        a state_dict that should be checkpointed during training
+        i.e. model, optimizer and scheduler.
+        """
+        return {
+            "model": self.model,
+            "optim": self.optimizer,
+            "scheduler": self.scheduler,
+        }
+
 
 @dataclass
 class TrainerConfig:
