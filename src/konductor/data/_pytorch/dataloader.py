@@ -33,14 +33,14 @@ except ImportError:
 @dataclass
 @DATALOADER_REGISTRY.register_module("PYTORCH_V1")
 class DataloaderV1Config(DataloaderConfig):
+    """Original PyTorch Dataset Dataloader"""
+
     pin_memory: bool = True
     sampler: Type[Sampler] | None = None
     batch_sampler: Type[BatchSampler] | None = None
     collate_fn: Callable[[List[Any]], Any] | None = None
 
-    def get_instance(self, *args):
-        dataset: Any = self.dataset.get_instance(self.split)
-
+    def get_instance(self, dataset):
         if self.sampler is not None:
             sampler = self.sampler(dataset)
         elif in_distributed_mode():
@@ -76,21 +76,20 @@ class DataloaderV1Config(DataloaderConfig):
 @dataclass
 @DATALOADER_REGISTRY.register_module("PYTORCH_V2")
 class DataloaderV2Config(DataloaderConfig):
-    """Uses DataPipe API
-
-    :param DataloaderConfig: _description_
-    """
+    """PyTorch DataPipe API Dataloader"""
 
     pin_memory: bool = True
 
-    def get_instance(self, *args, **kwargs):
-        datapipe = IterableWrapper(self.dataset.get_instance(self.split))
+    def get_instance(self, dataset):
+        datapipe = IterableWrapper(dataset)
 
         if self.shuffle:
             datapipe = datapipe.shuffle()
         if in_distributed_mode():
             datapipe = datapipe.sharding_filter()
 
+        # TODO figure out conditions when jit can be used.
+        # Can't use jit for multi-worker datapipe, many transforms can't be jit either.
         # if len(self.augmentations) > 0:
         #     transforms = torch.nn.Sequential(
         #         *list(DATAPIPE_AUG[aug.type](**aug.args) for aug in self.augmentations)

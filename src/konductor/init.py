@@ -2,9 +2,16 @@
 Initialisation configuration dataclasses for library modules
 """
 import enum
+import hashlib
+import logging
 from dataclasses import dataclass
+from io import StringIO
 from pathlib import Path
 from typing import Any, Dict, List
+
+import yaml
+
+from .utilities import comm
 
 
 class Split(str, enum.Enum):
@@ -41,7 +48,7 @@ class OptimizerInitConfig:
     scheduler: ModuleInitConfig
 
     @classmethod
-    def from_yaml(cls, parsed_dict: Dict[str, Any]):
+    def from_dict(cls, parsed_dict: Dict[str, Any]):
         return cls(
             parsed_dict["type"],
             parsed_dict["args"],
@@ -60,11 +67,11 @@ class ModelInitConfig:
     optimizer: OptimizerInitConfig
 
     @classmethod
-    def from_yaml(cls, parsed_dict: Dict[str, Any]):
+    def from_dict(cls, parsed_dict: Dict[str, Any]):
         return cls(
             parsed_dict["type"],
             parsed_dict["args"],
-            OptimizerInitConfig.from_yaml(parsed_dict["optimizer"]),
+            OptimizerInitConfig.from_dict(parsed_dict["optimizer"]),
         )
 
 
@@ -79,7 +86,7 @@ class DatasetInitConfig:
     val_loader: ModuleInitConfig
 
     @classmethod
-    def from_yaml(cls, parsed_dict: Dict[str, Any]):
+    def from_dict(cls, parsed_dict: Dict[str, Any]):
         dataset = ModuleInitConfig(parsed_dict["type"], parsed_dict["args"])
         if "loader" in parsed_dict:
             train_loader = val_loader = ModuleInitConfig(**parsed_dict["loader"])
@@ -100,6 +107,17 @@ class DatasetInitConfig:
         return cls(dataset, train_loader, val_loader)
 
 
+def _hash_from_config(config: Dict[str, Any]) -> str:
+    """Return hashed version of the config file loaded as a dict
+    This simulates writing config to a file which prevents issues
+    with changing orders and formatting between the written config
+    and original config"""
+    ss = StringIO()
+    yaml.safe_dump(config, ss)
+    ss.seek(0)
+    return hashlib.md5(ss.read().encode("utf-8")).hexdigest()
+
+
 @dataclass
 class ExperimentInitConfig:
     """
@@ -116,15 +134,51 @@ class ExperimentInitConfig:
     trainer_kwargs: Dict[str, Any]
 
     @classmethod
-    def from_yaml(cls, parsed_dict: Dict[str, Any]):
+    def from_run(cls, run_path: Path):
+        """Load Config from Existing Run Folder"""
+        with open(run_path / "train_config.yml", "r", encoding="utf-8") as conf_f:
+            exp_config = yaml.safe_load(conf_f)
+        exp_config["work_dir"] = run_path
+        return cls.from_dict(exp_config)
+
+    @classmethod
+    def from_config(cls, workspace: Path, config_path: Path):
+        """
+        Load config file and target workspace, will initialize
+        run folder in workspace if it doesn't exist already.
+        """
+        with open(config_path, "r", encoding="utf-8") as conf_f:
+            exp_config = yaml.safe_load(conf_f)
+
+        config_hash = _hash_from_config(exp_config)
+        run_path = workspace / config_hash
+
+        if not run_path.exists() and comm.get_local_rank() == 0:
+            logging.info("Creating experiment directory %s", run_path)
+            run_path.mkdir(parents=True)
+        else:
+            logging.info("Using experiment directory %s", run_path)
+
+        # Write config to run path if it doesn't already exist
+        config_path = run_path / "train_config.yml"
+        if not config_path.exists() and comm.get_local_rank() == 0:
+            with open(config_path, "w", encoding="utf-8") as conf_f:
+                yaml.safe_dump(exp_config, conf_f)
+
+        exp_config["work_dir"] = run_path
+        return cls.from_dict(exp_config)
+
+    @classmethod
+    def from_dict(cls, parsed_dict: Dict[str, Any]):
+        """Setup experiment configuration from dictionary"""
         if "remote_sync" in parsed_dict:
             remote_sync = ModuleInitConfig(**parsed_dict["remote_sync"])
         else:
             remote_sync = None
 
         return cls(
-            model=[ModelInitConfig.from_yaml(cfg) for cfg in parsed_dict["model"]],
-            data=[DatasetInitConfig.from_yaml(cfg) for cfg in parsed_dict["dataset"]],
+            model=[ModelInitConfig.from_dict(cfg) for cfg in parsed_dict["model"]],
+            data=[DatasetInitConfig.from_dict(cfg) for cfg in parsed_dict["dataset"]],
             criterion=[
                 ModuleInitConfig(**crit_dict) for crit_dict in parsed_dict["criterion"]
             ],

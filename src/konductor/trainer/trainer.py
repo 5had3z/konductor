@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, List, Sequence, TypeVar
 
 from ..utilities import comm
 from ..metadata import DataManager
-from ..data import get_dataloader, Split, get_dataset_config
+from ..data import Split, get_dataset_config
 from ..models import get_training_model
 from ..init import ExperimentInitConfig
 from ..losses import get_criterion
@@ -27,8 +27,8 @@ class TrainerModules:
         dataset_cfgs = [
             get_dataset_config(exp_config, idx) for idx in range(len(exp_config.data))
         ]
-        train_loaders = [get_dataloader(cfg, Split.TRAIN) for cfg in dataset_cfgs]
-        val_loaders = [get_dataloader(cfg, Split.VAL) for cfg in dataset_cfgs]
+        train_loaders = [cfg.get_dataloader(Split.TRAIN) for cfg in dataset_cfgs]
+        val_loaders = [cfg.get_dataloader(Split.VAL) for cfg in dataset_cfgs]
 
         modules = [
             get_training_model(exp_config, idx) for idx in range(len(exp_config.model))
@@ -50,6 +50,18 @@ class TrainerModules:
             obj = getattr(self, field)
             if isinstance(obj, list) and len(obj) == 1:
                 setattr(self, field, obj[0])
+
+    def get_checkpointables(self):
+        """
+        Get dictionary of training modules which typically include
+        a state_dict that should be checkpointed during training
+        i.e. model, optimizer and scheduler.
+        """
+        return {
+            "model": self.model,
+            "optim": self.optimizer,
+            "scheduler": self.scheduler,
+        }
 
 
 @dataclass

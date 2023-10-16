@@ -3,14 +3,34 @@ import os
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List
+from warnings import warn
 
-from ..init import DatasetInitConfig, ExperimentInitConfig, ModuleInitConfig, Split
+from ..init import ExperimentInitConfig, ModuleInitConfig, Split
 from ..registry import BaseConfig, Registry
 
 DATASET_REGISTRY = Registry("dataset")
 SAMPLER_REGISTRY = Registry("data_sampler")
 DATALOADER_REGISTRY = Registry("dataloder")
+
+
+@dataclass
+class DataloaderConfig(BaseConfig):
+    """
+    The dataloader configuration doesn't really have much to do with the rest
+    of the experiment configuration, configuration dependencies should be made
+    at the dataset level.
+    """
+
+    batch_size: int
+    workers: int = 0
+    shuffle: bool = False
+    drop_last: bool = True
+    augmentations: List[ModuleInitConfig] = field(default_factory=lambda: [])
+
+    @classmethod
+    def from_config(cls, *args, **kwargs) -> Any:
+        return cls(*args, **kwargs)
 
 
 @dataclass
@@ -23,8 +43,8 @@ class DatasetConfig(BaseConfig):
         :return: Creates a new dataset configuration to instantiate a dataset
     """
 
-    train_loader: ModuleInitConfig = field(kw_only=True)
-    val_loader: ModuleInitConfig = field(kw_only=True)
+    train_loader: DataloaderConfig = field(kw_only=True)
+    val_loader: DataloaderConfig = field(kw_only=True)
     basepath: Path = field(
         default=Path(os.environ.get("DATAPATH", "/data")), kw_only=True
     )
@@ -38,10 +58,14 @@ class DatasetConfig(BaseConfig):
         :return: Returns a dataset configuration.
         """
         data_cfg = config.data[idx]
+        train_loader = DATALOADER_REGISTRY[data_cfg.train_loader.type](
+            **data_cfg.train_loader.args
+        )
+        val_loader = DATALOADER_REGISTRY[data_cfg.val_loader.type](
+            **data_cfg.val_loader.args
+        )
         return cls(
-            train_loader=data_cfg.train_loader,
-            val_loader=data_cfg.val_loader,
-            **data_cfg.dataset.args,
+            train_loader=train_loader, val_loader=val_loader, **data_cfg.dataset.args
         )
 
     @property
@@ -54,40 +78,13 @@ class DatasetConfig(BaseConfig):
         return {}
 
     @abstractmethod
-    def get_instance(self, split: Split, **kwargs) -> Any:
-        raise NotImplementedError()
+    def get_dataloader(self, split: Split) -> Any:
+        """Create and return dataloader for dataset split"""
 
-
-@dataclass
-class DataloaderConfig(BaseConfig):
-    """
-    The dataloader configuration doesn't really have much to do with the rest
-    of the experiment configuration, configuration dependencies should be made
-    at the dataset level.
-    """
-
-    dataset: DatasetConfig
-    split: Split
-    batch_size: int
-    workers: int = 0
-    shuffle: bool = False
-    drop_last: bool = True
-    augmentations: List[ModuleInitConfig] = field(default_factory=lambda: [])
-
-    @classmethod
-    def from_config(cls, dataset: DatasetConfig, split: Split):
-        match split:
-            case Split.TRAIN:
-                loader_cfg = dataset.train_loader
-            case Split.VAL | Split.TEST:
-                loader_cfg = dataset.val_loader
-            case _:
-                raise RuntimeError("How did I get here?")
-        return cls(dataset=dataset, split=split, **loader_cfg.args)
-
-    @abstractmethod
-    def get_instance(self, *args, **kwargs) -> Sequence:
-        raise NotImplementedError()
+    def get_instance(self, *args, **kwargs) -> Any:
+        """Redirect to get_dataloader"""
+        warn("get_dataloader should be used with split argument")
+        return self.get_dataloader(*args, **kwargs)
 
 
 try:
@@ -115,26 +112,6 @@ except ImportError:
 def get_dataset_config(config: ExperimentInitConfig, idx: int = 0) -> DatasetConfig:
     """Get dataset configuration at index"""
     return DATASET_REGISTRY[config.data[idx].dataset.type].from_config(config, idx)
-
-
-def get_dataloader_config(
-    dataset: DatasetConfig, mode: Split | str
-) -> DataloaderConfig:
-    """Get dataloader config for split from dataset config"""
-    if isinstance(mode, str):
-        mode = Split[mode]
-    name_ = (
-        dataset.train_loader.type if mode == Split.TRAIN else dataset.val_loader.type
-    )
-    return DATALOADER_REGISTRY[name_].from_config(dataset, mode)
-
-
-def get_dataloader(dataset: DatasetConfig, mode: Split | str) -> Sequence:
-    """Get dataloader instance from dataset with split"""
-    if isinstance(mode, str):
-        mode = Split[mode]
-
-    return get_dataloader_config(dataset, mode).get_instance()
 
 
 def get_dataset_properties(config: ExperimentInitConfig) -> Dict[str, Any]:
