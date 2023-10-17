@@ -58,23 +58,32 @@ class PerfLogger:
         """flush all statistics to ensure written to disk"""
         self.writer.flush()
 
-    def calculate_and_log(self, name: str, *args, **kwargs):
+    def _should_log(self):
+        """Should always log in validation or if at iteration interval during training"""
+        return self.split == Split.VAL or self.iteration % self.log_interval == 0
+
+    def calculate_and_log(self, name: str, *args, force: bool = False, **kwargs):
         """
-        Calculate and log performance.
-        This is skipped if training and not at log_interval.
+        Calculate and log performance. This is skipped if training and not at log_interval.
+        Force overrides this logic and logs anyway.
         """
         assert self.split is not None, PerfLogger._not_init_msg
 
         # Log if testing or at training log interval
-        if self.split == Split.VAL or self.iteration % self.log_interval == 0:
+        if self._should_log() or force:
             result = self.statistics[name](*args, **kwargs)
             self.log(name, result)
 
-    def log(self, name: str, data: Dict[str, float]) -> None:
-        """Log dictionary of data"""
+    def log(self, name: str, data: Dict[str, float], force: bool = False) -> None:
+        """
+        Log a dictionary of data. This is skipped if training and not at log interval.
+        Force overrides this logic and logs anyway.
+        """
         assert self.split is not None, PerfLogger._not_init_msg
         assert (
             PerfLogger._valid_name_re.match(name) is not None
         ), f"Invalid character in name {name}, requires {PerfLogger._valid_name_re}"
 
-        self.writer(self.split, self.iteration, data, name)
+        # Log if testing or at training log interval
+        if self._should_log() or force:
+            self.writer(self.split, self.iteration, data, name)
