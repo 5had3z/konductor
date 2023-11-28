@@ -29,7 +29,7 @@ class TBLogger(LogWriter):
         prefix = LogWriter.get_prefix(split, category)
         renamed_data = {f"{prefix}/{k}": v for k, v in data.items()}
         for name, value in renamed_data.items():
-            self.writer.add_scalar(name, value, step=iteration)
+            self.writer.add_scalar(name, float(value), step=iteration)
 
     def add_topic(self, category: str, column_names: List[str]):
         pass  # Not required for tensorboard backend

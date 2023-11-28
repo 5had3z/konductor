@@ -56,6 +56,10 @@ class MultiWriter(LogWriter):
         for writer in self.writers:
             writer(split, iteration, data, category)
 
+    def add_topic(self, category: str, column_names: List[str]):
+        for writer in self.writers:
+            writer.add_topic(category, column_names)
+
     def flush(self):
         for writer in self.writers:
             writer.flush()
