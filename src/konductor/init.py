@@ -192,7 +192,7 @@ class ExperimentInitConfig:
     def set_workers(self, num: int):
         """
         Set number of workers for dataloaders.
-        These are divided evenly if there are multple datasets.
+        These are divided evenly if there are multiple datasets.
         """
         for data in self.data:
             data.val_loader.args["workers"] = num // len(self.data)
