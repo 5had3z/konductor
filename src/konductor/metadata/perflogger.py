@@ -19,7 +19,11 @@ class PerfLogger:
     _valid_name_re = re.compile(r"\A[a-zA-Z0-9-]+\Z")
 
     def __init__(
-        self, writer: LogWriter, statistics: Dict[str, Statistic], interval: int = 1
+        self,
+        writer: LogWriter,
+        statistics: Dict[str, Statistic],
+        interval: int = 1,
+        **kwargs,
     ):
         self.split: Split | None = None
         self.writer = writer
