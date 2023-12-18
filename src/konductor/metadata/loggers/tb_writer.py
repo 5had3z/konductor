@@ -7,6 +7,10 @@ try:
 except ImportError:
     Writer = None
 
+try:
+    import wandb
+except ImportError:
+    wandb = None
 
 from .base_writer import LogWriter, Split
 
@@ -14,9 +18,15 @@ from .base_writer import LogWriter, Split
 class TBLogger(LogWriter):
     """Logger for Tensorboard"""
 
-    def __init__(self, run_dir: Path) -> None:
+    def __init__(self, run_dir: Path, sync_wandb=False, **wandb_config) -> None:
         assert Writer is not None, "Unable to import tensorboard writer"
         self.writer = Writer(str(run_dir))
+        assert not sync_wandb or (sync_wandb and wandb is not None), "Must have W&B installed to enable sync"
+        if sync_wandb:
+            wandb.init(
+                sync_tensorboard=True,
+                **wandb_config
+            )
 
     def __call__(
         self,
