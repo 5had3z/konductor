@@ -29,7 +29,7 @@ class SQLiteDB(Database):
     def create_table(
         self, name: str, categories: Iterable[str] | Mapping[str, DBTYPESTR]
     ):
-        if isinstance(categories, (list, tuple)):
+        if not isinstance(categories, Mapping):
             categories = {c: "FLOAT" for c in categories}
 
         col_str = "hash TEXT PRIMARY KEY"
