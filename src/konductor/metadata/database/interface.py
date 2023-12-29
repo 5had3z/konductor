@@ -18,8 +18,9 @@ class Database(ABC):
         self, name: str, categories: Iterable[str] | Mapping[str, DBTYPESTR]
     ):
         """
-        Create a table with categories. If categories is a list then assume they are all
-        float types, otherwise use the specified type in the column name-dtype dictionary
+        Create a table with categories. If categories is an iterable then assume they are all
+        float types, otherwise use the specified type in the column name-dtype dictionary.
+        Automatically inserts "hash" column as TEXT PRIMARY KEY.
         """
 
     @abstractmethod
