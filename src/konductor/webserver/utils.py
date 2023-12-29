@@ -1,16 +1,16 @@
-from pathlib import Path
+import re
+from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
-from collections import deque
-import re
-from typing import List, Deque
-
-import yaml
-import pandas as pd
-from pyarrow import parquet as pq
-from konductor.utilities.metadata import _PQ_REDUCED_RE
-
 from logging import debug
+from pathlib import Path
+from typing import Deque, List
+
+import pandas as pd
+import yaml
+from pyarrow import parquet as pq
+
+from konductor.utilities.metadata import _PQ_REDUCED_RE
 
 
 @dataclass

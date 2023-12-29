@@ -13,7 +13,7 @@ from pyarrow import compute as pc
 from pandas import DataFrame as df
 import typer
 
-from ..metadata.manager import Metadata
+from ..metadata.database import Metadata
 
 _PQ_SHARD_RE = r"\A(train|val)_[a-zA-Z0-9-]+_[0-9]+_[0-9]+.parquet\Z"
 _PQ_REDUCED_RE = r"\A(train|val)_[a-zA-Z0-9-]+.parquet\Z"

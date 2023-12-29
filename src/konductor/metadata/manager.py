@@ -2,22 +2,20 @@
 Single class which manages metadata, statistics and checkpoints during training.
 """
 import enum
-import inspect
 import os
 import subprocess
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from logging import getLogger, warning
-from pathlib import Path
+from logging import getLogger
 from typing import Any, Dict
 
-import yaml
 
 from ..utilities import comm
 from .checkpointer import Checkpointer
 from .remotesync import _RemoteSyncrhoniser, get_remote
 from .perflogger import PerfLogger, Statistic, LogWriter
 from .loggers.pq_writer import ParquetLogger
+from .database.metadata import Metadata
 from ..init import ExperimentInitConfig
 
 
@@ -35,63 +33,6 @@ def _get_commit() -> str:
         git_hash = os.environ.get("COMMIT_SHA", "Unknown")
 
     return git_hash
-
-
-@dataclass
-class Metadata:
-    """
-    Information that pertains to the experiment
-    and its current state of training.
-    """
-
-    # Filepath is intended for convenience, not written to metadata file
-    filepath: Path
-
-    commit_begin: str = ""
-    commit_last: str = ""
-    epoch: int = 0
-    iteration: int = 0
-    notes: str = ""
-    train_begin: datetime = datetime.now()
-    train_last: datetime = datetime.now()
-    brief: str = ""
-
-    @property
-    def train_duration(self):
-        """Difference between train begin and last timestamp"""
-        return self.train_last - self.train_begin
-
-    @classmethod
-    def from_yaml(cls, path: Path):
-        """Create from metadata file"""
-        with open(path, "r", encoding="utf-8") as f:
-            data: Dict[str, Any] = yaml.safe_load(f)
-
-        known = set(inspect.signature(cls).parameters)
-        unknown = set()
-        filtered = {}
-        for k, v in data.items():
-            if k in known:
-                filtered[k] = v
-                known.remove(k)
-            else:
-                unknown.add(k)
-
-        known.remove("filepath")  # This is set by path arg
-        if len(known) > 0:
-            warning(f"missing keys from metadata: {known}")
-        if len(unknown) > 0:
-            warning(f"extra keys in metadata: {unknown}")
-
-        return cls(**filtered, filepath=path)
-
-    def write(self):
-        """Write metadata to current filepath defined"""
-        filter_keys = {"filepath"}
-        metadata = {k: v for k, v in asdict(self).items() if k not in filter_keys}
-
-        with open(self.filepath, "w", encoding="utf-8") as f:
-            yaml.safe_dump(metadata, f)
 
 
 class _Timer:
