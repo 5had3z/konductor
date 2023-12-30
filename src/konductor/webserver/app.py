@@ -3,6 +3,7 @@
 
 from pathlib import Path
 from subprocess import Popen
+from typing import Optional
 
 import dash
 import dash_bootstrap_components as dbc
@@ -42,16 +43,18 @@ def get_basic_layout(root_dir: str, content_url: str):
 def main(
     workspace: Path,
     enable_server: Annotated[bool, typer.Option()] = True,
-    server_port: Annotated[int, typer.Option()] = 8000,
+    content_port: Annotated[int, typer.Option()] = 8000,
+    db_type: Annotated[str, typer.Option()] = "sqlite",
+    db_args: Annotated[Optional[str], typer.Option()] = None,
 ) -> None:
     """Experiment performance and metadata visualisation tool"""
-    content_url = f"http://localhost:{server_port}"
+    content_url = f"http://localhost:{content_port}"
     webapp.layout = get_basic_layout(str(workspace), content_url=content_url)
 
     try:
         if enable_server:
             proc = Popen(
-                f"python3 -m http.server {server_port} --directory {workspace}",
+                f"python3 -m http.server {content_port} --directory {workspace}",
                 shell=True,
             )
         webapp.run()
