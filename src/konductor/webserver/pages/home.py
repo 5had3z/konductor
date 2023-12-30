@@ -17,29 +17,17 @@ layout = html.Div(
         dbc.Row(
             html.Div(
                 children="""
-        Contents of results.db which contains recorded summary statistics for simple final comparison.
+Contents of results.db which contains recorded summary statistics for simple final comparison.
     """
             )
         ),
         dbc.Row(
             [
-                dbc.Col(
-                    [
-                        dcc.Dropdown(id="h-table-select"),
-                    ]
-                ),
-                dbc.Col(
-                    [
-                        dbc.Button("REFRESH", id="h-refresh"),
-                    ]
-                ),
+                dbc.Col([dcc.Dropdown(id="h-table-select")]),
+                dbc.Col([dbc.Button("REFRESH", id="h-refresh")]),
             ]
         ),
-        dbc.Row(
-            [
-                dash_table.DataTable(id="h-table", sort_action="native"),
-            ]
-        ),
+        dbc.Row([dash_table.DataTable(id="h-table", sort_action="native")]),
     ]
 )
 
@@ -70,13 +58,15 @@ def update_table(table: str, root: str):
 
     with closing(sqlite3.connect(Path(root) / "results.db")) as db:
         perf = pd.read_sql_query(f"SELECT * FROM {table}", db, index_col="hash")
-        meta = pd.read_sql_query("SELECT * FROM metadata", db, index_col="hash")
+        meta = pd.read_sql_query(
+            "SELECT hash, train_last, brief FROM metadata", db, index_col="hash"
+        )
 
-    perf = perf.join(meta.drop(columns="iteration"))
+    perf = perf.join(meta)
 
     cols: List[str] = list(perf.columns)
     # rearrange so [ts, iteration, desc] are at the start
-    for idx, name in enumerate(["ts", "iteration", "desc"]):
+    for idx, name in enumerate(["train_last", "iteration", "brief"]):
         cols.insert(idx, cols.pop(cols.index(name)))
 
     return perf.to_dict("records"), [{"name": i, "id": i} for i in cols]
