@@ -3,8 +3,10 @@ import sqlite3
 from pathlib import Path
 from typing import Iterable, Mapping
 
-from .interface import DBTYPE, DBTYPESTR, Database, Metadata
+from .interface import DBTYPE, DBTYPESTR, Database, Metadata, DB_REGISTRY
 from .tools import make_key_dtype_pairs
+
+DEFAULT_FILENAME = "results.sqlite"
 
 
 class SQLiteDB(Database):
@@ -52,3 +54,6 @@ class SQLiteDB(Database):
 
         # set_str[:-2] Remove extra ', '
         cur.execute(f"UPDATE {table_name} {set_str[:-2]} WHERE hash = ?;", set_val)
+
+
+DB_REGISTRY.register_module("sqlite", SQLiteDB)

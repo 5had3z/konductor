@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Iterable, Literal, Mapping
 
+from ...registry import Registry
 from .metadata import Metadata
 
 DBTYPESTR = Literal["INT", "FLOAT", "TEXT", "TIMESTAMP"]
@@ -42,3 +43,6 @@ class Database(ABC):
     def update_metadata(self, run_hash: str, metadata: Metadata):
         """Update experiment metadata in the database"""
         self.write("metadata", run_hash, metadata.filtered_dict)
+
+
+DB_REGISTRY = Registry("databases")

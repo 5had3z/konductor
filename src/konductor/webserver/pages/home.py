@@ -1,15 +1,14 @@
-import sqlite3
-from contextlib import closing
-from pathlib import Path
-from typing import List
-
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 from dash import Input, Output, callback, dash_table, dcc, html
 from dash.exceptions import PreventUpdate
 
+from konductor.webserver.utils import add_default_db_kwargs, get_database
+from konductor.metadata.database import Database
+
 dash.register_page(__name__, path="/")
+DATABASE: Database | None = None
 
 layout = html.Div(
     children=[
@@ -32,18 +31,25 @@ Contents of results.db which contains recorded summary statistics for simple fin
 )
 
 
+def init_db(db_type: str, db_kwargs: str, workspace: str):
+    db_kwargs = add_default_db_kwargs(db_type, db_kwargs, workspace)
+    global DATABASE
+    DATABASE = get_database(db_type, db_kwargs)
+
+
 @callback(
     Output("h-table-select", "options"),
     Input("h-refresh", "n_clicks"),
     Input("root-dir", "data"),
+    Input("db-type", "data"),
+    Input("db-kwargs", "data"),
 )
-def update_avail_tables(_, root_dir: str):
+def update_avail_tables(_, root_dir: str, db_type: str, db_kwargs: str):
     """"""
-    with closing(sqlite3.connect(Path(root_dir) / "results.db")) as db:
-        cur = db.cursor()
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tnames = cur.fetchall()
-    return [x[0] for x in tnames if x[0] != "metadata"]
+    if DATABASE is None:
+        init_db(db_type, db_kwargs, root_dir)
+    assert DATABASE is not None
+    return [t for t in DATABASE.get_tables() if t != "metadata"]
 
 
 @callback(
@@ -51,20 +57,25 @@ def update_avail_tables(_, root_dir: str):
     Output("h-table", "columns"),
     Input("h-table-select", "value"),
     Input("root-dir", "data"),
+    Input("db-type", "data"),
+    Input("db-kwargs", "data"),
 )
-def update_table(table: str, root: str):
+def update_table(table: str, root: str, db_type: str, db_kwargs: str):
     if any(f is None for f in [table, root]):
         raise PreventUpdate
 
-    with closing(sqlite3.connect(Path(root) / "results.db")) as db:
-        perf = pd.read_sql_query(f"SELECT * FROM {table}", db, index_col="hash")
-        meta = pd.read_sql_query(
-            "SELECT hash, train_last, brief FROM metadata", db, index_col="hash"
-        )
+    if DATABASE is None:
+        init_db(db_type, db_kwargs, root)
+    assert DATABASE is not None
+
+    perf = pd.read_sql_query(f"SELECT * FROM {table}", DATABASE, index_col="hash")
+    meta = pd.read_sql_query(
+        "SELECT hash, train_last, brief FROM metadata", DATABASE, index_col="hash"
+    )
 
     perf = perf.join(meta)
 
-    cols: List[str] = list(perf.columns)
+    cols: list[str] = list(perf.columns)
     # rearrange so [ts, iteration, desc] are at the start
     for idx, name in enumerate(["train_last", "iteration", "brief"]):
         cols.insert(idx, cols.pop(cols.index(name)))

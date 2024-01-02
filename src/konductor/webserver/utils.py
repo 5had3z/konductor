@@ -1,15 +1,18 @@
+import json
 import re
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from logging import debug
 from pathlib import Path
-from typing import Deque, List
+from typing import Deque
 
 import pandas as pd
 import yaml
 from pyarrow import parquet as pq
 
+from konductor.metadata.database import DB_REGISTRY, Database
+from konductor.metadata.database.sqlite import DEFAULT_FILENAME
 from konductor.utilities.metadata import _PQ_REDUCED_RE
 
 
@@ -18,10 +21,10 @@ class Experiment:
     root: Path
     name: str
     last_train: datetime
-    stats: List[str]
+    stats: list[str]
 
     @staticmethod
-    def get_keys(file: Path) -> List[str]:
+    def get_keys(file: Path) -> list[str]:
         """Get statistics keys from file"""
         keys = pq.read_metadata(file)
         keys = [k for k in keys.schema.names if k not in {"timestamp", "iteration"}]
@@ -36,7 +39,7 @@ class Experiment:
             debug(f"Skipping {root.name}")
             return None
 
-        keys: List[str] = []
+        keys: list[str] = []
         for log_file in log_files:
             split, name = log_file.stem.split("_")[:2]
             keys.extend([f"{split}/{name}/{k}" for k in Experiment.get_keys(log_file)])
@@ -149,7 +152,7 @@ class OptionTree:
             self.children[nxt_key] = OptionTree(option)
 
 
-def fill_experiments(root_dir: Path, experiments: List[Experiment]):
+def fill_experiments(root_dir: Path, experiments: list[Experiment]):
     """Add experiments in root directory to experiment folder"""
     for p in root_dir.iterdir():
         if not p.is_dir():
@@ -161,7 +164,23 @@ def fill_experiments(root_dir: Path, experiments: List[Experiment]):
     experiments.sort(key=lambda e: e.last_train)
 
 
-def fill_option_tree(exp: List[Experiment], tree: OptionTree):
+def fill_option_tree(exp: list[Experiment], tree: OptionTree):
     """Add experiments to the option tree"""
     for s in list(s for e in exp for s in e.stats):
         tree.add(s)
+
+
+def add_default_db_kwargs(db_type: str, db_kwargs: str, workspace: Path | str) -> str:
+    """Adds default kwargs for db initialization based on the db type"""
+    kwargs = json.loads(db_kwargs)
+    if db_type == "sqlite":
+        kwargs["path"] = kwargs.get("path", str(Path(workspace) / DEFAULT_FILENAME))
+    return json.dumps(kwargs)
+
+
+def get_database(db_type: str, db_kwargs: str) -> Database:
+    """
+    Get a handle to the experiment database where the kwargs
+    to initialize the db are in stringified json format.
+    """
+    return DB_REGISTRY[db_type](**json.loads(db_kwargs))
