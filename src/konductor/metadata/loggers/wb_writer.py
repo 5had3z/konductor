@@ -15,8 +15,9 @@ class WandBLogger(LogWriter):
     your configuration.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, **wandb_config) -> None:
         assert wandb is not None, "Unable to import wandb"
+        wandb.init(**wandb_config)
 
     def __call__(
         self,
