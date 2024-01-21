@@ -1,7 +1,7 @@
 import itertools
 from abc import abstractmethod
-from dataclasses import asdict, dataclass
-from typing import Any, Dict, Iterator, Type
+from dataclasses import dataclass
+from typing import Any, Iterator, Type
 
 from torch import nn
 from torch.optim import Optimizer
@@ -34,7 +34,7 @@ def _backbone_multiplier(
 
 @dataclass
 class PytorchOptimizer(OptimizerConfig):
-    param_group_fn: Dict[str, Any] | None = None
+    param_group_fn: dict[str, Any] | None = None
     gradient_clipping: float | None = None
 
     def maybe_add_gradient_clipping(self, optim: Type[Optimizer]) -> Type[Optimizer]:
@@ -65,7 +65,7 @@ class PytorchOptimizer(OptimizerConfig):
 
         if self.param_group_fn is not None:
             pg = ModuleInitConfig(**self.param_group_fn)
-            params = PG_REGISTRY[pg.type](model, **pg.args, **asdict(self))
+            params = PG_REGISTRY[pg.type](model, **pg.args, **self.__dict__)
         else:
             params = model.parameters()
 

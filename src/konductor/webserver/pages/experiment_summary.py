@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List
 
 import dash
 import dash_bootstrap_components as dbc
@@ -17,7 +16,7 @@ from konductor.webserver.utils import (
 
 dash.register_page(__name__, path="/experiment-summary")
 
-EXPERIMENTS: List[Experiment] = []
+EXPERIMENTS: list[Experiment] = []
 OPTION_TREE = OptionTree.make_root()
 
 
@@ -217,7 +216,7 @@ def update_graph(key: str, btn: str, group: str, name: str):
 
     exp = get_experiment(key, btn)
 
-    data: List[pd.Series] = []
+    data: list[pd.Series] = []
     for split in OPTION_TREE.keys:
         stat_path = "/".join([split, group, name])
         if stat_path not in exp:
