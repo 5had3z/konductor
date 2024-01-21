@@ -90,18 +90,18 @@ def print_metadata(path: Path) -> None:
 
 
 @app.command()
-def describe(path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
+def describe(exp_path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
     """Describe the performance statistics of a run"""
     # Find all sharded files
-    logs = [p for p in path.iterdir() if re.match(_PQ_REDUCED_RE, p.name)]
+    logs = [p for p in exp_path.iterdir() if re.match(_PQ_REDUCED_RE, p.name)]
 
     if len(logs) == 0:
         print(
             f"{Fore.RED}{Style.BRIGHT}Unable to find logs, ensure"
-            f"you reduce shards first: {path.name}{Style.RESET_ALL}"
+            f"you reduce shards first: {exp_path.name}{Style.RESET_ALL}"
         )
 
-    print_metadata(path / "metadata.yaml")
+    print_metadata(exp_path / "metadata.yaml")
 
     for log in logs:
         summarize_stats(log)
@@ -149,16 +149,16 @@ def reduce_shard(shards: List[Path]) -> None:
 
 
 @app.command()
-def reduce(path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
+def reduce(exp_path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
     """Collate parquet epoch/worker shards into singular file.
     This reduces them to singular {train|val}_{name}.parquet file.
     """
     # Find all sharded files
-    shards = [p for p in path.iterdir() if re.match(_PQ_SHARD_RE, p.name)]
+    shards = [p for p in exp_path.iterdir() if re.match(_PQ_SHARD_RE, p.name)]
     if len(shards) == 0:
         print(
             f"{Fore.RED+Style.BRIGHT}No shards found"
-            f" in directory: {path}{Style.RESET_ALL}"
+            f" in directory: {exp_path}{Style.RESET_ALL}"
         )
         return
 
@@ -181,9 +181,9 @@ def reduce(path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
 
 
 @app.command()
-def reduce_all(path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
+def reduce_all(workspace: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
     """Run over each experiment folder in a workspace, reducing all shards"""
-    for folder in path.iterdir():
+    for folder in workspace.iterdir():
         if folder.is_file():
             continue  # Skip files in root dir
         reduce(folder)

@@ -11,7 +11,7 @@ def example_config(tmp_path):
         tmp_path, config_path=Path(__file__).parent / "base.yml"
     )
 
-    if not config.work_dir.exists():
-        config.work_dir.mkdir()
+    if not config.exp_path.exists():
+        config.exp_path.mkdir()
 
     return config

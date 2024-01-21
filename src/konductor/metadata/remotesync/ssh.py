@@ -85,9 +85,9 @@ class SSHRemote(RemoteConfig):
             args["remote_path"] = Path(args["remote_path"])
 
         return cls(
-            host_path=config.work_dir,
+            host_path=config.exp_path,
             pk_cfg=pk_cfg,
-            remote_path=args["remote_path"] / config.work_dir.name,
+            remote_path=args["remote_path"] / config.exp_path.name,
         )
 
     def get_instance(self):

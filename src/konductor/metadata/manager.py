@@ -123,10 +123,10 @@ class DataManager:
         """
         remote_sync = None if exp_config.remote_sync is None else get_remote(exp_config)
 
-        checkpointer = Checkpointer(exp_config.work_dir, **checkpointables)
+        checkpointer = Checkpointer(exp_config.exp_path, **checkpointables)
 
         if log_writer is None:
-            log_writer = ParquetLogger(exp_config.work_dir)
+            log_writer = ParquetLogger(exp_config.exp_path)
         perf_logger = PerfLogger(log_writer, statistics, **exp_config.log_kwargs)
 
         return cls(

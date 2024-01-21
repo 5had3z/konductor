@@ -26,7 +26,7 @@ class MinioRemote(RemoteConfig):
         args = config.remote_sync.args
 
         return cls(
-            host_path=config.work_dir,
+            host_path=config.exp_path,
             bucket_name=args.get("bucket_name", None),
             credentials=args.get("credentials", None),
         )

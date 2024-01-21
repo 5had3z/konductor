@@ -124,7 +124,7 @@ class ExperimentInitConfig:
     Configuration for all the modules for training
     """
 
-    work_dir: Path  # Directory for saving everything
+    exp_path: Path  # Directory for saving everything
     model: List[ModelInitConfig]
     data: List[DatasetInitConfig]
     criterion: List[ModuleInitConfig]
@@ -138,7 +138,7 @@ class ExperimentInitConfig:
         """Load Config from Existing Run Folder"""
         with open(run_path / "train_config.yml", "r", encoding="utf-8") as conf_f:
             exp_config = yaml.safe_load(conf_f)
-        exp_config["work_dir"] = run_path
+        exp_config["exp_path"] = run_path
         return cls.from_dict(exp_config)
 
     @classmethod
@@ -165,7 +165,7 @@ class ExperimentInitConfig:
             with open(config_path, "w", encoding="utf-8") as conf_f:
                 yaml.safe_dump(exp_config, conf_f)
 
-        exp_config["work_dir"] = run_path
+        exp_config["exp_path"] = run_path
         return cls.from_dict(exp_config)
 
     @classmethod
@@ -182,7 +182,7 @@ class ExperimentInitConfig:
             criterion=[
                 ModuleInitConfig(**crit_dict) for crit_dict in parsed_dict["criterion"]
             ],
-            work_dir=parsed_dict["work_dir"],
+            exp_path=parsed_dict["exp_path"],
             remote_sync=remote_sync,
             ckpt_kwargs=parsed_dict.get("checkpointer", {}),
             log_kwargs=parsed_dict.get("logger", {}),

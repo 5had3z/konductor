@@ -17,7 +17,7 @@ class RemoteConfig(BaseConfig):
 
     @classmethod
     def from_config(cls, config: ExperimentInitConfig, **kwargs) -> Any:
-        return cls(host_path=config.work_dir, **kwargs)
+        return cls(host_path=config.exp_path, **kwargs)
 
 
 try:

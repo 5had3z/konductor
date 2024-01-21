@@ -43,7 +43,7 @@ def get_basic_layout(root_dir: str, content_url: str, db_type: str, db_kwargs: s
 
 @cliapp.command()
 def main(
-    workspace: Path,
+    workspace: Annotated[Path, typer.Option()],
     enable_server: Annotated[bool, typer.Option()] = True,
     content_port: Annotated[int, typer.Option()] = 8000,
     db_type: Annotated[str, typer.Option()] = "sqlite",
