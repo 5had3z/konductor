@@ -26,7 +26,9 @@ class SQLiteDB(Database):
     def get_tables(self) -> list[str]:
         cur = self.cursor()
         cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        return [t[0] for t in cur.fetchall()]
+        table_names = [t[0] for t in cur.fetchall()]
+        cur.close()
+        return table_names
 
     def create_table(
         self, name: str, categories: Iterable[str] | Mapping[str, DBTYPESTR]
@@ -54,6 +56,7 @@ class SQLiteDB(Database):
 
         # set_str[:-2] Remove extra ', '
         cur.execute(f"UPDATE {table_name} {set_str[:-2]} WHERE hash = ?;", set_val)
+        cur.close()
 
 
 DB_REGISTRY.register_module("sqlite", SQLiteDB)
