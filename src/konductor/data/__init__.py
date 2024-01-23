@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 from warnings import warn
 
-from ..init import ExperimentInitConfig, ModuleInitConfig, Split
+from ..init import ExperimentInitConfig, ModuleInitConfig, Split, DatasetInitConfig
 from ..registry import BaseConfig, Registry
 
 DATASET_REGISTRY = Registry("dataset")
@@ -107,6 +107,20 @@ try:
     from . import _tensorflow
 except ImportError:
     logging.debug("tensoflow data modules disabled")
+
+
+def make_from_init_config(config: DatasetInitConfig) -> DatasetConfig:
+    """Create dataset config from init config"""
+    dataset_config = DATASET_REGISTRY[config.dataset.type](
+        train_loader=DATALOADER_REGISTRY[config.train_loader.type](
+            **config.train_loader.args
+        ),
+        val_loader=DATALOADER_REGISTRY[config.val_loader.type](
+            **config.val_loader.args
+        ),
+        **config.dataset.args,
+    )
+    return dataset_config
 
 
 def get_dataset_config(config: ExperimentInitConfig, idx: int = 0) -> DatasetConfig:
