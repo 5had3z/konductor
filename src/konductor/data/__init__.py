@@ -88,25 +88,33 @@ class DatasetConfig(BaseConfig):
 
 
 try:
-    import torch
-
-    from . import _pytorch
-except ImportError:
-    logging.debug("pytorch data modules disabled")
-
-try:
     import nvidia.dali
 
     from . import dali
 except ImportError:
     logging.debug("dali dataloader support disabled")
 
-try:
-    import tensorflow
 
-    from . import _tensorflow
-except ImportError:
-    logging.debug("tensoflow data modules disabled")
+def _check_framework(name: str):
+    _frameworks = os.environ.get("KONDUCTOR_FRAMEWORK", "all")
+    return any(f in _frameworks for f in [name, "all"])
+
+
+if _check_framework("pytorch"):
+    try:
+        import torch
+
+        from . import _pytorch
+    except ImportError:
+        logging.debug("pytorch data modules disabled")
+
+if _check_framework("tensorflow"):
+    try:
+        import tensorflow
+
+        from . import _tensorflow
+    except ImportError:
+        logging.debug("tensoflow data modules disabled")
 
 
 def make_from_init_config(config: DatasetInitConfig) -> DatasetConfig:

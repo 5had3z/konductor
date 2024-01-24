@@ -2,10 +2,17 @@
 Determine which framework to use for common distributed training operations
 """
 import logging
+import os
 
 _has_imported = False
 
-if not _has_imported:
+
+def _check_framework(name: str):
+    _frameworks = os.environ.get("KONDUCTOR_FRAMEWORK", "all")
+    return any(f in _frameworks for f in [name, "all"])
+
+
+if _check_framework("pytorch"):
     try:
         import torch
     except ImportError:
@@ -16,7 +23,7 @@ if not _has_imported:
 
         _has_imported = True
 
-if not _has_imported:
+if _check_framework("tensorflow") and not _has_imported:
     try:
         import tensorflow
     except ImportError:
