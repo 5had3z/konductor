@@ -6,7 +6,7 @@ from typing import Any, Dict
 import numpy as np
 import pytest
 
-from konductor.metadata import Checkpointer, DataManager, PerfLogger
+from konductor.metadata import Checkpointer, DataManager, PerfLogger, CkptConfig
 from konductor.metadata.loggers import ParquetLogger
 
 pytestmark = pytest.mark.statistics
@@ -49,3 +49,20 @@ def test_basic_usage(basic_manager: DataManager):
     basic_manager.epoch_step()
 
     basic_manager.save("latest")
+
+
+def test_bad_checkpoint_configuration():
+    with pytest.raises(TypeError):
+        CkptConfig(None, 1, 1)  # Missing key
+
+    with pytest.raises(TypeError):
+        CkptConfig(CkptConfig.Mode.EPOCH, 1, "")
+
+    with pytest.raises(KeyError):
+        CkptConfig("")
+
+    with pytest.raises(ValueError):
+        CkptConfig(latest=0)
+
+    with pytest.raises(ValueError):
+        CkptConfig(latest=5, extra=11)
