@@ -14,6 +14,8 @@ class SQLiteDB(Database):
     """SQLite backed experiment database"""
 
     def __init__(self, path: Path):
+        if isinstance(path, str):
+            path = Path(path)
         if path.is_dir():
             path /= DEFAULT_FILENAME
         self.con = sqlite3.connect(path)
