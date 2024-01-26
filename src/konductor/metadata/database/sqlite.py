@@ -9,10 +9,13 @@ from .tools import make_key_dtype_pairs
 DEFAULT_FILENAME = "results.sqlite"
 
 
+@DB_REGISTRY.register_module("sqlite")
 class SQLiteDB(Database):
     """SQLite backed experiment database"""
 
     def __init__(self, path: Path):
+        if path.is_dir():
+            path /= DEFAULT_FILENAME
         self.con = sqlite3.connect(path)
         keys = make_key_dtype_pairs(Metadata(Path.cwd()).filtered_dict)
         self.create_table("metadata", keys)
@@ -57,6 +60,3 @@ class SQLiteDB(Database):
         # set_str[:-2] Remove extra ', '
         cur.execute(f"UPDATE {table_name} {set_str[:-2]} WHERE hash = ?;", set_val)
         cur.close()
-
-
-DB_REGISTRY.register_module("sqlite", SQLiteDB)
