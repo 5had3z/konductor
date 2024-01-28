@@ -1,19 +1,21 @@
 """Extra cli utilities for metadata management"""
 
-from pathlib import Path
-import re
+import json
 import os
-from typing import List, Dict
+import re
 from io import StringIO
+from pathlib import Path
+from typing import Any
+
+import typer
+from colorama import Fore, Style
+from pandas import DataFrame as df
+from pyarrow import compute as pc
+from pyarrow import parquet as pq
 from typing_extensions import Annotated
 
-from colorama import Fore, Style
-from pyarrow import parquet as pq
-from pyarrow import compute as pc
-from pandas import DataFrame as df
-import typer
-
-from ..metadata.database import Metadata
+from ..metadata.database.sqlite import DEFAULT_FILENAME
+from ..metadata.database import DB_REGISTRY, Metadata, Database
 
 _PQ_SHARD_RE = r"\A(train|val)_[a-zA-Z0-9-]+_[0-9]+_[0-9]+.parquet\Z"
 _PQ_REDUCED_RE = r"\A(train|val)_[a-zA-Z0-9-]+.parquet\Z"
@@ -117,7 +119,7 @@ def get_reduced_path(path: Path) -> Path:
     return new_path
 
 
-def reduce_shard(shards: List[Path]) -> None:
+def reduce_shard(shards: list[Path]) -> None:
     """Reduce shards into single parquet file"""
     target = get_reduced_path(shards[0])
     print(f"{Fore.BLUE+Style.BRIGHT}Grouping for {target.name}{Style.RESET_ALL}")
@@ -168,7 +170,7 @@ def reduce(exp_path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
     )
 
     # Group shards to same split and name
-    grouped: Dict[str, List[Path]] = {}
+    grouped: dict[str, list[Path]] = {}
     for shard in shards:
         target_name = get_reduced_path(shard).stem
         if target_name not in grouped:
@@ -187,6 +189,38 @@ def reduce_all(workspace: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
         if folder.is_file():
             continue  # Skip files in root dir
         reduce(folder)
+
+
+def get_database_with_defaults(
+    db_type: str, db_kwargs: dict[str, Any], workspace: Path
+) -> Database:
+    """Add extra default db_kwargs based on db_type and return Database instance"""
+    if db_type == "sqlite":
+        db_kwargs["path"] = db_kwargs.get("path", workspace / DEFAULT_FILENAME)
+
+    return DB_REGISTRY[db_type](**db_kwargs)
+
+
+@app.command()
+def update_database(
+    workspace: Annotated[Path, typer.Option()] = Path.cwd(),
+    db_type: Annotated[str, typer.Option()] = "sqlite",
+    db_kwargs: Annotated[str, typer.Option()] = "{}",
+):
+    """Update the results database metadata from experiments in the workspace"""
+
+    def iterate_metadata():
+        """Iterate over metadata files in workspace"""
+        for run in workspace.iterdir():
+            metapath = run / "metadata.yaml"
+            if metapath.exists():
+                yield metapath
+
+    db_handle = get_database_with_defaults(db_type, json.loads(db_kwargs), workspace)
+
+    for meta_file in iterate_metadata():
+        meta = Metadata.from_yaml(meta_file)
+        db_handle.update_metadata(meta_file.parent.name, meta)
 
 
 if __name__ == "__main__":

@@ -52,7 +52,7 @@ class _Timer:
         self.start_time = datetime.now()
 
 
-@dataclass
+@dataclass(slots=True)
 class CkptConfig:
     """Configuration for saving checkpoints at iteration
     or epoch steps and at what interval"""
@@ -68,12 +68,18 @@ class CkptConfig:
     def __post_init__(self):
         if isinstance(self.mode, str):
             self.mode = CkptConfig.Mode[self.mode.upper()]
+        if not isinstance(self.mode, CkptConfig.Mode):
+            raise TypeError(f"Not a valid checkpoint mode: {self.mode}")
 
-        assert self.latest >= 1
-        if self.extra is not None:
-            assert (
-                self.extra % self.latest == 0
-            ), "Extra checkpoints should be a multiple of latest"
+        if self.latest < 1:
+            raise ValueError(
+                f"Latest checkpoint interval must be greater than zero: {self.latest}"
+            )
+
+        if self.extra is not None and self.extra % self.latest != 0:
+            raise ValueError(
+                f"Extra checkpoints should be a multiple of latest: {self.extra%self.latest=}"
+            )
 
     @property
     def epoch_mode(self):
