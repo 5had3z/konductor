@@ -221,6 +221,7 @@ def update_database(
     for meta_file in iterate_metadata():
         meta = Metadata.from_yaml(meta_file)
         db_handle.update_metadata(meta_file.parent.name, meta)
+    db_handle.commit()
 
 
 if __name__ == "__main__":
