@@ -144,6 +144,11 @@ class PyTorchTrainer(BaseTrainer):
 
         super().__init__(config, modules, data_manager)
 
+        if config.amp:
+            self._logger.info("Enabled Automatic Mixed Precision: %s", str(config.amp))
+        if config.compile:
+            self._logger.info("Enabled torch.compile(model): %s", str(config.compile))
+
         self.loss_monitor = config.loss_monitor
         self.plateau_loss = RunningMean()  # Used for ReduceLROnPlateau
 
