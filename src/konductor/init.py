@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import yaml
 
@@ -34,7 +34,7 @@ class ModuleInitConfig:
     """
 
     type: str
-    args: Dict[str, Any]
+    args: dict[str, Any]
 
 
 @dataclass
@@ -44,7 +44,7 @@ class OptimizerInitConfig:
     """
 
     type: str
-    args: Dict[str, Any]
+    args: dict[str, Any]
     scheduler: ModuleInitConfig
 
     @classmethod
@@ -63,11 +63,11 @@ class ModelInitConfig:
     """
 
     type: str
-    args: Dict[str, Any]
+    args: dict[str, Any]
     optimizer: OptimizerInitConfig
 
     @classmethod
-    def from_dict(cls, parsed_dict: Dict[str, Any]):
+    def from_dict(cls, parsed_dict: dict[str, Any]):
         return cls(
             parsed_dict["type"],
             parsed_dict["args"],
@@ -86,7 +86,7 @@ class DatasetInitConfig:
     val_loader: ModuleInitConfig
 
     @classmethod
-    def from_dict(cls, parsed_dict: Dict[str, Any]):
+    def from_dict(cls, parsed_dict: dict[str, Any]):
         dataset = ModuleInitConfig(parsed_dict["type"], parsed_dict["args"])
         if "loader" in parsed_dict:
             train_loader = val_loader = ModuleInitConfig(**parsed_dict["loader"])
@@ -107,7 +107,7 @@ class DatasetInitConfig:
         return cls(dataset, train_loader, val_loader)
 
 
-def _hash_from_config(config: Dict[str, Any]) -> str:
+def _hash_from_config(config: dict[str, Any]) -> str:
     """Return hashed version of the config file loaded as a dict
     This simulates writing config to a file which prevents issues
     with changing orders and formatting between the written config
@@ -125,13 +125,13 @@ class ExperimentInitConfig:
     """
 
     exp_path: Path  # Directory for saving everything
-    model: List[ModelInitConfig]
-    data: List[DatasetInitConfig]
-    criterion: List[ModuleInitConfig]
+    model: list[ModelInitConfig]
+    data: list[DatasetInitConfig]
+    criterion: list[ModuleInitConfig]
     remote_sync: ModuleInitConfig | None
-    ckpt_kwargs: Dict[str, Any]
-    log_kwargs: Dict[str, Any]
-    trainer_kwargs: Dict[str, Any]
+    checkpointer: dict[str, Any]
+    logger: dict[str, Any]
+    trainer: dict[str, Any]
 
     @classmethod
     def from_run(cls, run_path: Path):
@@ -169,7 +169,7 @@ class ExperimentInitConfig:
         return cls.from_dict(exp_config)
 
     @classmethod
-    def from_dict(cls, parsed_dict: Dict[str, Any]):
+    def from_dict(cls, parsed_dict: dict[str, Any]):
         """Setup experiment configuration from dictionary"""
         if "remote_sync" in parsed_dict:
             remote_sync = ModuleInitConfig(**parsed_dict["remote_sync"])
@@ -184,9 +184,9 @@ class ExperimentInitConfig:
             ],
             exp_path=parsed_dict["exp_path"],
             remote_sync=remote_sync,
-            ckpt_kwargs=parsed_dict.get("checkpointer", {}),
-            log_kwargs=parsed_dict.get("logger", {}),
-            trainer_kwargs=parsed_dict.get("trainer", {}),
+            checkpointer=parsed_dict.get("checkpointer", {}),
+            logger=parsed_dict.get("logger", {}),
+            trainer=parsed_dict.get("trainer", {}),
         )
 
     def set_workers(self, num: int):
@@ -209,9 +209,9 @@ class ExperimentInitConfig:
                 case _:
                     raise ValueError(f"Invalid split {split}")
 
-    def get_batch_size(self, split: Split) -> int | List[int]:
+    def get_batch_size(self, split: Split) -> int | list[int]:
         """Get the batch size of the dataloader for a split"""
-        batch_size: List[int] = []
+        batch_size: list[int] = []
         for data in self.data:
             match split:
                 case Split.VAL | Split.TEST:

@@ -133,12 +133,12 @@ class DataManager:
 
         if log_writer is None:
             log_writer = ParquetLogger(exp_config.exp_path)
-        perf_logger = PerfLogger(log_writer, statistics, **exp_config.log_kwargs)
+        perf_logger = PerfLogger(log_writer, statistics, **exp_config.logger)
 
         return cls(
             perf_logger,
             checkpointer,
-            CkptConfig(**exp_config.ckpt_kwargs),
+            CkptConfig(**exp_config.checkpointer),
             remote_sync=remote_sync,
         )
 
