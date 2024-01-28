@@ -1,12 +1,13 @@
 from copy import deepcopy
 
 import pytest
-from torch import nn, no_grad, optim
+import torch
+from torch import nn, inference_mode, optim, Tensor
 
 from konductor.metadata.checkpointer._pytorch import Checkpointer
 
 
-@no_grad()
+@inference_mode()
 def fuzz_params(model: nn.Module) -> None:
     """Modifies parameters inplace with random values"""
     for param in model.parameters():
@@ -109,3 +110,106 @@ def test_invalid_filename(sample_ckpt: Checkpointer):
 
     with pytest.raises(AssertionError):
         sample_ckpt.save(123)
+
+
+def make_dataset():
+    """Basic dataset y = x1 + x2 / 2 with noise"""
+    inputs = torch.arange(0, 100, dtype=torch.float).unsqueeze(-1).repeat(1, 2)
+    result = inputs[:, 0] + inputs[:, 1] / 2
+    inputs += torch.randn_like(inputs)
+    return torch.cat([inputs, result.unsqueeze(-1)], dim=1)
+
+
+def get_training_modules(ckpt_dir):
+    model = nn.Sequential(nn.Linear(2, 4), nn.ReLU(), nn.Linear(4, 1))
+    opt = optim.Adam(model.parameters())
+    ckpt = Checkpointer(ckpt_dir, model=model, opt=opt)
+
+    return model, opt, ckpt
+
+
+def test_train_iteration(tmp_path):
+    """Check basic saving and resuming of weights after training"""
+    dataset = make_dataset()
+    loss_fn = nn.MSELoss()
+    model, opt, ckpt = get_training_modules(tmp_path)
+    original_weights = deepcopy(dict(model.named_parameters()))
+
+    # "train" the model
+    for item in dataset:
+        opt.zero_grad()
+        pred = model(item[:2])
+        loss: Tensor = loss_fn(pred, item[[-1]])
+        loss.backward()
+        opt.step()
+
+    with torch.inference_mode():
+        results = torch.stack([model(item[:2]) for item in dataset])
+
+    for key, param in model.named_parameters():
+        assert (original_weights[key] != param).any(), "Model was not trained"
+    trained_weights = deepcopy(dict(model.named_parameters()))
+
+    ckpt.save("latest")
+
+    # Recreate modules
+    model, opt, ckpt = get_training_modules(tmp_path)
+    ckpt.resume()
+    for key, param in model.named_parameters():
+        assert (trained_weights[key] == param).all(), "Weights were not loaded"
+
+    with torch.inference_mode():
+        loaded_results = torch.stack([model(item[:2]) for item in dataset])
+    assert (results == loaded_results).all()
+
+
+def test_train_with_compile(tmp_path):
+    """Check saving and loading of weights with torch.compile()"""
+    dataset = make_dataset()
+    loss_fn = nn.MSELoss()
+    model, opt, ckpt = get_training_modules(tmp_path)
+    model = torch.compile(model)
+
+    with torch.inference_mode():
+        pre_results = torch.stack([model(item[:2]) for item in dataset])
+
+    # "train" the model
+    for item in dataset:
+        opt.zero_grad()
+        pred = model(item[:2])
+        loss: Tensor = loss_fn(pred, item[[-1]])
+        loss.backward()
+        opt.step()
+
+    with torch.inference_mode():
+        train_results = torch.stack([model(item[:2]) for item in dataset])
+
+    assert (pre_results != train_results).all(), "Model did not train"
+
+    ckpt.save("latest")
+
+    # Recreate modules, compile first
+    model, opt, ckpt = get_training_modules(tmp_path)
+    model = torch.compile(model)
+
+    with torch.inference_mode():
+        load_results = torch.stack([model(item[:2]) for item in dataset])
+
+    assert (load_results != train_results).all(), "New weights somehow same as trained?"
+
+    ckpt.resume()
+
+    with torch.inference_mode():
+        resume_results = torch.stack([model(item[:2]) for item in dataset])
+
+    assert (resume_results == train_results).all(), "Resumed model not same as trained"
+
+    # Load weights before compile
+    model, opt, ckpt = get_training_modules(tmp_path)
+    ckpt.resume()
+    model = torch.compile(model)
+
+    with torch.inference_mode():
+        post_results = torch.stack([model(item[:2]) for item in dataset])
+
+    assert (post_results == train_results).all(), "Resumed model not same as trained"
