@@ -1,7 +1,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 from threading import Event, Lock, Thread
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import torch
 from torch import Tensor
@@ -25,19 +25,20 @@ from .trainer import (
 @dataclass
 class PyTorchTrainerModules(TrainerModules):
     model: nn.Module
-    criterion: List[nn.Module]
+    criterion: list[nn.Module]
     optimizer: optim.Optimizer
     grad_scaler: GradScaler | None = None
 
 
 @dataclass
 class PyTorchTrainerConfig(TrainerConfig):
-    # Nvidia AMP Usage and Configuration
-    amp: bool = False
-    amp_kwargs: Dict[str, Any] | None = None
+    # Enable Nvidia AMP and configure
+    amp: dict[str, Any] | None = None
+    # Run torch.compile on main model with configuration
+    compile: dict[str, Any] | None = None
 
 
-def _amp_wrapper(func, amp_kwargs: Dict[str, Any] | None = None):
+def _amp_wrapper(func, amp_kwargs: dict[str, Any] | None = None):
     if amp_kwargs is None:
         amp_kwargs = {"device_type": "cuda"}
 
@@ -57,7 +58,7 @@ class AsyncFiniteMonitor(Thread):
         self.stop_token = Event()
         self.is_ready = Event()
         self.mtx = Lock()
-        self.data: Dict[str, Tensor] = {}
+        self.data: dict[str, Tensor] = {}
         self.err = None
 
     def run(self) -> None:
@@ -71,7 +72,7 @@ class AsyncFiniteMonitor(Thread):
         except AssertionError as err:
             self.err = TrainingError(err)
 
-    def __call__(self, data: Dict[str, Tensor]) -> Any:
+    def __call__(self, data: dict[str, Tensor]) -> Any:
         """Added items to validate finiteness"""
         # Propagate error that has come from the thread
         if self.err is not None:
@@ -135,8 +136,11 @@ class PyTorchTrainer(BaseTrainer):
             data_manager.checkpointer.add_checkpointable(
                 "grad_scaler", modules.grad_scaler
             )
-            self._train = _amp_wrapper(self._train, config.amp_kwargs)
-            self._validate = _amp_wrapper(self._validate, config.amp_kwargs)
+            self._train = _amp_wrapper(self._train, config.amp)
+            self._validate = _amp_wrapper(self._validate, config.amp)
+
+        if config.compile:
+            modules.model = torch.compile(modules.model, **config.compile)
 
         super().__init__(config, modules, data_manager)
 
@@ -161,7 +165,7 @@ class PyTorchTrainer(BaseTrainer):
         ):
             self._logger.warning("Tensor Cores not Enabled")
 
-    def _accumulate_losses(self, losses: Dict[str, Tensor]) -> None:
+    def _accumulate_losses(self, losses: dict[str, Tensor]) -> None:
         """Accumulate and backprop losses with optional grad scaler if enabled"""
         with record_function("backward"):
             self.loss_monitor(losses)
@@ -203,9 +207,9 @@ class PyTorchTrainer(BaseTrainer):
     @no_grad()
     def log_step(
         self,
-        data: Dict[str, Tensor],
-        preds: Dict[str, Tensor] | None,
-        losses: Dict[str, Tensor] | None,
+        data: dict[str, Tensor],
+        preds: dict[str, Tensor] | None,
+        losses: dict[str, Tensor] | None,
     ) -> None:
         """
         If losses are missing logging of them will be skipped (if you don't want
@@ -252,7 +256,7 @@ class PyTorchTrainer(BaseTrainer):
                 ):
                     break
 
-    def train_step(self, data) -> Tuple[Dict[str, Tensor], Dict[str, Tensor] | None]:
+    def train_step(self, data) -> tuple[dict[str, Tensor], dict[str, Tensor] | None]:
         """
         Standard training step, if you don't want to calculate
         performance during training, return None for predictions.
@@ -289,7 +293,7 @@ class PyTorchTrainer(BaseTrainer):
                 ):
                     break
 
-    def val_step(self, data) -> Tuple[Dict[str, Tensor] | None, Dict[str, Tensor]]:
+    def val_step(self, data) -> tuple[dict[str, Tensor] | None, dict[str, Tensor]]:
         """
         Standard evaluation step, if you don't want to evaluate/track loss
         during evaluation, do not perform the calculation and return None
