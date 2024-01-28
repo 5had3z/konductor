@@ -131,7 +131,7 @@ class PyTorchTrainer(BaseTrainer):
         data_manager: DataManager,
     ):
         # If AMP is enabled, wrap train and eval loops and add grad_scaler
-        if config.amp:
+        if config.amp is not None:
             modules.grad_scaler = GradScaler()
             data_manager.checkpointer.add_checkpointable(
                 "grad_scaler", modules.grad_scaler
@@ -139,14 +139,14 @@ class PyTorchTrainer(BaseTrainer):
             self._train = _amp_wrapper(self._train, config.amp)
             self._validate = _amp_wrapper(self._validate, config.amp)
 
-        if config.compile:
+        if config.compile is not None:
             modules.model = torch.compile(modules.model, **config.compile)
 
         super().__init__(config, modules, data_manager)
 
-        if config.amp:
+        if config.amp is not None:
             self._logger.info("Enabled Automatic Mixed Precision: %s", str(config.amp))
-        if config.compile:
+        if config.compile is not None:
             self._logger.info("Enabled torch.compile(model): %s", str(config.compile))
 
         self.loss_monitor = config.loss_monitor
