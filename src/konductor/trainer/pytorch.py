@@ -38,9 +38,9 @@ class PyTorchTrainerConfig(TrainerConfig):
     compile: dict[str, Any] | None = None
 
 
-def _amp_wrapper(func, amp_kwargs: dict[str, Any] | None = None):
-    if amp_kwargs is None:
-        amp_kwargs = {"device_type": "cuda"}
+def _amp_wrapper(func, amp_kwargs: dict[str, Any]):
+    # Set default device type if not specified
+    amp_kwargs["device_type"] = amp_kwargs.get("device_type", "cuda")
 
     def with_amp(*args, **kwargs):
         with autocast(**amp_kwargs):
