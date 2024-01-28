@@ -48,7 +48,7 @@ class OptimizerInitConfig:
     scheduler: ModuleInitConfig
 
     @classmethod
-    def from_dict(cls, parsed_dict: Dict[str, Any]):
+    def from_dict(cls, parsed_dict: dict[str, Any]):
         return cls(
             parsed_dict["type"],
             parsed_dict["args"],
