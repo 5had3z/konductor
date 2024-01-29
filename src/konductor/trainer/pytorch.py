@@ -29,6 +29,12 @@ class PyTorchTrainerModules(TrainerModules):
     optimizer: optim.Optimizer
     grad_scaler: GradScaler | None = None
 
+    def get_model(self):
+        """Get model and unwrap ddp if necessary"""
+        if isinstance(self.model, nn.parallel.DistributedDataParallel):
+            return self.model.module
+        return self.model
+
 
 @dataclass
 class PyTorchTrainerConfig(TrainerConfig):
