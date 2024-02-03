@@ -17,14 +17,24 @@ PG_REGISTRY = Registry("param_group_fn")
 
 @PG_REGISTRY.register_module("backbone_multiplier")
 def _backbone_multiplier(
-    model: nn.Module, multiplier: float, lr: float, **kwargs
+    model: nn.Module,
+    multiplier: float,
+    lr: float,
+    keys: list[str] | None = None,
+    **kwargs,
 ) -> Any:
+    """
+    Multiply learning rate of named parameters containing any
+    'key' defined, default keys are ['backbone', 'encoder'].
+    """
     param_grps = [
         {"params": [], "lr": lr},
         {"params": [], "lr": multiplier * lr},
     ]
+    if keys is None:
+        keys = ["backbone", "encoder"]
     for name, param in model.named_parameters():
-        if any(str_ in name for str_ in ["backbone", "encoder"]):
+        if any(str_ in name for str_ in keys):
             param_grps[1]["params"].append(param)
         else:
             param_grps[0]["params"].append(param)
