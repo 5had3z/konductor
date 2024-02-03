@@ -26,7 +26,16 @@ Contents of results.db which contains recorded summary statistics for simple fin
                 dbc.Col([dbc.Button("REFRESH", id="h-refresh")]),
             ]
         ),
-        dbc.Row([dash_table.DataTable(id="h-table", sort_action="native")]),
+        dbc.Row(
+            [
+                dash_table.DataTable(
+                    id="h-table",
+                    sort_action="native",
+                    fixed_columns={"headers": True, "data": 1},
+                    style_table={"overflowX": "auto", "minWidth": "100%"},
+                )
+            ]
+        ),
     ]
 )
 
@@ -77,7 +86,7 @@ def update_table(table: str, root: str, db_type: str, db_kwargs: str):
 
     cols: list[str] = list(perf.columns)
     # rearrange so [ts, iteration, desc] are at the start
-    for idx, name in enumerate(["train_last", "iteration", "brief"]):
+    for idx, name in enumerate(["brief", "train_last", "iteration"]):
         cols.insert(idx, cols.pop(cols.index(name)))
 
     return perf.to_dict("records"), [{"name": i, "id": i} for i in cols]
