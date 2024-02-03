@@ -1,4 +1,5 @@
 """Database backend using Python's inbuilt sqlite3"""
+
 import sqlite3
 from pathlib import Path
 from typing import Iterable, Mapping
@@ -18,7 +19,7 @@ class SQLiteDB(Database):
             path = Path(path)
         if path.is_dir():
             path /= DEFAULT_FILENAME
-        self.con = sqlite3.connect(path)
+        self.con = sqlite3.connect(path, check_same_thread=False)
         keys = make_key_dtype_pairs(Metadata(Path.cwd()).filtered_dict)
         self.create_table("metadata", keys)
 
