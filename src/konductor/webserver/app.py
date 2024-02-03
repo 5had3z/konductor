@@ -2,14 +2,15 @@
 # Run this app and visit http://127.0.0.1:8050/ in your web browser.
 
 import json
+import atexit
 from pathlib import Path
 from subprocess import Popen
+from typing import Annotated
 
 import dash
 import dash_bootstrap_components as dbc
 import typer
 from dash import Dash, dcc, html
-from typing_extensions import Annotated
 
 webapp = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=True)
 cliapp = typer.Typer()
@@ -43,11 +44,16 @@ def get_basic_layout(root_dir: str, content_url: str, db_type: str, db_kwargs: s
 
 @cliapp.command()
 def main(
-    workspace: Annotated[Path, typer.Option()],
-    enable_server: Annotated[bool, typer.Option()] = True,
-    content_port: Annotated[int, typer.Option()] = 8000,
-    db_type: Annotated[str, typer.Option()] = "sqlite",
-    db_kwargs: Annotated[str, typer.Option()] = "{}",
+    workspace: Annotated[
+        Path, typer.Option(help="workspace directory with experiments")
+    ],
+    port: Annotated[int, typer.Option(help="port for main app")] = 8050,
+    enable_server: Annotated[
+        bool, typer.Option(help="enable content server at workspace dir")
+    ] = True,
+    content_port: Annotated[int, typer.Option(help="port of content server")] = 8000,
+    db_type: Annotated[str, typer.Option(help="type of database to use")] = "sqlite",
+    db_kwargs: Annotated[str, typer.Option(help="args to initialize database")] = "{}",
 ) -> None:
     """Experiment performance and metadata visualisation tool"""
     try:
@@ -64,10 +70,10 @@ def main(
                 f"python3 -m http.server {content_port} --directory {workspace}",
                 shell=True,
             )
-        webapp.run()
-    finally:
-        if enable_server:
-            proc.terminate()
+            atexit.register(proc.terminate)
+        webapp.run(port=port)
+    except Exception as e:
+        print(e)
 
 
 def _main():
