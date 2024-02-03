@@ -50,6 +50,7 @@ dependencies = [
 [project.scripts]
 konduct-metadata = "konductor.utilities.metadata:app"
 konduct-review = "konductor.webserver.app:_main"
+konduct-tools = "konductor.utilities.tools:app"
 
 [project.optional-dependencies]
 REMOTE = ["paramiko", "minio"]

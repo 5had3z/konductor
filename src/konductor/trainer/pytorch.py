@@ -29,6 +29,12 @@ class PyTorchTrainerModules(TrainerModules):
     optimizer: optim.Optimizer
     grad_scaler: GradScaler | None = None
 
+    def get_model(self):
+        """Get model and unwrap ddp if necessary"""
+        if isinstance(self.model, nn.parallel.DistributedDataParallel):
+            return self.model.module
+        return self.model
+
 
 @dataclass
 class PyTorchTrainerConfig(TrainerConfig):
@@ -38,9 +44,9 @@ class PyTorchTrainerConfig(TrainerConfig):
     compile: dict[str, Any] | None = None
 
 
-def _amp_wrapper(func, amp_kwargs: dict[str, Any] | None = None):
-    if amp_kwargs is None:
-        amp_kwargs = {"device_type": "cuda"}
+def _amp_wrapper(func, amp_kwargs: dict[str, Any]):
+    # Set default device type if not specified
+    amp_kwargs["device_type"] = amp_kwargs.get("device_type", "cuda")
 
     def with_amp(*args, **kwargs):
         with autocast(**amp_kwargs):
@@ -131,7 +137,7 @@ class PyTorchTrainer(BaseTrainer):
         data_manager: DataManager,
     ):
         # If AMP is enabled, wrap train and eval loops and add grad_scaler
-        if config.amp:
+        if config.amp is not None:
             modules.grad_scaler = GradScaler()
             data_manager.checkpointer.add_checkpointable(
                 "grad_scaler", modules.grad_scaler
@@ -139,14 +145,14 @@ class PyTorchTrainer(BaseTrainer):
             self._train = _amp_wrapper(self._train, config.amp)
             self._validate = _amp_wrapper(self._validate, config.amp)
 
-        if config.compile:
+        if config.compile is not None:
             modules.model = torch.compile(modules.model, **config.compile)
 
         super().__init__(config, modules, data_manager)
 
-        if config.amp:
+        if config.amp is not None:
             self._logger.info("Enabled Automatic Mixed Precision: %s", str(config.amp))
-        if config.compile:
+        if config.compile is not None:
             self._logger.info("Enabled torch.compile(model): %s", str(config.compile))
 
         self.loss_monitor = config.loss_monitor
