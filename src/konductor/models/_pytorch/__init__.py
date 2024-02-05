@@ -22,7 +22,7 @@ class TorchModelConfig(ModelConfig):
 
     def get_training_modules(self):
         model: nn.Module = self.get_instance()
-        if not self.apply_extra:
+        if self.apply_extra:
             model = self._apply_extra(model)
 
         if torch.cuda.is_available():
