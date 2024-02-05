@@ -17,8 +17,13 @@ class TorchModelConfig(ModelConfig):
     Pytorch Model configuration that also includes helper for batchnorm and pretrained management.
     """
 
+    # Run _apply_extra(model) function on get_training_modules()
+    apply_extra: bool = True
+
     def get_training_modules(self):
         model: nn.Module = self.get_instance()
+        if not self.apply_extra:
+            model = self._apply_extra(model)
 
         if torch.cuda.is_available():
             model = model.cuda()
@@ -36,6 +41,12 @@ class TorchModelConfig(ModelConfig):
         return model, optim, sched
 
     def _apply_extra(self, model: nn.Module) -> nn.Module:
+        """
+        Do extra things to model on initialization such as:
+         - Globally Set BatchNorm Momentum
+         - Globally Freeze BatchNorm Layers
+         - Load full pretrained model
+        """
         if self.bn_momentum != 0.1:
             for module in model.modules():
                 if isinstance(module, nn.BatchNorm2d):

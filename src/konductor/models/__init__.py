@@ -32,6 +32,7 @@ class ModelConfig(BaseConfig):
         return cls(optimizer=optim_cfg, **model_cfg.args)
 
     def get_training_modules(self):
+        """Return instances of training modules (model, optimizer, lr scheduler)"""
         model = self.get_instance()
         optim = self.optimizer.get_instance(model)
         sched = self.optimizer.get_scheduler(optim)

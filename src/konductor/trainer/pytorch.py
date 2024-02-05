@@ -180,13 +180,14 @@ class PyTorchTrainer(BaseTrainer):
         """Accumulate and backprop losses with optional grad scaler if enabled"""
         with record_function("backward"):
             self.loss_monitor(losses)
-            all_loss = [
-                l
-                if self.modules.grad_scaler is None
-                else self.modules.grad_scaler.scale(l)
+            all_loss: Tensor = sum(
+                (
+                    l
+                    if self.modules.grad_scaler is None
+                    else self.modules.grad_scaler.scale(l)
+                )
                 for l in losses.values()
-            ]
-            all_loss = torch.stack(all_loss).sum()
+            )
             all_loss.backward()
 
     def _maybe_step_scheduler(self, is_epoch: bool):
@@ -205,15 +206,16 @@ class PyTorchTrainer(BaseTrainer):
 
     def _maybe_step_optimiser(self) -> None:
         with record_function("optimizer"):
-            if self.data_manager.iteration % self.modules.optimizer.step_interval == 0:
-                if self.modules.grad_scaler is not None:
-                    self.modules.grad_scaler.step(self.modules.optimizer)
-                    self.modules.grad_scaler.update()
-                else:
-                    self.modules.optimizer.step()
-                self.modules.optimizer.zero_grad()
-                self._maybe_step_scheduler(is_epoch=False)
-                self.data_manager.iter_step()
+            if self.data_manager.iteration % self.modules.optimizer.step_interval != 0:
+                return
+            if self.modules.grad_scaler is not None:
+                self.modules.grad_scaler.step(self.modules.optimizer)
+                self.modules.grad_scaler.update()
+            else:
+                self.modules.optimizer.step()
+            self.modules.optimizer.zero_grad()
+            self._maybe_step_scheduler(is_epoch=False)
+            self.data_manager.iter_step()
 
     @no_grad()
     def log_step(
