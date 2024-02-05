@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from logging import getLogger
 import os
@@ -18,7 +18,7 @@ class TorchModelConfig(ModelConfig):
     """
 
     # Run _apply_extra(model) function on get_training_modules()
-    apply_extra: bool = True
+    apply_extra: bool = field(default=True, kw_only=True)
 
     def get_training_modules(self):
         model: nn.Module = self.get_instance()
