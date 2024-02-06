@@ -89,4 +89,12 @@ def update_table(table: str, root: str, db_type: str, db_kwargs: str):
     for idx, name in enumerate(["brief", "train_last", "iteration"]):
         cols.insert(idx, cols.pop(cols.index(name)))
 
-    return perf.to_dict("records"), [{"name": i, "id": i} for i in cols]
+    col_defs: list[dict[str, object]] = []
+    for col in cols:
+        col_def: dict[str, object] = {"name": col, "id": col}
+        if pd.api.types.is_float_dtype(perf[col]):
+            col_def["type"] = "numeric"
+            col_def["format"] = dash_table.Format.Format(precision=3)
+        col_defs.append(col_def)
+
+    return perf.to_dict("records"), col_defs
