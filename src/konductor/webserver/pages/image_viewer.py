@@ -35,7 +35,14 @@ EXPERIMENTS: list[Experiment] = []
 layout = html.Div(
     children=[
         html.H1(children="Image Viewer"),
-        dcc.Dropdown(id="im-experiment"),
+        dbc.Row(
+            [
+                dbc.Col(dcc.Dropdown(id="im-experiment")),
+                dbc.Col(
+                    dbc.Switch(id="im-dark-toggle", label="Dark Captions", value=False)
+                ),
+            ]
+        ),
         dbc.Row([dbc.Col(html.H3("Sample Data")), dbc.Col(html.H3("Prediction"))]),
         html.Div(id="im-image-container", style={"margin-top": "15px"}),
     ]
@@ -58,23 +65,24 @@ def init_exp(root_dir: str):
     return [e.name for e in EXPERIMENTS]
 
 
-def make_carousel(path: Path, prefix: str) -> dbc.Carousel:
+def make_carousel(path: Path, prefix: str, enable_dark: bool) -> dbc.Carousel:
     image_files = list(path.glob(f"{prefix}*.png"))
     image_files.sort()  # Ensure consistency
 
     items = []
     for image in image_files:
         im_type = image.stem.removeprefix(prefix + "_")
-        items.append(
-            {"key": im_type, "src": Image.open(image).reduce(4), "caption": im_type}
-        )
-    return dbc.Carousel(items=items)
+        image_data = Image.open(image)
+        if image_data.width > 1024:
+            image_data = image_data.reduce(4)
+        items.append({"key": im_type, "src": image_data, "caption": im_type})
+    return dbc.Carousel(items=items, variant="dark" if enable_dark else "")
 
 
-def make_carousel_row(root_dir: Path, sample_name: str):
+def make_carousel_row(root_dir: Path, sample_name: str, enable_dark: bool):
     """Adds thumbnail to grid"""
-    data_col = dbc.Col(make_carousel(root_dir / "data", sample_name))
-    pred_col = dbc.Col(make_carousel(root_dir / "pred", sample_name))
+    data_col = dbc.Col(make_carousel(root_dir / "data", sample_name, enable_dark))
+    pred_col = dbc.Col(make_carousel(root_dir / "pred", sample_name, enable_dark))
     return dbc.Row([data_col, pred_col])
 
 
@@ -82,8 +90,9 @@ def make_carousel_row(root_dir: Path, sample_name: str):
     Output("im-image-container", "children"),
     Input("root-dir", "data"),
     Input("im-experiment", "value"),
+    Input("im-dark-toggle", "value"),
 )
-def update_thumbnails(root_dir: str, experiment_name: str):
+def update_thumbnails(root_dir: str, experiment_name: str, enable_dark: bool):
     """"""
     if not all((experiment_name, root_dir)):
         raise PreventUpdate
@@ -94,6 +103,8 @@ def update_thumbnails(root_dir: str, experiment_name: str):
     if sample_names[-1] == "":
         sample_names = sample_names[:-1]
 
-    children = [make_carousel_row(exp.root / "images", s) for s in sample_names]
+    children = [
+        make_carousel_row(exp.root / "images", s, enable_dark) for s in sample_names
+    ]
 
     return children
