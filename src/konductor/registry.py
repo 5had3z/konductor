@@ -39,12 +39,20 @@ class BaseConfig(ABC):
         We use self.__dict__ instead of asdict to prevent recursive dataclass conversion
         since the point of this is just to convert the immediate dataclass to kwargs.
         """
-        extras.update(self.__dict__)
-        filtered = {
-            k: v for k, v in extras.items() if k in inspect.signature(target).parameters
-        }
 
-        diff = set(extras.keys()).difference(set(filtered.keys()))
+        filtered = {}
+        for kwargs in [self.__dict__, extras]:
+            filtered.update(
+                {
+                    k: v
+                    for k, v in kwargs.items()
+                    if k in inspect.signature(target).parameters
+                }
+            )
+
+        diff = set(extras.keys())
+        diff.update(self.__dict__.keys())
+        diff = diff.difference(set(filtered.keys()))
         if known_unused is not None:
             diff = diff.difference(known_unused)
 
