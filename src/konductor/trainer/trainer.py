@@ -109,9 +109,12 @@ class BaseTrainer(ABC):
         self.data_manager.resume()
 
         if config.pbar is not None:
-            self._train = config.pbar(
-                self._train, total=len(self.modules.trainloader), desc="Training"
+            train_len = (
+                len(self.modules.trainloader)
+                if config.validation_interval is None
+                else config.validation_interval
             )
+            self._train = config.pbar(self._train, total=train_len, desc="Training")
             self._validate = config.pbar(
                 self._validate, total=len(self.modules.valloader), desc="Validation"
             )
