@@ -256,7 +256,7 @@ class PyTorchTrainer(BaseTrainer):
             except TrainingError as err:
                 self.training_exception(err, data)
 
-            if max_iter is not None and self.data_manager.iteration >= max_iter:
+            if self._should_break_training_loop(max_iter):
                 break
 
             if pbar is not None:

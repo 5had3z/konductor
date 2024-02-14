@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
 
 from torch import Tensor, nn
 from torchvision.models.resnet import BasicBlock, ResNet
@@ -30,12 +29,12 @@ class MyResnetConfig(TorchModelConfig):
     some_valid_param: str = "foo"
 
     @classmethod
-    def from_config(cls, config: ExperimentInitConfig, idx: int = 0, **kwargs) -> Any:
+    def from_config(cls, config: ExperimentInitConfig, idx: int = 0, **kwargs):
         props = get_dataset_properties(config)
         config.model[0].args["n_classes"] = props["n_classes"]
         return super().from_config(config, idx)
 
-    def get_instance(self, *args, **kwargs) -> Any:
+    def get_instance(self, *args, **kwargs):
         return MyResNet(
             BasicBlock,
             [2, 2, 2, 2],
@@ -46,16 +45,16 @@ class MyResnetConfig(TorchModelConfig):
 
 class MnistTrainer(PyTorchTrainer):
     def train_step(
-        self, data: Tuple[Tensor, Tensor]
-    ) -> Tuple[Dict[str, Tensor], Dict[str, Tensor] | None]:
+        self, data: tuple[Tensor, Tensor]
+    ) -> tuple[dict[str, Tensor], dict[str, Tensor] | None]:
         image, label = data[0].cuda(), data[1].cuda()
         pred = self.modules.model(image)
         loss = self.modules.criterion[0](pred, label)
         return loss, pred
 
     def val_step(
-        self, data: Tuple[Tensor, Tensor]
-    ) -> Tuple[Dict[str, Tensor] | None, Dict[str, Tensor]]:
+        self, data: tuple[Tensor, Tensor]
+    ) -> tuple[dict[str, Tensor] | None, dict[str, Tensor]]:
         image, label = data[0].cuda(), data[1].cuda()
         pred = self.modules.model(image)
         loss = self.modules.criterion[0](pred, label)
@@ -63,12 +62,12 @@ class MnistTrainer(PyTorchTrainer):
 
 
 class Accuracy(Statistic):
-    def get_keys(self) -> List[str]:
+    def get_keys(self) -> list[str]:
         return ["accuracy"]
 
     def __call__(
-        self, logit: Tensor, data_label: Tuple[Tensor, Tensor]
-    ) -> Dict[str, float]:
-        label = data_label[1].cuda()
+        self, logit: Tensor, data_label: tuple[Tensor, Tensor]
+    ) -> dict[str, float]:
+        label = data_label[1].to(logit.device)
         acc = logit.argmax(dim=-1) == label
         return {"accuracy": acc.sum().item() / label.nelement()}

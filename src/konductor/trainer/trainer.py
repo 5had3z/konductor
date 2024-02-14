@@ -70,9 +70,14 @@ class TrainerConfig:
     # of the loss, does absolutely nothing by default
     loss_monitor: Callable[[Dict[str, Any]], None] = lambda x: None
 
-    pbar: Callable | None = None  # Enable Console Progress
+    # Enable Console Progress
+    pbar: Callable | None = None
 
-    pre_eval: bool = False  # Run evaluation before beginning of training
+    # Run evaluation before beginning of training
+    pre_eval: bool = False
+
+    # Train for specified iterations then validate
+    validation_interval: int | None = None
 
     def __post_init__(self):
         if comm.get_local_rank() != 0:
@@ -114,12 +119,14 @@ class BaseTrainer(ABC):
     def run_epoch(self, max_iter: int | None = None) -> None:
         """Complete one epoch with training and validation epoch"""
         self._train(max_iter)
-        self._validate()
+        val_interval = self._config.validation_interval
+        if val_interval is None or self.data_manager.iteration % val_interval == 0:
+            self._validate()
         self._maybe_step_scheduler(is_epoch=True)
         self.data_manager.epoch_step()
 
-    def train(self, epoch: int | None = None, iteration: int | None = None) -> None:
-        """Train until epoch or iteration is reached"""
+    def train(self, *, epoch: int | None = None, iteration: int | None = None) -> None:
+        """Train until epoch or iteration is reached, keyword only to prevent bugs"""
         if self._config.pre_eval and self.data_manager.iteration == 0:
             self._validate()
 
@@ -155,15 +162,32 @@ class BaseTrainer(ABC):
         self._logger.info("Finished Saving (and Pushing)")
 
     def data_transform(self, data: Any) -> Any:
-        """Apply any post motifications to data after loading
-        before being passed to [train|val]_step, no-op by default"""
+        """
+        Apply any post motifications to data after loading before
+        being passed to [train|val]_step, no-op by default
+        """
         return data
 
     def training_exception(self, err: Exception, data: Any) -> None:
-        """This function is run when an runtime exception is thrown
-        during training iteration, useful for logging the state of the
-        model and the data used in the training iteration"""
+        """
+        This function is run when an runtime exception is thrown during
+        training iteration, useful for logging the state of the model
+        and the data used in the training iteration.
+        """
         raise err
+
+    def _should_break_training_loop(self, max_iter: int | None):
+        """
+        Check whether to break out of the training loop if the target
+        maximum iteration is reached, or validation should be run.
+        """
+        cond = False
+        cur_iter = self.data_manager.iteration
+        if max_iter is not None:
+            cond |= max_iter <= cur_iter
+        if val_interval := self._config.validation_interval:
+            cond |= cur_iter % val_interval == 0 and cur_iter > 0
+        return cond
 
     @abstractmethod
     def _accumulate_losses(self, losses: Dict[str, Any]) -> Any:
