@@ -180,14 +180,9 @@ class PyTorchTrainer(BaseTrainer):
         """Accumulate and backprop losses with optional grad scaler if enabled"""
         with record_function("backward"):
             self.loss_monitor(losses)
-            all_loss: Tensor = sum(
-                (
-                    l
-                    if self.modules.grad_scaler is None
-                    else self.modules.grad_scaler.scale(l)
-                )
-                for l in losses.values()
-            )
+            all_loss: Tensor = sum(losses.values())
+            if self.modules.grad_scaler is not None:
+                all_loss = self.modules.grad_scaler.scale(all_loss)
             all_loss.backward()
 
     def _maybe_step_scheduler(self, is_epoch: bool):
