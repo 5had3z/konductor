@@ -66,7 +66,7 @@ def init_exp(root_dir: str):
 
 
 def make_carousel(path: Path, prefix: str, enable_dark: bool) -> dbc.Carousel:
-    image_files = list(path.glob(f"{prefix}*.png"))
+    image_files = list(path.glob(f"{prefix}_*.png"))
     image_files.sort()  # Ensure consistency
 
     items = []
