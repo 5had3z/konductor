@@ -44,7 +44,7 @@ class BaseCheckpointer(ABC):
         try:
             self.latest.symlink_to(path)
         except OSError:  # make copy if symlink is unsupported
-            shutil.copy(path, self.latest)
+            shutil.copyfile(path, self.latest)
 
     def _get_path(self, filename: str):
         """Returns valid path to checkpoint i.e. adds extension if necessary"""
