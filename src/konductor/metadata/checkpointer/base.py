@@ -42,6 +42,8 @@ class BaseCheckpointer(ABC):
         if path == self.latest:
             return
         try:
+            if self.latest.exists() and self.latest.is_symlink():
+                self.latest.unlink()  # need to delete first or FileExistsError is raised
             self.latest.symlink_to(path)
         except OSError:  # make copy if symlink is unsupported
             shutil.copyfile(path, self.latest)
