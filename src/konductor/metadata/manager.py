@@ -107,7 +107,7 @@ class DataManager:
 
     perflog: PerfLogger
     checkpointer: Checkpointer
-    ckpt_cfg: CkptConfig = CkptConfig()
+    ckpt_cfg: CkptConfig = field(default_factory=CkptConfig)
     remote_sync: _RemoteSyncrhoniser | None = None
     sync_interval: timedelta = timedelta(hours=1)
     metadata: Metadata = field(init=False)  # post_init handles creation logic
