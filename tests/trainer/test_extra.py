@@ -26,8 +26,8 @@ def make_dataset(n_samples: int, bias: float = 0.5):
     lbl1 = torch.full_like(pop1, 0)
     lbl2 = torch.full_like(pop2, 1)
     genlbl = torch.cat([lbl1, lbl2])
-    indicies = torch.randperm(n_samples)
-    return genpop[indicies, None], genlbl[indicies, None]
+    indices = torch.randperm(n_samples)
+    return genpop[indices, None], genlbl[indices, None]
 
 
 class TrivialLearner(torch.nn.Linear):
