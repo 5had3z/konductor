@@ -12,31 +12,37 @@ from konductor.utilities.metadata import reduce_all, update_database
 dash.register_page(__name__, path="/")
 DATABASE: Database | None = None
 
+_DATA_CTL = [
+    dbc.Button("Reduce All Metadata", id="h-reduce-all", n_clicks=0),
+    dbc.Button("Update Database", id="h-update-database", n_clicks=0),
+    dbc.Button("Refresh", id="h-refresh"),
+]
+
 layout = html.Div(
     children=[
         html.H2(children="Results Database"),
-        dbc.Button("Reduce All Metadata", id="reduce-all", n_clicks=0),
-        dbc.Button("Update Database", id="update-database", n_clicks=0),
-        dbc.Alert(
-            html.P("", id="p-alert"),
-            id="alert-auto",
-            is_open=False,
-            dismissable=True,
-            fade=True,
-            color="danger",
-        ),
-        dbc.Row(
-            html.Div(
-                children="""
+        html.Div(
+            children="""
 Contents of results.db which contains recorded summary statistics for simple final comparison.
     """
-            )
         ),
         dbc.Row(
             [
-                dbc.Col([dcc.Dropdown(id="h-table-select")]),
-                dbc.Col([dbc.Button("REFRESH", id="h-refresh")]),
-            ]
+                dbc.Col(dbc.ButtonGroup(_DATA_CTL), width="auto"),
+                dbc.Col(html.H3("Table:"), width="auto"),
+                dbc.Col(dcc.Dropdown(id="h-table-select")),
+                dbc.Col(
+                    dbc.Alert(
+                        html.P("", id="p-alert"),
+                        id="h-alert",
+                        is_open=False,
+                        dismissable=True,
+                        color="danger",
+                    ),
+                    width=True,
+                ),
+            ],
+            style={k: "10px" for k in ["padding-top", "padding-bottom"]},
         ),
         dbc.Row(
             [
@@ -48,7 +54,7 @@ Contents of results.db which contains recorded summary statistics for simple fin
                 )
             ]
         ),
-    ]
+    ],
 )
 
 
@@ -59,35 +65,36 @@ def init_db(db_type: str, db_kwargs: str, workspace: str):
 
 
 @dash.callback(
-    dash.Output("alert-auto", "is_open", allow_duplicate=True),
-    dash.Output("alert-auto", "color", allow_duplicate=True),
+    dash.Output("h-alert", "is_open", allow_duplicate=True),
+    dash.Output("h-alert", "color", allow_duplicate=True),
     dash.Output("p-alert", "children", allow_duplicate=True),
-    dash.Input("reduce-all", "n_clicks"),
+    dash.Input("h-reduce-all", "n_clicks"),
     dash.Input("root-dir", "data"),
     prevent_initial_call=True,
 )
-def btn_reduce_all(n_clicks, root_dir):
+def btn_reduce_all(_, root_dir):
     try:
         reduce_all(Path(root_dir))
-        return True, "success", "Success", 
+        return True, "success", "Success"
     except Exception as e:
-        return True, "danger", str(e),
+        return True, "danger", str(e)
 
 
 @dash.callback(
-    dash.Output("alert-auto", "is_open", allow_duplicate=True),
-    dash.Output("alert-auto", "color", allow_duplicate=True),
+    dash.Output("h-alert", "is_open", allow_duplicate=True),
+    dash.Output("h-alert", "color", allow_duplicate=True),
     dash.Output("p-alert", "children", allow_duplicate=True),
-    dash.Input("update-database", "n_clicks"),
+    dash.Input("h-update-database", "n_clicks"),
     dash.Input("root-dir", "data"),
     prevent_initial_call=True,
 )
-def btn_update_database(n_clicks, root_dir):
+def btn_update_database(_, root_dir):
     try:
         update_database(Path(root_dir))
-        return True, "success", "Success", 
+        return True, "success", "Success"
     except Exception as e:
-        return True, "danger", str(e),
+        return True, "danger", str(e)
+
 
 @callback(
     Output("h-table-select", "options"),

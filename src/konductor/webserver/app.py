@@ -16,12 +16,25 @@ webapp = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=T
 cliapp = typer.Typer()
 
 
+def get_padding():
+    """Make border padding"""
+    padding = {}
+    for k in ["top", "bottom"]:
+        padding[f"padding-{k}"] = "10px"
+    for k in ["left", "right"]:
+        padding[f"padding-{k}"] = "20px"
+    return padding
+
+
 def get_basic_layout(root_dir: str, content_url: str, db_type: str, db_kwargs: str):
     """
     Get layout for app after registering all other pages,
     the root directory of the experiment folder is saved in
     store called root-dir which other components can then use
     """
+    style = {}
+    style.update(get_padding())
+
     return html.Div(
         [
             html.H1("Konduct Review"),
@@ -36,9 +49,11 @@ def get_basic_layout(root_dir: str, content_url: str, db_type: str, db_kwargs: s
                         for page in dash.page_registry.values()
                     ]
                 ),
+                style={"padding-bottom": "10px"},
             ),
             dash.page_container,
-        ]
+        ],
+        style=style,
     )
 
 
