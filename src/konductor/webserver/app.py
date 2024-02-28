@@ -31,30 +31,15 @@ def get_basic_layout(root_dir: str, content_url: str, db_type: str, db_kwargs: s
             dcc.Store(id="db-kwargs", data=db_kwargs),
             html.Div(
                 dbc.ButtonGroup(
-                    [dbc.Button("Reduce All Metadata", id="submit-val", n_clicks=0)]
-                    + [
+                    [
                         dbc.Button(page["name"], href=page["relative_path"])
                         for page in dash.page_registry.values()
                     ]
                 ),
             ),
-            html.Div(id="dummy"),
             dash.page_container,
         ]
     )
-
-
-@dash.callback(
-    dash.Output("dummy", "children"),
-    dash.Input("submit-val", "n_clicks"),
-    dash.Input("root-dir", "data"),
-    prevent_initial_call=True,
-)
-def update_output(n_clicks, root_dir):
-    from konductor.utilities.metadata import reduce_all
-
-    reduce_all(Path(root_dir).parent)
-    return ""
 
 
 @cliapp.command()
