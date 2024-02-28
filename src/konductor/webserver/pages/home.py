@@ -3,9 +3,11 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 from dash import Input, Output, callback, dash_table, dcc, html
 from dash.exceptions import PreventUpdate
+from pathlib import Path
 
 from konductor.webserver.utils import add_default_db_kwargs, get_database
 from konductor.metadata.database import Database
+from konductor.utilities.metadata import reduce_all, update_database
 
 dash.register_page(__name__, path="/")
 DATABASE: Database | None = None
@@ -13,6 +15,16 @@ DATABASE: Database | None = None
 layout = html.Div(
     children=[
         html.H2(children="Results Database"),
+        dbc.Button("Reduce All Metadata", id="reduce-all", n_clicks=0),
+        dbc.Button("Update Database", id="update-database", n_clicks=0),
+        dbc.Alert(
+            html.P("", id="p-alert"),
+            id="alert-auto",
+            is_open=False,
+            dismissable=True,
+            fade=True,
+            color="danger",
+        ),
         dbc.Row(
             html.Div(
                 children="""
@@ -45,6 +57,37 @@ def init_db(db_type: str, db_kwargs: str, workspace: str):
     global DATABASE
     DATABASE = get_database(db_type, db_kwargs)
 
+
+@dash.callback(
+    dash.Output("alert-auto", "is_open", allow_duplicate=True),
+    dash.Output("alert-auto", "color", allow_duplicate=True),
+    dash.Output("p-alert", "children", allow_duplicate=True),
+    dash.Input("reduce-all", "n_clicks"),
+    dash.Input("root-dir", "data"),
+    prevent_initial_call=True,
+)
+def btn_reduce_all(n_clicks, root_dir):
+    try:
+        reduce_all(Path(root_dir))
+        return True, "success", "Success", 
+    except Exception as e:
+        return True, "danger", str(e),
+
+
+@dash.callback(
+    dash.Output("alert-auto", "is_open", allow_duplicate=True),
+    dash.Output("alert-auto", "color", allow_duplicate=True),
+    dash.Output("p-alert", "children", allow_duplicate=True),
+    dash.Input("update-database", "n_clicks"),
+    dash.Input("root-dir", "data"),
+    prevent_initial_call=True,
+)
+def btn_update_database(n_clicks, root_dir):
+    try:
+        update_database(Path(root_dir))
+        return True, "success", "Success", 
+    except Exception as e:
+        return True, "danger", str(e),
 
 @callback(
     Output("h-table-select", "options"),
