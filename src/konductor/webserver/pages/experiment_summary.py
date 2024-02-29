@@ -81,7 +81,7 @@ layout = html.Div(
                         dcc.Textarea(
                             id="summary-metadata-txt",
                             readOnly=True,
-                            style={"width": "100%", "height": 300},
+                            style={"width": "100%", "height": 600},
                         ),
                     ]
                 ),
@@ -91,7 +91,7 @@ layout = html.Div(
                         dcc.Textarea(
                             id="summary-traincfg-txt",
                             readOnly=True,
-                            style={"width": "100%", "height": 300},
+                            style={"width": "100%", "height": 600},
                         ),
                     ]
                 ),
