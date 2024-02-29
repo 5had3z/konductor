@@ -45,12 +45,23 @@ layout = html.Div(
                     dbc.Switch(id="im-nn-interp", label="NN Interp.", value=False),
                     width="auto",
                 ),
-                dbc.Col(html.H3("Experiment: "), width="auto"),
+                dbc.Col(html.H4("Experiment: "), width="auto"),
                 dbc.Col(dcc.Dropdown(id="im-experiment"), width=True),
             ]
         ),
-        dbc.Row([dbc.Col(html.H3("Sample Data")), dbc.Col(html.H3("Prediction"))]),
-        html.Div(id="im-image-container", style={"margin-top": "15px"}),
+        dbc.Row(
+            [
+                dbc.Col(dbc.Pagination(id="im-pages", max_value=0)),
+                dbc.Col(html.H4("Sample Name:", id="im-sample-name")),
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(html.H3("Sample Data", style={"text-align": "center"})),
+                dbc.Col(html.H3("Prediction", style={"text-align": "center"})),
+            ]
+        ),
+        dbc.Row(html.Div(id="im-image-container", style={"margin-top": "15px"})),
     ]
 )
 
@@ -85,7 +96,9 @@ def make_carousel(
             image_data = image_data.reduce(4)
         items.append({"key": im_type, "src": image_data, "caption": im_type})
 
-    style = {"image-rendering": "pixelated"} if nn_interp else {}
+    style = {f"{k}-padding": "5px" for k in ["top", "bottom", "left", "right"]}
+    if nn_interp:
+        style["image-rendering"] = "pixelated"
 
     return dbc.Carousel(items=items, variant="dark" if enable_dark else "", style=style)
 
@@ -104,32 +117,64 @@ def make_carousel_row(
 
 
 @callback(
-    Output("im-image-container", "children"),
+    Output("im-pages", "max_value"),
     Input("root-dir", "data"),
     Input("im-experiment", "value"),
-    Input("im-dark-cap", "value"),
-    Input("im-nn-interp", "value"),
 )
-def update_thumbnails(
-    root_dir: str, experiment_name: str, enable_dark: bool, nn_interp: bool
-):
+def update_pagination(root_dir: str, experiment_name: str):
     """"""
     if not all((experiment_name, root_dir)):
         raise PreventUpdate
 
     exp = get_experiment(experiment_name)
     samples_file = exp.root / "images" / "samples.txt"
+
     if not samples_file.exists():
-        return dbc.Alert(f"No Images In {exp.root.stem}", color="danger")
+        return 0  # , dbc.Alert(f"No Images In {exp.root.stem}", color="danger")
 
     with open(samples_file, "r", encoding="utf-8") as f:
         sample_names = [s.strip() for s in f.readlines()]
     if sample_names[-1] == "":
         sample_names = sample_names[:-1]
 
-    children = [
-        make_carousel_row(exp.root / "images", s, enable_dark, nn_interp)
-        for s in sample_names
-    ]
+    return len(sample_names)
 
-    return children
+
+@callback(
+    Output("im-image-container", "children"),
+    Output("im-sample-name", "children"),
+    Input("root-dir", "data"),
+    Input("im-experiment", "value"),
+    Input("im-pages", "active_page"),
+    Input("im-dark-cap", "value"),
+    Input("im-nn-interp", "value"),
+)
+def update_thumbnails(
+    root_dir: str,
+    experiment_name: str,
+    sample_idx: int,
+    enable_dark: bool,
+    nn_interp: bool,
+):
+    """"""
+    if not all((experiment_name, root_dir, sample_idx)):
+        raise PreventUpdate
+
+    exp = get_experiment(experiment_name)
+    samples_file = exp.root / "images" / "samples.txt"
+
+    if not samples_file.exists():
+        alert = dbc.Alert(f"No Images In {exp.root.stem}", color="danger")
+        return alert, "Sample Name:"
+
+    with open(samples_file, "r", encoding="utf-8") as f:
+        sample_names = [s.strip() for s in f.readlines()]
+    if sample_names[-1] == "":
+        sample_names = sample_names[:-1]
+
+    sample_name = sample_names[sample_idx - 1]
+    image_data = make_carousel_row(
+        exp.root / "images", sample_name, enable_dark, nn_interp
+    )
+
+    return image_data, f"Sample Name: {sample_name}"
