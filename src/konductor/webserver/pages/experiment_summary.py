@@ -26,63 +26,50 @@ layout = html.Div(
         dbc.Row(
             [
                 dbc.Col(
-                    [html.H4("Select by:", style={"text-align": "right"})], width=2
+                    html.H4("Select by:", style={"text-align": "right"}), width="auto"
                 ),
                 dbc.Col(
-                    [
-                        dcc.RadioItems(
-                            id="summary-opt",
-                            options=[
-                                {
-                                    "label": html.Span(
-                                        "Brief",
-                                        style={
-                                            "font-size": 20,
-                                            "padding-left": 10,
-                                            "padding-right": 15,
-                                        },
-                                    ),
-                                    "value": "Brief",
-                                },
-                                {
-                                    "label": html.Span(
-                                        "Hash",
-                                        style={"font-size": 20, "padding-left": 10},
-                                    ),
-                                    "value": "Hash",
-                                },
-                            ],
-                            inline=True,
-                        )
-                    ],
-                    width=2,
+                    dcc.RadioItems(
+                        id="summary-opt",
+                        options=[
+                            {
+                                "label": html.Span(
+                                    "Brief",
+                                    style={
+                                        "font-size": 20,
+                                        "padding-left": 10,
+                                        "padding-right": 15,
+                                    },
+                                ),
+                                "value": "Brief",
+                            },
+                            {
+                                "label": html.Span(
+                                    "Hash",
+                                    style={"font-size": 20, "padding-left": 10},
+                                ),
+                                "value": "Hash",
+                            },
+                        ],
+                        inline=True,
+                    ),
+                    width="auto",
                 ),
                 dbc.Col([dcc.Dropdown(id="summary-select")], width=8),
             ]
         ),
         dbc.Row(
             [
-                dbc.Col(
-                    [html.H4("Experiment Path: ", style={"text-align": "right"})],
-                    width=3,
-                ),
-                dbc.Col([html.Div("Unknown", id="summary-exp-path")]),
+                dbc.Col(html.H4("Experiment Path: "), width="auto"),
+                dbc.Col(html.Div("Unknown", id="summary-exp-path")),
             ]
         ),
         dbc.Row(
             [
-                dbc.Col(
-                    [
-                        html.H4("Group", style={"text-align": "center"}),
-                        dcc.Dropdown(id="summary-stat-group"),
-                    ]
-                ),
-                dbc.Col(
-                    [
-                        html.H4("Statistic", style={"text-align": "center"}),
-                        dcc.Dropdown(id="summary-stat-name"),
-                    ]
-                ),
+                dbc.Col(html.H4("Group:"), width="auto"),
+                dbc.Col(dcc.Dropdown(id="summary-stat-group"), width=True),
+                dbc.Col(html.H4("Statistic:"), width="auto"),
+                dbc.Col(dcc.Dropdown(id="summary-stat-name"), width=True),
             ],
         ),
         dbc.Row(dcc.Graph(id="summary-graph")),
