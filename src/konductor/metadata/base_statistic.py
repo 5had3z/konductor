@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List
 
 from ..registry import Registry
 from ..init import ExperimentInitConfig
@@ -16,12 +15,12 @@ class Statistic(ABC):
         return cls()
 
     @abstractmethod
-    def get_keys(self) -> List[str] | None:
+    def get_keys(self) -> list[str] | None:
         """
         Return keys that this statistic calculates, might be used
         by loggers which need to know keys before logging.
         """
 
     @abstractmethod
-    def __call__(self, *args, **kwargs) -> Dict[str, float]:
+    def __call__(self, *args, **kwargs) -> dict[str, float]:
         """Calculate and Return Dictionary of Statistics"""
