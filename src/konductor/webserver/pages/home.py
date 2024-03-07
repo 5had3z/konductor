@@ -28,9 +28,9 @@ Contents of results.db which contains recorded summary statistics for simple fin
         ),
         dbc.Row(
             [
-                dbc.Col(dbc.ButtonGroup(_DATA_CTL), width="auto"),
                 dbc.Col(html.H3("Table:"), width="auto"),
                 dbc.Col(dcc.Dropdown(id="h-table-select")),
+                dbc.Col(dbc.ButtonGroup(_DATA_CTL), width="auto"),
                 dbc.Col(
                     dbc.Alert(
                         html.P("", id="p-alert"),

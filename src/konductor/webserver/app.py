@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Run this app and visit http://127.0.0.1:8050/ in your web browser.
+# Run this app and visit the default address http://127.0.0.1:8050/ in your web browser.
 
 import json
 import atexit
@@ -59,16 +59,13 @@ def get_basic_layout(root_dir: str, content_url: str, db_type: str, db_kwargs: s
 
 @cliapp.command()
 def main(
-    workspace: Annotated[
-        Path, typer.Option(help="workspace directory with experiments")
-    ],
-    port: Annotated[int, typer.Option(help="port for main app")] = 8050,
-    enable_server: Annotated[
-        bool, typer.Option(help="enable content server at workspace dir")
-    ] = True,
-    content_port: Annotated[int, typer.Option(help="port of content server")] = 8000,
-    db_type: Annotated[str, typer.Option(help="type of database to use")] = "sqlite",
-    db_kwargs: Annotated[str, typer.Option(help="args to initialize database")] = "{}",
+    workspace: Annotated[Path, typer.Option(help="Experiment Workspace Directory")],
+    port: Annotated[int, typer.Option(help="Dash Port")] = 8050,
+    enable_server: Annotated[bool, typer.Option(help="Enable Content Server")] = True,
+    content_port: Annotated[int, typer.Option(help="Content Server Port")] = 8000,
+    debug: Annotated[bool, typer.Option(help="Dash Debug Mode")] = False,
+    db_type: Annotated[str, typer.Option(help="Type of Database")] = "sqlite",
+    db_kwargs: Annotated[str, typer.Option(help="Database Kwargs")] = "{}",
 ) -> None:
     """Experiment performance and metadata visualisation tool"""
     try:
@@ -86,7 +83,7 @@ def main(
                 shell=True,
             )
             atexit.register(proc.terminate)
-        webapp.run(port=port)
+        webapp.run(port=str(port), debug=debug)
     except Exception as e:
         print(e)
 

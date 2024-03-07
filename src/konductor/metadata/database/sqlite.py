@@ -1,10 +1,11 @@
 """Database backend using Python's inbuilt sqlite3"""
 
+import atexit
 import sqlite3
 from pathlib import Path
 from typing import Iterable, Mapping
 
-from .interface import DBTYPE, DBTYPESTR, Database, Metadata, DB_REGISTRY
+from .interface import DB_REGISTRY, DBTYPE, DBTYPESTR, Database, Metadata
 from .tools import make_key_dtype_pairs
 
 DEFAULT_FILENAME = "results.sqlite"
@@ -22,6 +23,7 @@ class SQLiteDB(Database):
         self.con = sqlite3.connect(path, check_same_thread=False)
         keys = make_key_dtype_pairs(Metadata(Path.cwd()).filtered_dict)
         self.create_table("metadata", keys)
+        atexit.register(self.con.close)
 
     def cursor(self):
         return self.con.cursor()
