@@ -94,7 +94,7 @@ class BaseTrainer(ABC):
     contains basic train loops which they can implement
     """
 
-    modules = TrainerModules
+    modules: TrainerModules
 
     def __init__(
         self,
@@ -107,6 +107,11 @@ class BaseTrainer(ABC):
         self._logger = getLogger(type(self).__name__)
         self._config = config
         self.data_manager.resume()
+
+        self.pre_train_hooks: list[Callable] = []
+        self.post_train_hooks: list[Callable] = []
+        self.pre_val_hooks: list[Callable] = []
+        self.post_val_hooks: list[Callable] = []
 
         if config.pbar is not None:
             train_len = (
@@ -121,10 +126,16 @@ class BaseTrainer(ABC):
 
     def run_epoch(self, max_iter: int | None = None) -> None:
         """Complete one epoch with training and validation epoch"""
+        _run_hooks(self.pre_train_hooks)
         self._train(max_iter)
+        _run_hooks(self.post_train_hooks)
+
         val_interval = self._config.validation_interval
         if val_interval is None or self.data_manager.iteration % val_interval == 0:
+            _run_hooks(self.pre_val_hooks)
             self._validate()
+            _run_hooks(self.post_val_hooks)
+
         self._maybe_step_scheduler(is_epoch=True)
         self.data_manager.epoch_step()
 
@@ -213,6 +224,10 @@ class BaseTrainer(ABC):
     @abstractmethod
     def _validate(self) -> None:
         """Validate one epoch over the dataset"""
+
+
+def _run_hooks(hooks: list[Callable]):
+    [h() for h in hooks]
 
 
 TrainerT = TypeVar("TrainerT", bound=BaseTrainer)

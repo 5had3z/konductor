@@ -1,6 +1,7 @@
 """ 
 Initialisation configuration dataclasses for library modules
 """
+
 import enum
 import hashlib
 import logging
@@ -87,6 +88,7 @@ class DatasetInitConfig:
 
     @classmethod
     def from_dict(cls, parsed_dict: dict[str, Any]):
+        """Create from configuration dictionary with keys [type, args, train_loader, val_loader]"""
         dataset = ModuleInitConfig(parsed_dict["type"], parsed_dict["args"])
         if "loader" in parsed_dict:
             train_loader = val_loader = ModuleInitConfig(**parsed_dict["loader"])
