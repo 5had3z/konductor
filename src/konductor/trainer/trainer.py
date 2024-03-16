@@ -142,7 +142,9 @@ class BaseTrainer(ABC):
     def train(self, *, epoch: int | None = None, iteration: int | None = None) -> None:
         """Train until epoch or iteration is reached, keyword only to prevent bugs"""
         if self._config.pre_eval and self.data_manager.iteration == 0:
+            _run_hooks(self.pre_val_hooks)
             self._validate()
+            _run_hooks(self.post_val_hooks)
 
         if iteration is not None:
             assert epoch is None, "Only epoch or iteration should be specified"

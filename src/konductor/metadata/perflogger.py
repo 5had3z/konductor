@@ -1,6 +1,5 @@
 import re
 from logging import getLogger
-from typing import Dict, List
 
 from .base_statistic import Statistic
 from .loggers.base_writer import LogWriter, Split
@@ -19,7 +18,7 @@ class PerfLogger:
     _valid_name_re = re.compile(r"\A[a-zA-Z0-9-]+\Z")
 
     def __init__(
-        self, writer: LogWriter, statistics: Dict[str, Statistic], interval: int = 1
+        self, writer: LogWriter, statistics: dict[str, Statistic], interval: int = 1
     ):
         self.split: Split | None = None
         self.writer = writer
@@ -50,7 +49,7 @@ class PerfLogger:
         self.flush()
 
     @property
-    def keys(self) -> List[str]:
+    def keys(self) -> list[str]:
         """Names of the statistics being logged"""
         return list(self.statistics.keys())
 
@@ -71,10 +70,9 @@ class PerfLogger:
 
         # Log if testing or at training log interval
         if self._should_log() or force:
-            result = self.statistics[name](*args, **kwargs)
-            self.log(name, result)
+            self.log(name, self.statistics[name](*args, **kwargs))
 
-    def log(self, name: str, data: Dict[str, float], force: bool = False) -> None:
+    def log(self, name: str, data: dict[str, float], force: bool = False) -> None:
         """
         Log a dictionary of data. This is skipped if training and not at log interval.
         Force overrides this logic and logs anyway.
@@ -83,6 +81,9 @@ class PerfLogger:
         assert (
             PerfLogger._valid_name_re.match(name) is not None
         ), f"Invalid character in name {name}, requires {PerfLogger._valid_name_re}"
+
+        if len(data) == 0:  # Skip if there is actually nothing to log
+            return
 
         # Log if testing or at training log interval
         if self._should_log() or force:
