@@ -1,16 +1,16 @@
+from contextlib import closing
+from pathlib import Path
+
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 from dash import Input, Output, callback, dash_table, dcc, html
 from dash.exceptions import PreventUpdate
-from pathlib import Path
 
-from konductor.webserver.utils import add_default_db_kwargs, get_database
-from konductor.metadata.database import Database
 from konductor.utilities.metadata import reduce_all, update_database
+from konductor.webserver.utils import add_default_db_kwargs, get_database
 
 dash.register_page(__name__, path="/")
-DATABASE: Database | None = None
 
 _DATA_CTL = [
     dbc.Button("Reduce All Metadata", id="h-reduce-all", n_clicks=0),
@@ -58,10 +58,9 @@ Contents of results.db which contains recorded summary statistics for simple fin
 )
 
 
-def init_db(db_type: str, db_kwargs: str, workspace: str):
+def get_db(db_type: str, db_kwargs: str, workspace: str):
     db_kwargs = add_default_db_kwargs(db_type, db_kwargs, workspace)
-    global DATABASE
-    DATABASE = get_database(db_type, db_kwargs)
+    return get_database(db_type, db_kwargs)
 
 
 @dash.callback(
@@ -105,10 +104,9 @@ def btn_update_database(_, root_dir):
 )
 def update_avail_tables(_, root_dir: str, db_type: str, db_kwargs: str):
     """"""
-    if DATABASE is None:
-        init_db(db_type, db_kwargs, root_dir)
-    assert DATABASE is not None
-    return [t for t in DATABASE.get_tables() if t != "metadata"]
+    with closing(get_db(db_type, db_kwargs, root_dir)) as db_handle:
+        table_names = [t for t in db_handle.get_tables() if t != "metadata"]
+    return table_names
 
 
 @callback(
@@ -123,14 +121,11 @@ def update_table(table: str, root: str, db_type: str, db_kwargs: str):
     if any(f is None for f in [table, root]):
         raise PreventUpdate
 
-    if DATABASE is None:
-        init_db(db_type, db_kwargs, root)
-    assert DATABASE is not None
-
-    perf = pd.read_sql_query(f"SELECT * FROM {table}", DATABASE, index_col="hash")
-    meta = pd.read_sql_query(
-        "SELECT hash, train_last, brief FROM metadata", DATABASE, index_col="hash"
-    )
+    with closing(get_db(db_type, db_kwargs, root)) as db_handle:
+        perf = pd.read_sql_query(f"SELECT * FROM {table}", db_handle, index_col="hash")
+        meta = pd.read_sql_query(
+            "SELECT hash, train_last, brief FROM metadata", db_handle, index_col="hash"
+        )
 
     perf = perf.join(meta)
 

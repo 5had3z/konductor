@@ -25,6 +25,10 @@ class Database(ABC):
         """
 
     @abstractmethod
+    def close():
+        """Close Database Connection"""
+
+    @abstractmethod
     def cursor(self):
         """Get a cursor to the database"""
 
