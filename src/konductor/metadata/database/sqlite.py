@@ -1,6 +1,5 @@
 """Database backend using Python's inbuilt sqlite3"""
 
-import atexit
 import sqlite3
 from pathlib import Path
 from typing import Iterable, Mapping
@@ -23,7 +22,9 @@ class SQLiteDB(Database):
         self.con = sqlite3.connect(path, check_same_thread=False)
         keys = make_key_dtype_pairs(Metadata(Path.cwd()).filtered_dict)
         self.create_table("metadata", keys)
-        atexit.register(self.con.close)
+
+    def close(self):
+        self.con.close()
 
     def cursor(self):
         return self.con.cursor()
