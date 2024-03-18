@@ -5,7 +5,7 @@ import pytest
 pytestmark = pytest.mark.statistics
 
 from konductor.metadata import PerfLogger
-from konductor.metadata.loggers import ParquetLogger
+from konductor.metadata.loggers import ParquetLogger, AverageMeter
 
 
 @pytest.fixture
@@ -40,3 +40,12 @@ def test_writing_no_issue(logger: PerfLogger):
         logger.log("loss", {"l2": randint(0, 10) / 10, "mse": randint(0, 100) / 10})
         logger.log("accuracy", {"l2": randint(0, 10) / 10, "mse": randint(0, 100) / 10})
     logger.flush()
+
+
+def test_simple_avg_meter():
+    meter = AverageMeter()
+    for i in range(100):
+        meter.add({"foo": i, "bar": i * 2})
+    expected = {"foo": sum(range(100)) / 100}
+    expected["bar"] = 2 * expected["foo"]
+    assert expected == meter.results()

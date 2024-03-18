@@ -1,4 +1,3 @@
-from typing import Any, Dict, List
 from pathlib import Path
 
 
@@ -22,16 +21,16 @@ class TBLogger(LogWriter):
         self,
         split: Split,
         iteration: int,
-        data: Dict[str, float],
+        data: dict[str, float],
         category: str | None = None,
-    ) -> Any:
+    ):
         # Rename dictionary with split/category/key
         prefix = LogWriter.get_prefix(split, category)
         renamed_data = {f"{prefix}/{k}": v for k, v in data.items()}
         for name, value in renamed_data.items():
             self.writer.add_scalar(name, float(value), step=iteration)
 
-    def add_topic(self, category: str, column_names: List[str]):
+    def add_topic(self, category: str, column_names: list[str]):
         pass  # Not required for tensorboard backend
 
     def flush(self):

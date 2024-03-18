@@ -1,5 +1,3 @@
-from typing import Any, Dict, List
-
 try:
     import wandb
 except ImportError:
@@ -22,15 +20,15 @@ class WandBLogger(LogWriter):
         self,
         split: Split,
         iteration: int,
-        data: Dict[str, float],
+        data: dict[str, float],
         category: str | None = None,
-    ) -> Any:
+    ):
         # Rename dictionary with split/category/key
         prefix = LogWriter.get_prefix(split, category)
         renamed_data = {f"{prefix}/{k}": v for k, v in data.items()}
         wandb.log(data=renamed_data, step=iteration)
 
-    def add_topic(self, category: str, column_names: List[str]):
+    def add_topic(self, category: str, column_names: list[str]):
         pass  # Not required for W&B logging
 
     def flush(self):

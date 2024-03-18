@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict
 
 from ...data import Split
 
@@ -22,7 +21,7 @@ class LogWriter(ABC):
         self,
         split: Split,
         iteration: int,
-        data: Dict[str, float],
+        data: dict[str, float],
         category: str | None = None,
     ) -> None:
         """Add basic keyword-value data to logs"""
@@ -32,7 +31,7 @@ class LogWriter(ABC):
         """Flush logger data to disk if applicable"""
 
     @abstractmethod
-    def add_topic(self, category: str, column_names: List[str]):
+    def add_topic(self, category: str, column_names: list[str]):
         """
         Pre-declare categories with column names.
         Required for backends that can't dynamically add more columns
@@ -43,20 +42,20 @@ class LogWriter(ABC):
 class MultiWriter(LogWriter):
     """Forwards write to multple backends"""
 
-    def __init__(self, writers: List[LogWriter]) -> None:
-        self.writers: List[LogWriter] = writers
+    def __init__(self, writers: list[LogWriter]) -> None:
+        self.writers = writers
 
     def __call__(
         self,
         split: Split,
         iteration: int,
-        data: Dict[str, float],
+        data: dict[str, float],
         category: str | None = None,
     ) -> None:
         for writer in self.writers:
             writer(split, iteration, data, category)
 
-    def add_topic(self, category: str, column_names: List[str]):
+    def add_topic(self, category: str, column_names: list[str]):
         for writer in self.writers:
             writer.add_topic(category, column_names)
 
