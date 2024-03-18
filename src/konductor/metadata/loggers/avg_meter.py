@@ -1,3 +1,4 @@
+from math import isfinite
 from .base_writer import LogWriter, Split
 
 
@@ -7,6 +8,8 @@ class _AverageMeter:
         self.value: float = 0
 
     def add(self, value: float):
+        if not isfinite(value):
+            return  # Skip logging
         value += self.value * self.count
         self.count += 1
         self.value = value / self.count
