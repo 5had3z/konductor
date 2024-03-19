@@ -101,7 +101,11 @@ class DatasetInitConfig:
             train_loader.args["augmentations"] = [
                 ModuleInitConfig(**aug) for aug in train_loader.args["augmentations"]
             ]
-        if "augmentations" in val_loader.args:
+        # Also check if the args are the same instance
+        if (
+            "augmentations" in val_loader.args
+            and val_loader.args is not train_loader.args
+        ):
             val_loader.args["augmentations"] = [
                 ModuleInitConfig(**aug) for aug in val_loader.args["augmentations"]
             ]

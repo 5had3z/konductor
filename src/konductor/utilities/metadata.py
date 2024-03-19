@@ -3,6 +3,7 @@
 import json
 import os
 import re
+from contextlib import closing
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -14,8 +15,8 @@ from pyarrow import compute as pc
 from pyarrow import parquet as pq
 from typing_extensions import Annotated
 
+from ..metadata.database import DB_REGISTRY, Database, Metadata
 from ..metadata.database.sqlite import DEFAULT_FILENAME
-from ..metadata.database import DB_REGISTRY, Metadata, Database
 
 _PQ_SHARD_RE = r"\A(train|val)_[a-zA-Z0-9-]+_[0-9]+_[0-9]+.parquet\Z"
 _PQ_REDUCED_RE = r"\A(train|val)_[a-zA-Z0-9-]+.parquet\Z"
@@ -216,12 +217,13 @@ def update_database(
             if metapath.exists():
                 yield metapath
 
-    db_handle = get_database_with_defaults(db_type, json.loads(db_kwargs), workspace)
-
-    for meta_file in iterate_metadata():
-        meta = Metadata.from_yaml(meta_file)
-        db_handle.update_metadata(meta_file.parent.name, meta)
-    db_handle.commit()
+    with closing(
+        get_database_with_defaults(db_type, json.loads(db_kwargs), workspace)
+    ) as db_handle:
+        for meta_file in iterate_metadata():
+            meta = Metadata.from_yaml(meta_file)
+            db_handle.update_metadata(meta_file.parent.name, meta)
+        db_handle.commit()
 
 
 if __name__ == "__main__":
