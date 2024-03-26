@@ -4,7 +4,7 @@ from logging import getLogger
 import os
 
 import torch
-from torch import nn, load
+from torch import nn
 
 from konductor.utilities import comm
 
@@ -40,6 +40,33 @@ class TorchModelConfig(ModelConfig):
         sched = self.optimizer.get_scheduler(optim)
         return model, optim, sched
 
+    def apply_pretrained(self, model: nn.Module) -> nn.Module:
+        """Apply pretrained weights to model"""
+        assert self.pretrained is not None
+        ckpt_path = (
+            Path(os.environ.get("PRETRAINED_ROOT", Path.cwd())) / self.pretrained
+        )
+
+        checkpoint = torch.load(ckpt_path, map_location="cpu")
+        if "model" in checkpoint:
+            missing, unused = model.load_state_dict(checkpoint["model"], strict=False)
+        else:  # Assume direct loading
+            missing, unused = model.load_state_dict(checkpoint, strict=False)
+
+        logger = getLogger()
+        if len(missing) > 0 or len(unused) > 0:
+            logger.warning(
+                "Loaded pretrained checkpoint from %s "
+                "with %d missing and %d unused weights",
+                ckpt_path,
+                len(missing),
+                len(unused),
+            )
+        else:
+            logger.info("Loaded pretrained checkpoint from %s", ckpt_path)
+
+        return model
+
     def _apply_extra(self, model: nn.Module) -> nn.Module:
         """
         Do extra things to model on initialization such as:
@@ -47,7 +74,7 @@ class TorchModelConfig(ModelConfig):
          - Globally Freeze BatchNorm Layers
          - Load full pretrained model
         """
-        if self.bn_momentum != 0.1:
+        if self.bn_momentum is not None:
             for module in model.modules():
                 if isinstance(module, nn.BatchNorm2d):
                     module.momentum = self.bn_momentum
@@ -58,29 +85,7 @@ class TorchModelConfig(ModelConfig):
                     module.track_running_stats = False
 
         if self.pretrained is not None:
-            ckpt_path = (
-                Path(os.environ.get("PRETRAINED_ROOT", Path.cwd())) / self.pretrained
-            )
-
-            checkpoint = load(ckpt_path, map_location="cpu")
-            if "model" in checkpoint:
-                missing, unused = model.load_state_dict(
-                    checkpoint["model"], strict=False
-                )
-            else:  # Assume direct loading
-                missing, unused = model.load_state_dict(checkpoint, strict=False)
-
-            logger = getLogger()
-            if len(missing) > 0 or len(unused) > 0:
-                logger.warning(
-                    "Loaded pretrained checkpoint from %s "
-                    "with %d missing and %d unused weights",
-                    ckpt_path,
-                    len(missing),
-                    len(unused),
-                )
-            else:
-                logger.info("Loaded pretrained checkpoint from %s", ckpt_path)
+            self.apply_pretrained(model)
 
         return model
 

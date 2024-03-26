@@ -22,7 +22,7 @@ class ModelConfig(BaseConfig):
     # Some Common Parameters (maybe unused)
     optimizer: OptimizerConfig
     pretrained: str | None = field(default=None, kw_only=True)
-    bn_momentum: float = field(default=0.1, kw_only=True)
+    bn_momentum: float | None = field(default=None, kw_only=True)
     bn_freeze: bool = field(default=False, kw_only=True)
 
     @classmethod
