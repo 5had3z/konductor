@@ -3,6 +3,7 @@ Popular Learning Rate Schedulers
 TODO: Find out a way to use inspect.signature to automatically
 generate dataclass config but still have inheritance from base
 """
+
 import math
 from dataclasses import dataclass
 from functools import partial
@@ -81,7 +82,6 @@ class LinearLRConfig(SchedulerConfig):
     start_factor: float = 1.0 / 3
     end_factor: float = 1.0
     total_iters: int = 5
-    last_epoch: int = -1
 
     def get_instance(self, optimizer):
         return super().get_instance(LinearLR, optimizer=optimizer)
@@ -92,7 +92,6 @@ class LinearLRConfig(SchedulerConfig):
 class ConstantLRConfig(SchedulerConfig):
     factor: float = 1.0 / 3
     total_iters: int = 5
-    last_epoch: int = -1
 
     def get_instance(self, optimizer):
         return super().get_instance(ConstantLR, optimizer=optimizer)
@@ -103,7 +102,6 @@ class ConstantLRConfig(SchedulerConfig):
 class StepLRConfig(SchedulerConfig):
     step_size: int
     gamma: float = 0.1
-    last_epoch: int = -1
 
     def get_instance(self, optimizer):
         return super().get_instance(StepLR, optimizer=optimizer)
@@ -114,7 +112,6 @@ class StepLRConfig(SchedulerConfig):
 class MultiStepLRConfig(SchedulerConfig):
     milestones: Sequence[int]
     gamma: float = 0.1
-    last_epoch: int = -1
 
     def get_instance(self, optimizer):
         return super().get_instance(MultiStepLR, optimizer=optimizer)
