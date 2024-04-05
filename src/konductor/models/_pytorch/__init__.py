@@ -33,7 +33,8 @@ class TorchModelConfig(ModelConfig):
                 nn.SyncBatchNorm.convert_sync_batchnorm(model),
                 device_ids=[torch.cuda.current_device()],
                 output_device=torch.cuda.current_device(),
-                find_unused_parameters=os.getenv("DDP_FIND_UNUSED", "False") == "True",
+                find_unused_parameters=os.getenv("DDP_FIND_UNUSED", "false").lower()
+                == "true",
             )
 
         optim = self.optimizer.get_instance(model)
