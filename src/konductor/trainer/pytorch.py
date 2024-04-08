@@ -203,14 +203,25 @@ class PyTorchTrainer(BaseTrainer):
         with record_function("optimizer"):
             if self.data_manager.iteration % self.modules.optimizer.step_interval != 0:
                 return
+
             if self.modules.grad_scaler is not None:
                 self.modules.grad_scaler.step(self.modules.optimizer)
+                # Check if we actually stepped by getting at internal state
+                optim_state = self.modules.grad_scaler._per_optimizer_states[
+                    id(self.modules.optimizer)
+                ]
+                if sum(optim_state["found_inf_per_device"].values()).item() == 0.0:
+                    self._maybe_step_scheduler(is_epoch=False)
+                    self.data_manager.iter_step()
+                else:
+                    self._logger.warning("Iteration skipped due to non-finite gradient")
                 self.modules.grad_scaler.update()
             else:
                 self.modules.optimizer.step()
+                self._maybe_step_scheduler(is_epoch=False)
+                self.data_manager.iter_step()
+
             self.modules.optimizer.zero_grad()
-            self._maybe_step_scheduler(is_epoch=False)
-            self.data_manager.iter_step()
 
     @no_grad()
     def log_step(
@@ -257,12 +268,12 @@ class PyTorchTrainer(BaseTrainer):
             if pbar is not None:
                 pbar.update(1)
             if profiler is not None:
-                profiler.step()
                 if (
                     profiler.schedule(profiler.step_num)
                     == ProfilerAction.RECORD_AND_SAVE
                 ):
                     break
+                profiler.step()
 
     def train_step(self, data) -> tuple[dict[str, Tensor], dict[str, Tensor] | None]:
         """
