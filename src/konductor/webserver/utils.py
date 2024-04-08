@@ -64,7 +64,7 @@ class Experiment:
         data: pd.DataFrame = pq.read_table(
             filename, pre_buffer=False, memory_map=True, use_threads=True
         ).to_pandas()
-        return data.groupby("iteration").mean()
+        return data.groupby("iteration").mean(numeric_only=True)
 
     def __getitem__(self, stat: str) -> pd.Series:
         """Read from disk {split}/{statistic}/{key} and return data by iteration"""
