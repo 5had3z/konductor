@@ -15,6 +15,7 @@ def default_profiler(func, save_dir: Path):
         func,
         activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
         on_trace_ready=tensorboard_trace_handler(str(save_dir)),
+        profile_memory=True,
         schedule=schedule(wait=1, warmup=1, active=3, repeat=1),
     )
 
