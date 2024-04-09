@@ -49,10 +49,11 @@ class TorchModelConfig(ModelConfig):
         )
 
         checkpoint = torch.load(ckpt_path, map_location="cpu")
-        if "model" in checkpoint:
-            missing, unused = model.load_state_dict(checkpoint["model"], strict=False)
-        else:  # Assume direct loading
-            missing, unused = model.load_state_dict(checkpoint, strict=False)
+        if "model" in checkpoint:  # Unwrap 'model' from checkpoint
+            checkpoint = checkpoint["model"]
+        missing, unused = model.load_state_dict(
+            checkpoint, strict=os.environ.get("PRETRAINED_STRICT", "true") == "true"
+        )
 
         logger = getLogger()
         if len(missing) > 0 or len(unused) > 0:
