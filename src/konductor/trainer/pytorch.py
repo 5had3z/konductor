@@ -10,7 +10,7 @@ from torch import nn, optim
 from torch.amp.autocast_mode import autocast
 from torch.autograd.grad_mode import no_grad
 from torch.cuda.amp.grad_scaler import GradScaler
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, LRScheduler
 from torch.profiler import ProfilerAction, profile, record_function
 
 from .trainer import (
@@ -27,6 +27,7 @@ class PyTorchTrainerModules(TrainerModules):
     model: nn.Module
     criterion: list[nn.Module]
     optimizer: optim.Optimizer
+    scheduler: LRScheduler
     grad_scaler: GradScaler | None = None
 
     def get_model(self):
@@ -231,13 +232,19 @@ class PyTorchTrainer(BaseTrainer):
         losses: dict[str, Tensor] | None,
     ) -> None:
         """
-        If losses are missing logging of them will be skipped (if you don't want
-        to log loss during eval). If predictions are missing then accuracy logging
-        will be skipped (if you don't want to log acc during training)
+        If losses are missing logging of them will be skipped (if you don't want to
+        log loss during eval). If loss is logged, so are the current learning rates.
+        If predictions are missing then accuracy logging will be skipped (if you
+        don't want to log acc during training).
         """
         with record_function("statistics"):
             if losses is not None:
-                self.data_manager.perflog.log("loss", losses)
+                loss_lrs = {
+                    f"lr_{i}": lr
+                    for i, lr in enumerate(self.modules.scheduler.get_last_lr())
+                }
+                loss_lrs.update(losses)  # Copy losses
+                self.data_manager.perflog.log("loss", loss_lrs)
 
             if preds is None:
                 return
