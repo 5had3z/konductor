@@ -247,7 +247,12 @@ class DALIExternalSource(ABC):
             if isinstance(yield_info, SampleInfo)
             else yield_info.iteration
         )
-
-        data = self.get_data(self.idx_samples[idx].item())
+        sample_idx: int = self.idx_samples[idx].item()
+        try:
+            data = self.get_data(sample_idx)
+        except Exception as err:
+            raise RuntimeError(
+                f"Error in ExternalSource Loader at Index {sample_idx}"
+            ) from err
 
         return data
