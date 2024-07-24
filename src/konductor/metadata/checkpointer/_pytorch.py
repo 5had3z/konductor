@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import torch
 from torch import nn
@@ -23,7 +23,7 @@ class Checkpointer(BaseCheckpointer):
         Args: Save Directory + Checkpointables
         """
         super().__init__(rootdir)
-        self._ckpts: Dict[str, nn.Module] = {}
+        self._ckpts: dict[str, nn.Module] = {}
 
         # Unpack any lists of modules
         for k in list(extras.keys()):
@@ -73,7 +73,7 @@ class Checkpointer(BaseCheckpointer):
         if is_latest:
             self._maybe_link_latest(_path)
 
-    def load(self, filename: str) -> Dict[str, Any]:
+    def load(self, filename: str) -> dict[str, Any]:
         """Load checkpoint and return any previously saved scalar kwargs"""
         _path = self._get_path(filename)
         checkpoint = torch.load(_path, map_location="cpu")

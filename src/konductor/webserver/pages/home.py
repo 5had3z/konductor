@@ -103,7 +103,7 @@ def btn_update_database(_, root_dir):
     Input("db-kwargs", "data"),
 )
 def update_avail_tables(_, root_dir: str, db_type: str, db_kwargs: str):
-    """"""
+    """ """
     with closing(get_db(db_type, db_kwargs, root_dir)) as db_handle:
         table_names = [t for t in db_handle.get_tables() if t != "metadata"]
     return table_names

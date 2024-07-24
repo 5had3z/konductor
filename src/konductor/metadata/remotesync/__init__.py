@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Set
+from typing import Any
 from warnings import warn
 
 from ...registry import Registry, BaseConfig
@@ -13,7 +13,7 @@ REGISTRY = Registry("remote")
 @dataclass
 class RemoteConfig(BaseConfig):
     host_path: Path
-    file_list: Set[str] | None = field(default_factory=set, init=False)
+    file_list: set[str] | None = field(default_factory=set, init=False)
 
     @classmethod
     def from_config(cls, config: ExperimentInitConfig, **kwargs) -> Any:

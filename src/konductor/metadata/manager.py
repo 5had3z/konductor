@@ -1,13 +1,14 @@
 """
 Single class which manages metadata, statistics and checkpoints during training.
 """
+
 import enum
 import os
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from logging import getLogger
-from typing import Any, Dict
+from typing import Any
 
 
 from ..utilities import comm
@@ -116,8 +117,8 @@ class DataManager:
     def default_build(
         cls,
         exp_config: ExperimentInitConfig,
-        checkpointables: Dict[str, Any],
-        statistics: Dict[str, Statistic],
+        checkpointables: dict[str, Any],
+        statistics: dict[str, Statistic],
         log_writer: LogWriter | None = None,
     ):
         """

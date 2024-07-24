@@ -3,7 +3,7 @@ import os
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 from warnings import warn
 
 from ..init import ExperimentInitConfig, ModuleInitConfig, Split, DatasetInitConfig
@@ -26,7 +26,7 @@ class DataloaderConfig(BaseConfig):
     workers: int = 0
     shuffle: bool = False
     drop_last: bool = True
-    augmentations: List[ModuleInitConfig] = field(default_factory=lambda: [])
+    augmentations: list[ModuleInitConfig] = field(default_factory=lambda: [])
 
     @classmethod
     def from_config(cls, *args, **kwargs) -> Any:
@@ -69,11 +69,11 @@ class DatasetConfig(BaseConfig):
         )
 
     @property
-    def properties(self) -> Dict[str, Any]:
+    def properties(self) -> dict[str, Any]:
         """Useful properties about the dataset's configuration. Can include things
         such as number of classes and their names etc.
 
-        :return: Dictionary of strings and whatever properties.
+        :return: dictionary of strings and whatever properties.
         """
         return {}
 
@@ -136,7 +136,7 @@ def get_dataset_config(config: ExperimentInitConfig, idx: int = 0) -> DatasetCon
     return DATASET_REGISTRY[config.data[idx].dataset.type].from_config(config, idx)
 
 
-def get_dataset_properties(config: ExperimentInitConfig) -> Dict[str, Any]:
+def get_dataset_properties(config: ExperimentInitConfig) -> dict[str, Any]:
     """Get properties of all datasets in experiment"""
     properties = {}
     for idx in range(len(config.data)):

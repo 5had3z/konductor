@@ -1,9 +1,10 @@
 """
 Synchronise workspace with minio s3 bucket
 """
+
 import os
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 from pathlib import Path
 from datetime import datetime
 
@@ -18,7 +19,7 @@ from ...utilities.comm import is_main_process
 @REGISTRY.register_module("minio")
 class MinioRemote(RemoteConfig):
     bucket_name: str | None = None
-    credentials: Dict[str, Any] | None = None
+    credentials: dict[str, Any] | None = None
 
     @classmethod
     def from_config(cls, config: ExperimentInitConfig) -> Any:
@@ -50,7 +51,7 @@ class MinioSync(_RemoteSyncrhoniser):
     def __init__(
         self,
         bucket_name: str | None = None,
-        minio_access: Dict[str, Any] | None = None,
+        minio_access: dict[str, Any] | None = None,
         **kwargs,
     ) -> None:
         """Initialiser for minio bucket

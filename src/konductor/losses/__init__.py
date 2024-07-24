@@ -11,7 +11,7 @@ class Loss:
 """
 
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any
 
 from ..registry import Registry, BaseConfig
 from ..init import ModuleInitConfig, ExperimentInitConfig
@@ -36,7 +36,7 @@ else:
     from . import _pytorch
 
 
-def get_criterion_config(config: ExperimentInitConfig) -> List[LossConfig]:
+def get_criterion_config(config: ExperimentInitConfig) -> list[LossConfig]:
     """Get list of loss configs from experiment configuration"""
     return [
         REGISTRY[loss_fn.type].from_config(config, idx)
@@ -44,6 +44,6 @@ def get_criterion_config(config: ExperimentInitConfig) -> List[LossConfig]:
     ]
 
 
-def get_criterion(config: ExperimentInitConfig) -> List[Any]:
+def get_criterion(config: ExperimentInitConfig) -> list[Any]:
     """Get list of loss modules from configuration"""
     return [l.get_instance() for l in get_criterion_config(config)]

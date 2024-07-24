@@ -1,6 +1,5 @@
 import difflib
 from pathlib import Path
-from typing import List
 
 import dash
 import dash_bootstrap_components as dbc
@@ -18,7 +17,7 @@ from konductor.webserver.utils import (
 
 dash.register_page(__name__, path="/simple-comparison")
 
-EXPERIMENTS: List[Experiment] = []
+EXPERIMENTS: list[Experiment] = []
 OPTION_TREE = OptionTree.make_root()
 
 layout = html.Div(
@@ -135,7 +134,7 @@ def update_graph(split: str, group: str, name: str):
         raise PreventUpdate
 
     stat_path = "/".join([split, group, name])
-    exps: List[pd.Series] = [
+    exps: list[pd.Series] = [
         e[stat_path].rename(e.name).sort_index() for e in EXPERIMENTS if stat_path in e
     ]
     if len(exps) == 0:

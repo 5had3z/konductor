@@ -1,6 +1,7 @@
 """
 Learning rate schedulers
 """
+
 from dataclasses import dataclass
 from logging import debug
 from typing import Any, NewType

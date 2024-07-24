@@ -122,7 +122,7 @@ def make_carousel_row(
     Input("im-experiment", "value"),
 )
 def update_pagination(root_dir: str, experiment_name: str):
-    """"""
+    """ """
     if not all((experiment_name, root_dir)):
         raise PreventUpdate
 
@@ -156,7 +156,7 @@ def update_thumbnails(
     enable_dark: bool,
     nn_interp: bool,
 ):
-    """"""
+    """ """
     if not all((experiment_name, root_dir, sample_idx)):
         raise PreventUpdate
 

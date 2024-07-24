@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any
 from pathlib import Path
 import shutil
 
@@ -30,10 +30,10 @@ class BaseCheckpointer(ABC):
         pass
 
     @abstractmethod
-    def load(self, filename: str) -> Dict[str, Any]:
+    def load(self, filename: str) -> dict[str, Any]:
         return {}
 
-    def resume(self) -> Dict[str, Any]:
+    def resume(self) -> dict[str, Any]:
         """Load the latest checkpoint otherwise return None"""
         return self.load(self.latest.name)
 

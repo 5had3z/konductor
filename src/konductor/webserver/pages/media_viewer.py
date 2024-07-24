@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import List
 
 import cv2
 import dash
@@ -13,7 +12,7 @@ from konductor.webserver.utils import Experiment, fill_experiments
 
 dash.register_page(__name__, path="/media-viewer")
 
-EXPERIMENTS: List[Experiment] = []
+EXPERIMENTS: list[Experiment] = []
 
 layout = html.Div(
     children=[
@@ -90,7 +89,7 @@ def get_thumbnail(path: Path) -> np.ndarray:
     return cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
 
 
-def add_thumbnail_to_grid(grid: List[dbc.Col], video_path: Path):
+def add_thumbnail_to_grid(grid: list[dbc.Col], video_path: Path):
     """Adds thumbnail to grid"""
     img = get_thumbnail(video_path)
 
@@ -113,7 +112,7 @@ def add_thumbnail_to_grid(grid: List[dbc.Col], video_path: Path):
     Input("md-type", "value"),
 )
 def update_thumbnails(root_dir: str, experiment_name: str, media: str):
-    """"""
+    """ """
     if not all([experiment_name, root_dir, media]):
         raise PreventUpdate
 

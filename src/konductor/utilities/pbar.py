@@ -3,7 +3,7 @@ import os
 import itertools
 from threading import Thread, Event, Lock
 from datetime import timedelta
-from typing import Any, List
+from typing import Any
 import enum
 
 from tqdm.auto import tqdm
@@ -170,7 +170,7 @@ class LivePbar(ThreaddedPbar):
         desc: str = "Running",
         ncols: int | None = None,
         frequency: float = 10,
-        progress_style: List[str] | int | None = None,
+        progress_style: list[str] | int | None = None,
     ) -> None:
         super().__init__(total, desc, ncols)
         self.frequency = frequency
@@ -211,7 +211,7 @@ class TimedPbar(ThreaddedPbar):
         desc: str = "Running",
         ncols: int | None = None,
         period_sec: float = 3600,
-        progress_style: List[str] | int | None = None,
+        progress_style: list[str] | int | None = None,
     ) -> None:
         super().__init__(total, desc, ncols)
         self.period_sec = period_sec

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from torch.profiler import (
     profile,
@@ -31,9 +31,9 @@ def profile_wrapper(func, *prof_args, **prof_kwargs):
 
 
 def profile_function(
-    target_func: Callable, save_dir: Path, profile_kwargs: Dict[str, Any] | None = None
+    target_func: Callable, save_dir: Path, profile_kwargs: dict[str, Any] | None = None
 ) -> None:
-    """"""
+    """ """
     if profile_kwargs is None:
         default_profiler(target_func, save_dir)()
     else:

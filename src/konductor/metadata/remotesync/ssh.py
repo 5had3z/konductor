@@ -160,7 +160,7 @@ class SshSync(_RemoteSyncrhoniser):
         _, stdout, _ = self._session.exec_command(f"md5sum {str(remote)}")
         remote_check = stdout.readline().strip("\n").split(" ")[0]
 
-        ret = subprocess.run(["md5sum", str(host)], capture_output=True)
+        ret = subprocess.run(["md5sum", str(host)], capture_output=True, check=True)
         host_check = ret.stdout.decode().split(" ")[0]
 
         return remote_check == host_check
@@ -198,7 +198,7 @@ class SshSync(_RemoteSyncrhoniser):
                 self.push(filename, force, sftp_)
                 self.has_recursed = False
             else:
-                raise OSError("Failed retry of pushing %s", filename)
+                raise OSError(f"Failed retry of pushing {filename}")
         else:
             # If successfully pushed, rename to main target
             sftp_.posix_rename(str(tmp_remote), str(remote))
@@ -239,9 +239,11 @@ class SshSync(_RemoteSyncrhoniser):
             return
 
         self.logger.info(
-            "Pulling file from remote and overwriting existing: %s"
-            if local.exists()
-            else "Pulling new file from remote: %s",
+            (
+                "Pulling file from remote and overwriting existing: %s"
+                if local.exists()
+                else "Pulling new file from remote: %s"
+            ),
             filename,
         )
 
@@ -256,7 +258,7 @@ class SshSync(_RemoteSyncrhoniser):
                 self.pull(filename, force, sftp_)
                 self.has_recursed = False
             else:
-                raise OSError("Failed retry of pulling %s", filename)
+                raise OSError(f"Failed retry of pulling {filename}")
         else:
             # If successfully pushed, rename to main target
             tmp_local.rename(local)
@@ -281,7 +283,7 @@ class SshSync(_RemoteSyncrhoniser):
     def _generate_file_list_from_remote(self) -> None:
         remote_path = str(self._remote_path)
 
-        # List files on remote
+        # list files on remote
         _, stdout, stderr = self._session.exec_command(f"ls {remote_path}")
 
         for line in stderr:

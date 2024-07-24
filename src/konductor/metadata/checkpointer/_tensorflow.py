@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 from pathlib import Path
 
 from .base import BaseCheckpointer
@@ -14,5 +14,5 @@ class Checkpointer(BaseCheckpointer):
     def save(self, filename: str, **extras) -> None:
         pass
 
-    def load(self, filename: str) -> Dict[str, Any]:
+    def load(self, filename: str) -> dict[str, Any]:
         return {}

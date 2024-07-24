@@ -1,7 +1,8 @@
 """
 Testing metadata manager
 """
-from typing import Any, Dict
+
+from typing import Any
 
 import numpy as np
 import pytest
@@ -15,7 +16,7 @@ pytestmark = pytest.mark.statistics
 class DummyModel:
     some_data = 1
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {"some_data": self.some_data}
 
 

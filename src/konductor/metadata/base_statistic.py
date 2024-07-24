@@ -23,4 +23,4 @@ class Statistic(ABC):
 
     @abstractmethod
     def __call__(self, *args, **kwargs) -> dict[str, float]:
-        """Calculate and Return Dictionary of Statistics"""
+        """Calculate and Return dictionary of Statistics"""

@@ -13,7 +13,7 @@ pytestmark = pytest.mark.remote
 
 
 def test_remote_ssh_pk(example_config: ExperimentInitConfig):
-    """"""
+    """ """
     pk_config = {
         "key_filename": str(Path.home() / ".ssh/id_rsa"),
         "username": "worker",
@@ -26,7 +26,7 @@ def test_remote_ssh_pk(example_config: ExperimentInitConfig):
 
 
 def test_remote_ssh_file(example_config: ExperimentInitConfig):
-    """"""
+    """ """
     example_config.remote_sync = ModuleInitConfig(
         type="ssh",
         args={

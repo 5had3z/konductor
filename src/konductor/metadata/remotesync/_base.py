@@ -1,11 +1,11 @@
 """Abstract Base remote syncrhonisation that defines
 interfaces required for remote synchronisation.
 """
+
 from abc import ABC, abstractmethod
 from logging import getLogger
 from pathlib import Path
 import re
-from typing import List, Set
 
 
 class _RemoteSyncrhoniser(ABC):
@@ -13,9 +13,9 @@ class _RemoteSyncrhoniser(ABC):
     data source.
     """
 
-    def __init__(self, host_path: Path, file_list: Set[str] | None = None) -> None:
+    def __init__(self, host_path: Path, file_list: set[str] | None = None) -> None:
         self.logger = getLogger("remote_sync")
-        self.file_list: Set[str] = set() if file_list is None else file_list
+        self.file_list: set[str] = set() if file_list is None else file_list
         assert host_path.exists(), f"Host path does not exist: {host_path}"
         self._host_path = host_path
 
@@ -24,7 +24,7 @@ class _RemoteSyncrhoniser(ABC):
         """Copies file from the host to the remote
         Will not copy if the remote last motified is newer unless force=True"""
 
-    def push_select(self, regex_: List[str], force: bool = False) -> None:
+    def push_select(self, regex_: list[str], force: bool = False) -> None:
         """Copies files that match list of regex to remote"""
         self._generate_file_list_from_host()
         for filename in self.file_list:
@@ -47,7 +47,7 @@ class _RemoteSyncrhoniser(ABC):
         """Copies file from the remote to the host.
         Will not copy if the host last motified is newer unless force=True"""
 
-    def pull_select(self, regex_: List[str], force: bool = False) -> None:
+    def pull_select(self, regex_: list[str], force: bool = False) -> None:
         """Copies files that match list of regex from remote"""
         self._generate_file_list_from_remote()
         self.logger.info("Pulling objects that match %s", regex_)

@@ -6,7 +6,7 @@ import functools
 import logging
 import os
 import pickle
-from typing import Any, Dict, List
+from typing import Any
 from datetime import timedelta
 
 import numpy as np
@@ -138,7 +138,7 @@ def _pad_to_largest_tensor(tensor: Tensor, group):
     return size_list, tensor
 
 
-def all_gather(data: Any, group=None) -> List[Any]:
+def all_gather(data: Any, group=None) -> list[Any]:
     """
     Run all_gather on arbitrary picklable data (not necessarily tensors).
     Args:
@@ -175,7 +175,7 @@ def all_gather(data: Any, group=None) -> List[Any]:
     return data_list
 
 
-def gather(data: Any, dst=0, group=None) -> List[Any]:
+def gather(data: Any, dst=0, group=None) -> list[Any]:
     """
     Run gather on arbitrary picklable data (not necessarily tensors).
     Args:
@@ -230,7 +230,7 @@ def shared_random_seed() -> int:
     return all_ints[0]
 
 
-def reduce_dict(input_dict: Dict[str, Tensor], average=True) -> Dict[str, Tensor]:
+def reduce_dict(input_dict: dict[str, Tensor], average=True) -> dict[str, Tensor]:
     """
     Reduce the values in the dictionary from all processes so that process with rank
     0 has the reduced results.

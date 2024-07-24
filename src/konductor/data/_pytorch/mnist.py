@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict
-from typing import Any, Dict
+from typing import Any
 
 import torch
 from torchvision.datasets import MNIST
@@ -16,7 +16,7 @@ class MNISTConfig(DatasetConfig):
     n_classes: int = 10
 
     @property
-    def properties(self) -> Dict[str, Any]:
+    def properties(self) -> dict[str, Any]:
         return asdict(self)
 
     def get_dataloader(self, split: Split) -> Any:

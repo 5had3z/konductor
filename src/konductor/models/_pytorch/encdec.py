@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 from torch import nn
 
@@ -22,7 +22,7 @@ class EncoderDecoderConfig:
 
     @classmethod
     def from_config(cls, config: ExperimentInitConfig, idx: int):
-        """"""
+        """ """
         model_args = config.model[idx].args
         encoder = ENCODER_REGISTRY[model_args["encoder"]["type"]].from_config(
             config, idx
@@ -57,8 +57,8 @@ class EncoderDecoder(nn.Module):
         self.decoder = decoder
         self.postproc = postproc
 
-    def forward(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        """"""
+    def forward(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        """ """
         x = self.encoder(inputs)
         out = self.decoder(x)
         if self.postproc is not None:

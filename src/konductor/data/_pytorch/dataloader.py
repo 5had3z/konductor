@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from logging import warning
-from typing import Any, Callable, List, Type
+from typing import Any, Callable, Type
 
 from torch.utils.data import (
     BatchSampler,
@@ -38,7 +38,7 @@ class DataloaderV1Config(DataloaderConfig):
     pin_memory: bool = True
     sampler: Type[Sampler] | None = None
     batch_sampler: Type[BatchSampler] | None = None
-    collate_fn: Callable[[List[Any]], Any] | None = None
+    collate_fn: Callable[[list[Any]], Any] | None = None
 
     def get_instance(self, dataset):
         if self.sampler is not None:

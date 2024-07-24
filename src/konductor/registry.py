@@ -10,7 +10,7 @@ import inspect
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import getLogger, warning
-from typing import Any, Dict, Set
+from typing import Any
 
 from .init import ExperimentInitConfig
 
@@ -31,7 +31,7 @@ class BaseConfig(ABC):
     def get_instance(self, *args, **kwargs) -> Any:
         """Get initialised module from configuration"""
 
-    def init_auto_filter(self, target, known_unused: Set[str] | None = None, **extras):
+    def init_auto_filter(self, target, known_unused: set[str] | None = None, **extras):
         """
         Make instance of target class with auto-filtered self.__dict__ + extras
         known_unused is a set of keyword arguments which may be present and are
@@ -70,7 +70,7 @@ class Registry:
 
     def __init__(self, name: str):
         self._name = name.lower()
-        self._module_dict: Dict[str, Any] = {}
+        self._module_dict: dict[str, Any] = {}
         self._logger = getLogger(name=f"{name}_registry")
 
     def __len__(self):

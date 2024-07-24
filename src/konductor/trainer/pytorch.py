@@ -43,6 +43,8 @@ class PyTorchTrainerConfig(TrainerConfig):
     amp: dict[str, Any] | None = None
     # Run torch.compile on main model with configuration
     compile: dict[str, Any] | None = None
+    # Maximum number of non-finite gradients in a row before terminating training with error
+    max_nonfinite_grad: int = 100
 
 
 def _amp_wrapper(func, amp_kwargs: dict[str, Any]):
@@ -130,6 +132,7 @@ class PyTorchTrainer(BaseTrainer):
     """Training manager for pytorch based models"""
 
     modules: PyTorchTrainerModules
+    _config: PyTorchTrainerConfig
 
     def __init__(
         self,
@@ -145,6 +148,9 @@ class PyTorchTrainer(BaseTrainer):
             )
             self._train = _amp_wrapper(self._train, config.amp)
             self._validate = _amp_wrapper(self._validate, config.amp)
+
+        # Counter for non-finite gradients in amp, exit when too many in a row
+        self.non_finite_grad_counter = 0
 
         if config.compile is not None:
             modules.model = torch.compile(modules.model, **config.compile)
@@ -214,8 +220,16 @@ class PyTorchTrainer(BaseTrainer):
                 if sum(optim_state["found_inf_per_device"].values()).item() == 0.0:
                     self._maybe_step_scheduler(is_epoch=False)
                     self.data_manager.iter_step()
+                    self.non_finite_grad_counter = 0
                 else:
                     self._logger.warning("Iteration skipped due to non-finite gradient")
+                    self.non_finite_grad_counter += 1
+                    if self.non_finite_grad_counter > self._config.max_nonfinite_grad:
+                        raise RuntimeError(
+                            "Exceeded number of allowed non-finite gradients "
+                            f"in a row ({self._config.max_nonfinite_grad})"
+                        )
+
                 self.modules.grad_scaler.update()
             else:
                 self.modules.optimizer.step()

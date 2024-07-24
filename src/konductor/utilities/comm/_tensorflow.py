@@ -1,5 +1,5 @@
 import functools
-from typing import Any, List
+from typing import Any
 
 import numpy as np
 
@@ -74,7 +74,7 @@ def _pad_to_largest_tensor(tensor, group):
     raise NotImplementedError()
 
 
-def all_gather(data: Any, group=None) -> List[Any]:
+def all_gather(data: Any, group=None) -> list[Any]:
     """
     Run all_gather on arbitrary picklable data (not necessarily tensors).
     Args:
@@ -87,7 +87,7 @@ def all_gather(data: Any, group=None) -> List[Any]:
     raise NotImplementedError()
 
 
-def gather(data: Any, dst=0, group=None) -> List[Any]:
+def gather(data: Any, dst=0, group=None) -> list[Any]:
     """
     Run gather on arbitrary picklable data (not necessarily tensors).
     Args:

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Any, Callable, Dict, List, Sequence, TypeVar
+from typing import Any, Callable, Sequence, TypeVar
 
 from ..utilities import comm
 from ..metadata import DataManager
@@ -16,7 +16,7 @@ class TrainerModules:
     """Holds all common training Modules"""
 
     model: Any  # Model to train
-    criterion: List[Any]  # List of loss functions
+    criterion: list[Any]  # list of loss functions
     optimizer: Any  # Optimizer
     scheduler: Any  # Learning rate scheduler
     trainloader: Sequence
@@ -68,7 +68,7 @@ class TrainerModules:
 class TrainerConfig:
     # Function to run for monitoring issues with the value
     # of the loss, does absolutely nothing by default
-    loss_monitor: Callable[[Dict[str, Any]], None] = lambda x: None
+    loss_monitor: Callable[[dict[str, Any]], None] = lambda x: None
 
     # Enable Console Progress
     pbar: Callable | None = None
@@ -205,7 +205,7 @@ class BaseTrainer(ABC):
         return cond
 
     @abstractmethod
-    def _accumulate_losses(self, losses: Dict[str, Any]) -> Any:
+    def _accumulate_losses(self, losses: dict[str, Any]) -> Any:
         """Accumulate losses into single number hook, good idea to put a
         grad scaler here if using amp"""
 

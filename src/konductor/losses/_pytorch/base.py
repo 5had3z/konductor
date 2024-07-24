@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 from dataclasses import asdict, dataclass
 
 import torch
@@ -47,7 +47,7 @@ class BCELoss(nn.BCELoss):
 @REGISTRY.register_module("bce")
 class BCELossConfig(LossConfig):
     weight: float = 1.0
-    weights: List[float] | Tensor | None = None
+    weights: list[float] | Tensor | None = None
     reduction: str = "mean"
 
     def get_instance(self) -> Any:
