@@ -6,11 +6,12 @@ from typing import Any
 import torch
 from torch import Tensor
 from torch import backends as tb
-from torch import nn, optim
+from torch import nn
 from torch.amp.autocast_mode import autocast
 from torch.autograd.grad_mode import no_grad
 from torch.cuda.amp.grad_scaler import GradScaler
-from torch.optim.lr_scheduler import ReduceLROnPlateau, LRScheduler
+from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
+from torch.optim.optimizer import Optimizer
 from torch.profiler import ProfilerAction, profile, record_function
 
 from .trainer import (
@@ -26,9 +27,19 @@ from .trainer import (
 class PyTorchTrainerModules(TrainerModules):
     model: nn.Module
     criterion: list[nn.Module]
-    optimizer: optim.Optimizer
+    optimizer: Optimizer
     scheduler: LRScheduler
     grad_scaler: GradScaler | None = None
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        # Move criterion modules to cuda device, useful if they
+        # have static buffers used for calculating the loss
+        if torch.cuda.is_available():
+            for crit in self.criterion:
+                if callable(getattr(crit, "cuda", None)):
+                    crit.cuda()
 
     def get_model(self):
         """Get model and unwrap ddp if necessary"""
