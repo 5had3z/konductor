@@ -57,7 +57,16 @@ def get_experiment(name: str):
 def init_exp(root_dir: str):
     if len(EXPERIMENTS) == 0:
         fill_experiments(Path(root_dir), EXPERIMENTS)
-    return [e.name for e in EXPERIMENTS]
+
+    def has_media(e: Experiment):
+        """Experiment has media if any .webm files exist"""
+        try:
+            next(e.root.glob("**/*.webm"))
+        except StopIteration:
+            return False
+        return True
+
+    return [e.name for e in EXPERIMENTS if has_media(e)]
 
 
 @callback(
