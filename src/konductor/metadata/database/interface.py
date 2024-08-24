@@ -25,7 +25,7 @@ class Database(ABC):
         """
 
     @abstractmethod
-    def close():
+    def close(self):
         """Close Database Connection"""
 
     @abstractmethod
