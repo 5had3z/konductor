@@ -1,5 +1,7 @@
+"""Pytorch trainer"""
+
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import Event, Lock, Thread
 from typing import Any
 
@@ -9,7 +11,6 @@ from torch import backends as tb
 from torch import nn
 from torch.amp.autocast_mode import autocast
 from torch.autograd.grad_mode import no_grad
-from torch.cuda.amp.grad_scaler import GradScaler
 from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 from torch.optim.optimizer import Optimizer
 from torch.profiler import ProfilerAction, profile, record_function
@@ -23,8 +24,16 @@ from .trainer import (
 )
 
 
+if torch.__version__ > "2.3":
+    from torch.amp.grad_scaler import GradScaler
+else:
+    from torch.cuda.amp.grad_scaler import GradScaler
+
+
 @dataclass
 class PyTorchTrainerModules(TrainerModules):
+    """Modules used in pytorch training"""
+
     model: nn.Module
     criterion: list[nn.Module]
     optimizer: Optimizer
@@ -50,17 +59,41 @@ class PyTorchTrainerModules(TrainerModules):
 
 @dataclass
 class PyTorchTrainerConfig(TrainerConfig):
+    """Configuration for pytorch training"""
+
     # Enable Nvidia AMP and configure
     amp: dict[str, Any] | None = None
     # Run torch.compile on main model with configuration
     compile: dict[str, Any] | None = None
     # Maximum number of non-finite gradients in a row before terminating training with error
     max_nonfinite_grad: int = 100
+    # Grad scaler configuration, will be used if AMP is enabled
+    grad_scaler: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        if self.amp is not None:
+            # Set default device type if not specified
+            if "device_type" not in self.amp:
+                self.amp["device_type"] = "cuda"
+
+            # If not specified, set dtype inline with pytorch's defaults
+            if "dtype" not in self.amp:
+                self.amp["dtype"] = {
+                    "cuda": "float16",
+                    "cpu": "bfloat16",
+                }[self.amp["device_type"]]
+
+            # Then convert string to a pytorch type
+            self.amp["dtype"] = {
+                "float16": torch.float16,
+                "bfloat16": torch.bfloat16,
+            }[self.amp["dtype"]]
+
+            self.grad_scaler["device"] = self.amp["device_type"]
 
 
 def _amp_wrapper(func, amp_kwargs: dict[str, Any]):
-    # Set default device type if not specified
-    amp_kwargs["device_type"] = amp_kwargs.get("device_type", "cuda")
+    """Wrap function with automatic-mixed precision enabled"""
 
     def with_amp(*args, **kwargs):
         with autocast(**amp_kwargs):
@@ -153,7 +186,7 @@ class PyTorchTrainer(BaseTrainer):
     ):
         # If AMP is enabled, wrap train and eval loops and add grad_scaler
         if config.amp is not None:
-            modules.grad_scaler = GradScaler()
+            modules.grad_scaler = GradScaler(**config.grad_scaler)
             data_manager.checkpointer.add_checkpointable(
                 "grad_scaler", modules.grad_scaler
             )

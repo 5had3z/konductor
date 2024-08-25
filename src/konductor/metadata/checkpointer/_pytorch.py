@@ -76,10 +76,13 @@ class Checkpointer(BaseCheckpointer):
     def load(self, filename: str) -> dict[str, Any]:
         """Load checkpoint and return any previously saved scalar kwargs"""
         _path = self._get_path(filename)
-        checkpoint = torch.load(_path, map_location="cpu")
+        load_kwargs = {"map_location": "cpu"}
+        if torch.__version__ > "2.3":
+            load_kwargs["weights_only"] = True
+        checkpoint = torch.load(_path, **load_kwargs)
 
-        for key in self._ckpts:
-            self._ckpts[key].load_state_dict(checkpoint.pop(key))
+        for key, module in self._ckpts.items():
+            module.load_state_dict(checkpoint.pop(key))
 
         # Return extra data
         return checkpoint
