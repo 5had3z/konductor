@@ -1,4 +1,4 @@
-from .manager import DataManager, CkptConfig
+from .manager import DataManager, CkptConfig, Metadata
 from .checkpointer import Checkpointer
 from .perflogger import PerfLogger
 from .base_statistic import Statistic

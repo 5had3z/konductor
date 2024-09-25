@@ -10,14 +10,14 @@ from datetime import datetime, timedelta
 from logging import getLogger
 from typing import Any
 
-
+from ..init import ExperimentInitConfig
 from ..utilities import comm
 from .checkpointer import Checkpointer
-from .remotesync import _RemoteSyncrhoniser, get_remote
-from .perflogger import PerfLogger, Statistic, LogWriter
-from .loggers.pq_writer import ParquetLogger
+from .database.metadata import DEFAULT_FILENAME as META_FNAME
 from .database.metadata import Metadata
-from ..init import ExperimentInitConfig
+from .loggers.pq_writer import ParquetLogger
+from .perflogger import LogWriter, PerfLogger, Statistic
+from .remotesync import _RemoteSyncrhoniser, get_remote
 
 
 def _get_commit() -> str:
@@ -149,7 +149,7 @@ class DataManager:
         self.metadata = Metadata(
             commit_begin=_get_commit(),
             commit_last=_get_commit(),
-            filepath=self.workspace / "metadata.yaml",
+            filepath=self.workspace / META_FNAME,
         )
 
     @property

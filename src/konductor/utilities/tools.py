@@ -1,12 +1,15 @@
 """Extra tools"""
 
+import importlib
 import json
 from pathlib import Path
-from typing import Optional, Annotated
+from typing import Annotated, Optional
+from warnings import warn
 
 import typer
 import yaml
 
+from ..models import MODEL_REGISTRY
 from ..scheduler import REGISTRY
 
 app = typer.Typer()
@@ -36,9 +39,68 @@ def plot_lr(
     scheduler = REGISTRY[sched_conf["type"]](**sched_conf["args"])
 
 
+def _load_model_config(path: Path):
+    """Load model instance using configuration file"""
+    with open(path, "r", encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+
+    # If experiment configuration, extract model
+    if isinstance(cfg, dict) and "model" in cfg:
+        cfg = cfg["model"]
+
+    # If list of models, only get the first
+    if isinstance(cfg, list):
+        if len(cfg) > 1:
+            warn(f"More than one model in config ({len(cfg)}), only evaluating first")
+        cfg = cfg[0]
+
+    # Add dummy optimizer configuration if necessary
+    if "optimizer" not in cfg:
+        cfg["optimizer"] = {"type": "sgd", "args": {}, "scheduler": {}}
+
+    # Initialize configuration instance from registry
+    model_cfg = MODEL_REGISTRY[cfg["type"]](**cfg["args"], optimizer=cfg["optimizer"])
+
+    return model_cfg.get_instance()
+
+
+def _try_pytorch(model):
+    """Test if model is PyTorch based and get parameters if it is"""
+    try:
+        from torch.nn import Module
+    except ImportError:
+        return None
+
+    if isinstance(model, Module):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return None
+
+
 @app.command()
-def dummy():
-    """Does nothing, require command"""
+def parameter_count(
+    config_path: Annotated[Path, typer.Option(help="Model config yaml")],
+    module: Annotated[Path, typer.Option(help="Module to import source code")],
+):
+    """Count learnable parameters of a model constructed by config. --module imports model source
+    code so `get_model` can build the model. This program will try to guess the method of counting
+    parameters depending on the instance type (i.e. if the model is a torch.nn.Module).
+    Currently only PyTorch is supported.
+    Example usage where 'src' folder in cwd contains source code:
+
+    konduct-tools parameter-count --config-path checkpoint/train_config.yml --module src
+
+    >>> # Learnable Param: 653760
+    """
+    importlib.import_module(str(module))
+
+    model = _load_model_config(config_path)
+
+    total_params = _try_pytorch(model)
+
+    if total_params is not None:
+        print(f"# Learnable Parameters: {total_params}")
+    else:
+        raise RuntimeError(f"Unable to determine parameters for {type(model)}")
 
 
 if __name__ == "__main__":

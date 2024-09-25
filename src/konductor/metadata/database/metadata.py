@@ -7,6 +7,8 @@ from typing import Any
 
 import yaml
 
+DEFAULT_FILENAME = "metadata.yaml"
+
 
 @dataclass
 class Metadata:
