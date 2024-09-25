@@ -9,7 +9,8 @@ from warnings import warn
 import typer
 import yaml
 
-from ..models import MODEL_REGISTRY
+from ..init import ExperimentInitConfig
+from ..models import MODEL_REGISTRY, get_model
 from ..scheduler import REGISTRY
 
 app = typer.Typer()
@@ -46,6 +47,15 @@ def _load_model_config(path: Path):
 
     # If experiment configuration, extract model
     if isinstance(cfg, dict) and "model" in cfg:
+        try:
+            cfg["exp_path"] = Path().cwd()  # Dummy path
+            exp_cfg = ExperimentInitConfig.from_dict(cfg)
+            return get_model(exp_cfg)
+        except BaseException as err:
+            print(
+                f"Failed to create ExperimentInitConfig: {err}"
+                f"Trying to extract model directly..."
+            )
         cfg = cfg["model"]
 
     # If list of models, only get the first
