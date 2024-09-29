@@ -86,8 +86,20 @@ def _try_pytorch(model):
     return None
 
 
-@app.command()
-def parameter_count(
+def parameter_count(config_path: Path):
+    """Load model from the configuration file and return it's learnable parameter count"""
+    model = _load_model_config(config_path)
+
+    total_params = _try_pytorch(model)
+
+    if total_params is None:
+        raise RuntimeError(f"Unable to determine parameters for {type(model)}")
+
+    return total_params
+
+
+@app.command(name="param-count")
+def _parameter_cmd(
     config_path: Annotated[Path, typer.Option(help="Model config yaml")],
     module: Annotated[Path, typer.Option(help="Module to import source code")],
 ):
@@ -97,20 +109,15 @@ def parameter_count(
     Currently only PyTorch is supported.
     Example usage where 'src' folder in cwd contains source code:
 
-    konduct-tools parameter-count --config-path checkpoint/train_config.yml --module src
+    konduct-tools param-count --config-path checkpoint/train_config.yml --module src
 
     >>> # Learnable Param: 653760
     """
     importlib.import_module(str(module))
 
-    model = _load_model_config(config_path)
+    total_params = parameter_count(config_path)
 
-    total_params = _try_pytorch(model)
-
-    if total_params is not None:
-        print(f"# Learnable Parameters: {total_params}")
-    else:
-        raise RuntimeError(f"Unable to determine parameters for {type(model)}")
+    print(f"# Learnable Parameters: {total_params}")
 
 
 if __name__ == "__main__":
