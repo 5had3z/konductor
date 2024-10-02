@@ -143,6 +143,10 @@ def update_table(table: str, root: str, db_type: str, db_kwargs: str):
         if pd.api.types.is_float_dtype(perf[col]):
             col_def["type"] = "numeric"
             col_def["format"] = dash_table.Format.Format(precision=3)
+        elif col == "brief":
+            col_def["type"] = "text"
+        elif col == "train_last":
+            col_def["type"] = "datetime"
         col_defs.append(col_def)
 
     return perf.to_dict("records"), col_defs
