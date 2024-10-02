@@ -132,7 +132,10 @@ def update_table(table: str, root: str, db_type: str, db_kwargs: str):
     cols: list[str] = list(perf.columns)
     # rearrange so [ts, iteration, desc] are at the start
     for idx, name in enumerate(["brief", "train_last", "iteration"]):
-        cols.insert(idx, cols.pop(cols.index(name)))
+        try:
+            cols.insert(idx, cols.pop(cols.index(name)))
+        except ValueError:
+            pass  # Skip if some name is not present
 
     col_defs: list[dict[str, object]] = []
     for col in cols:
