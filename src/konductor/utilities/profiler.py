@@ -32,10 +32,15 @@ def profile_wrapper(func, *prof_args, **prof_kwargs):
 
 
 def profile_function(
-    target_func: Callable, save_dir: Path, profile_kwargs: dict[str, Any] | None = None
+    target_func: Callable,
+    save_dir: Path | None = None,
+    profile_kwargs: dict[str, Any] | None = None,
 ) -> None:
-    """Run profiling on a target function (must take profiler as kwarg)"""
+    """Run profiling on a target function (must take profiler as kwarg).
+    If profile_kwargs isn't specified, save_dir must be to create default profiling kwargs.
+    """
     if profile_kwargs is None:
+        assert save_dir is not None, "Need save_dir to create default kwargs"
         profile_kwargs = make_default_profiler_kwargs(save_dir)
 
-    profile_wrapper(target_func, save_dir=save_dir, **profile_kwargs)()
+    profile_wrapper(target_func, **profile_kwargs)()
