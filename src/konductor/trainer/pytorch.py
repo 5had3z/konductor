@@ -236,10 +236,12 @@ class PyTorchTrainer(BaseTrainer):
                 all_loss = self.modules.grad_scaler.scale(all_loss)
             all_loss.backward()
 
-    def _maybe_step_scheduler(self, is_epoch: bool):
+    def _maybe_step_scheduler(self, is_epoch: bool) -> bool:
+        """Return true if the scheduler was stepped"""
+
         # Don't step if is_epoch and epoch_step do not match
         if self.modules.scheduler.epoch_step != is_epoch:
-            return
+            return False
 
         if isinstance(self.modules.scheduler, ReduceLROnPlateau):
             assert (
@@ -249,38 +251,40 @@ class PyTorchTrainer(BaseTrainer):
             self.plateau_loss.reset()
         else:
             self.modules.scheduler.step()
+        return True
 
-    def _maybe_step_optimiser(self) -> None:
-        with record_function("optimizer"):
-            if self.data_manager.iteration % self.modules.optimizer.step_interval != 0:
-                return
+    def _maybe_step_optimiser(self) -> bool:
+        """Returns true if the optimizer was stepped"""
+        if self.data_manager.iteration % self.modules.optimizer.step_interval != 0:
+            return False
 
-            if self.modules.grad_scaler is not None:
-                self.modules.grad_scaler.step(self.modules.optimizer)
-                # Check if we actually stepped by getting at internal state
-                optim_state = self.modules.grad_scaler._per_optimizer_states[
-                    id(self.modules.optimizer)
-                ]
-                if sum(optim_state["found_inf_per_device"].values()).item() == 0.0:
-                    self._maybe_step_scheduler(is_epoch=False)
-                    self.data_manager.iter_step()
-                    self.non_finite_grad_counter = 0
-                else:
-                    self._logger.warning("Iteration skipped due to non-finite gradient")
-                    self.non_finite_grad_counter += 1
-                    if self.non_finite_grad_counter > self._config.max_nonfinite_grad:
-                        raise RuntimeError(
-                            "Exceeded number of allowed non-finite gradients "
-                            f"in a row ({self._config.max_nonfinite_grad})"
-                        )
-
-                self.modules.grad_scaler.update()
-            else:
-                self.modules.optimizer.step()
+        if self.modules.grad_scaler is not None:
+            self.modules.grad_scaler.step(self.modules.optimizer)
+            # Check if we actually stepped by getting at internal state
+            optim_state = self.modules.grad_scaler._per_optimizer_states[
+                id(self.modules.optimizer)
+            ]
+            if sum(optim_state["found_inf_per_device"].values()).item() == 0.0:
                 self._maybe_step_scheduler(is_epoch=False)
                 self.data_manager.iter_step()
+                self.non_finite_grad_counter = 0
+            else:
+                self._logger.warning("Iteration skipped due to non-finite gradient")
+                self.non_finite_grad_counter += 1
+                if self.non_finite_grad_counter > self._config.max_nonfinite_grad:
+                    raise RuntimeError(
+                        "Exceeded number of allowed non-finite gradients "
+                        f"in a row ({self._config.max_nonfinite_grad})"
+                    )
 
-            self.modules.optimizer.zero_grad()
+            self.modules.grad_scaler.update()
+        else:
+            self.modules.optimizer.step()
+            self._maybe_step_scheduler(is_epoch=False)
+            self.data_manager.iter_step()
+
+        self.modules.optimizer.zero_grad()
+        return True
 
     @no_grad()
     def log_step(
@@ -323,7 +327,8 @@ class PyTorchTrainer(BaseTrainer):
                 losses, preds = self.train_step(data)
                 self.log_step(data, preds, losses)
                 self._accumulate_losses(losses)
-                self._maybe_step_optimiser()
+                with record_function("optimizer"):
+                    self._maybe_step_optimiser()
             except TrainingError as err:
                 self.training_exception(err, data)
 
