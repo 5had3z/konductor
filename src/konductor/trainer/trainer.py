@@ -20,7 +20,7 @@ class TrainerModules:
     optimizer: Any  # Optimizer
     scheduler: Any  # Learning rate scheduler
     trainloader: Sequence
-    valloader: Sequence
+    valloader: Sequence | None
 
     @classmethod
     def from_config(cls, exp_config: ExperimentInitConfig):
@@ -119,9 +119,10 @@ class BaseTrainer(ABC):
                 train_len = min(train_len, config.validation_interval)
 
             self._train = config.pbar(self._train, total=train_len, desc="Training")
-            self._validate = config.pbar(
-                self._validate, total=len(self.modules.valloader), desc="Validation"
-            )
+            if self.modules.valloader is not None:
+                self._validate = config.pbar(
+                    self._validate, total=len(self.modules.valloader), desc="Validation"
+                )
 
     def run_epoch(self, max_iter: int | None = None) -> None:
         """Complete one epoch with training and validation epoch"""

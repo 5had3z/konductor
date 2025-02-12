@@ -363,6 +363,9 @@ class PyTorchTrainer(BaseTrainer):
         self.modules.model.eval()
         self.data_manager.perflog.eval()
 
+        if self.modules.valloader is None:
+            return  # No validation set in training loop
+
         for data in self.modules.valloader:
             data = self.data_transform(data)
             losses, preds = self.val_step(data)
