@@ -255,6 +255,7 @@ class PyTorchTrainer(BaseTrainer):
 
     def _maybe_step_optimiser(self) -> bool:
         """Returns true if the optimizer was stepped"""
+        self.data_manager.iter_step()
         if self.data_manager.iteration % self.modules.optimizer.step_interval != 0:
             return False
 
@@ -266,11 +267,13 @@ class PyTorchTrainer(BaseTrainer):
             ]
             if sum(optim_state["found_inf_per_device"].values()).item() == 0.0:
                 self._maybe_step_scheduler(is_epoch=False)
-                self.data_manager.iter_step()
                 self.non_finite_grad_counter = 0
             else:
                 self._logger.warning("Iteration skipped due to non-finite gradient")
                 self.non_finite_grad_counter += 1
+                # If we didn't step, undo the iteration counter by the step
+                # interval since this has not contributed to the training
+                self.data_manager.iteration -= self.modules.optimizer.step_interval
                 if self.non_finite_grad_counter > self._config.max_nonfinite_grad:
                     raise RuntimeError(
                         "Exceeded number of allowed non-finite gradients "
@@ -281,7 +284,6 @@ class PyTorchTrainer(BaseTrainer):
         else:
             self.modules.optimizer.step()
             self._maybe_step_scheduler(is_epoch=False)
-            self.data_manager.iter_step()
 
         self.modules.optimizer.zero_grad()
         return True
