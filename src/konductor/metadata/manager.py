@@ -167,6 +167,11 @@ class DataManager:
         """Current training iteration"""
         return self.metadata.iteration
 
+    @iteration.setter
+    def iteration(self, it: int):
+        self.metadata.iteration = it
+        self.perflog.iteration = it
+
     def resume(self) -> None:
         """Resume from checkpoint if available, pull from remote if necessary"""
         self._remote_resume()
