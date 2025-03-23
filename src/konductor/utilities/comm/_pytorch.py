@@ -29,6 +29,13 @@ def initialize(timeout: timedelta = timedelta(minutes=5)) -> None:
         dist.init_process_group(backend="nccl", timeout=timeout)
 
 
+def finalize():
+    """Run finalization of distributed training"""
+    if in_distributed_mode():
+        dist.barrier()
+        dist.destroy_process_group()
+
+
 def in_distributed_mode() -> bool:
     """Check whether we're in data distributed mode"""
     return dist.is_available() and dist.is_initialized()
