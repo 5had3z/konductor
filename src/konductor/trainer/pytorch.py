@@ -1,5 +1,6 @@
 """Pytorch trainer"""
 
+import os
 from copy import deepcopy
 from dataclasses import dataclass, field
 from threading import Event, Lock, Thread
@@ -15,6 +16,8 @@ from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 from torch.optim.optimizer import Optimizer
 from torch.profiler import ProfilerAction, profile, record_function
 
+from ..utilities import comm
+from ..models._pytorch import ModelEma
 from .trainer import (
     BaseTrainer,
     DataManager,
@@ -22,7 +25,6 @@ from .trainer import (
     TrainerModules,
     TrainingError,
 )
-
 
 if torch.__version__ > "2.3":
     from torch.amp.grad_scaler import GradScaler
@@ -39,6 +41,7 @@ class PyTorchTrainerModules(TrainerModules):
     optimizer: Optimizer
     scheduler: LRScheduler
     grad_scaler: GradScaler | None = None
+    model_ema: ModelEma | None = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -69,6 +72,8 @@ class PyTorchTrainerConfig(TrainerConfig):
     max_nonfinite_grad: int = 100
     # Grad scaler configuration, will be used if AMP is enabled
     grad_scaler: dict[str, Any] = field(default_factory=dict)
+    # Model EMA configuration
+    model_ema: dict[str, Any] | None = None
 
     def __post_init__(self):
         if self.amp is not None:
@@ -193,6 +198,19 @@ class PyTorchTrainer(BaseTrainer):
             self._train = _amp_wrapper(self._train, config.amp)
             self._validate = _amp_wrapper(self._validate, config.amp)
 
+        if config.model_ema is not None:
+            modules.model_ema = ModelEma(modules.model, **config.model_ema)
+            data_manager.checkpointer.add_checkpointable("model_ema", modules.model_ema)
+
+        if comm.in_distributed_mode():
+            modules.model = nn.parallel.DistributedDataParallel(
+                modules.model,
+                device_ids=[torch.cuda.current_device()],
+                output_device=torch.cuda.current_device(),
+                find_unused_parameters=os.getenv("DDP_FIND_UNUSED", "false").lower()
+                == "true",
+            )
+
         # Counter for non-finite gradients in amp, exit when too many in a row
         self.non_finite_grad_counter = 0
 
@@ -286,6 +304,12 @@ class PyTorchTrainer(BaseTrainer):
             self._maybe_step_scheduler(is_epoch=False)
 
         self.modules.optimizer.zero_grad()
+        if self.modules.model_ema is not None:
+            grad_step_count = (
+                self.data_manager.iteration // self.modules.optimizer.step_interval
+            )
+            self.modules.model_ema.update(self.modules.model, step=grad_step_count)
+
         return True
 
     @no_grad()
