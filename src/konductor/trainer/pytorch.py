@@ -143,7 +143,7 @@ class AsyncFiniteMonitor(Thread):
             self.start()
 
         with self.mtx, torch.no_grad():
-            self.data = deepcopy(data)
+            self.data = {k: v.detach().clone() for k, v in data.items()}
             self.is_ready.set()
 
     def stop(self):

@@ -122,7 +122,7 @@ class BasePbar:
     def set_description(self, desc: str):
         self._desc = desc
 
-    def update(self, update):
+    def update(self, update: int):
         self.n += update
 
 
