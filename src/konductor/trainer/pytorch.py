@@ -308,7 +308,9 @@ class PyTorchTrainer(BaseTrainer):
             grad_step_count = (
                 self.data_manager.iteration // self.modules.optimizer.step_interval
             )
-            self.modules.model_ema.update(self.modules.model, step=grad_step_count)
+            self.modules.model_ema.update(
+                self.modules.get_model(), step=grad_step_count
+            )
 
         return True
 
