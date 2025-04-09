@@ -1,11 +1,12 @@
+import os
 from copy import deepcopy
 from dataclasses import dataclass, field
-from pathlib import Path
 from logging import getLogger
-import os
+from pathlib import Path
+from typing import Any
 
 import torch
-from torch import nn
+from torch import Tensor, nn
 
 from konductor.utilities import comm
 
@@ -17,6 +18,8 @@ class TorchModelConfig(ModelConfig):
     """
     Pytorch Model configuration that also includes helper for batchnorm and pretrained management.
     """
+
+    pretrained_strict: bool = field(default=True, kw_only=True)
 
     # Run _apply_extra(model) function on get_training_modules()
     apply_extra: bool = field(default=True, kw_only=True)
@@ -36,31 +39,35 @@ class TorchModelConfig(ModelConfig):
         sched = self.optimizer.get_scheduler(optim)
         return model, optim, sched
 
-    def apply_pretrained(self, model: nn.Module) -> nn.Module:
-        """Apply pretrained weights to model"""
+    def get_checkpoint_source(self) -> Any:
+        """Get the source of the checkpoint, could be a path or URL"""
         assert self.pretrained is not None
         ckpt_path = (
             Path(os.environ.get("PRETRAINED_ROOT", Path.cwd())) / self.pretrained
         )
+        return ckpt_path
 
-        checkpoint = torch.load(ckpt_path, map_location="cpu")
+    def load_pretrained(self, source) -> dict[str, Tensor]:
+        """Load pretrained weights"""
+        checkpoint = torch.load(source, map_location="cpu")
         if "model" in checkpoint:  # Unwrap 'model' from checkpoint
             checkpoint = checkpoint["model"]
+        return checkpoint
+
+    def apply_pretrained(
+        self, model: nn.Module, checkpoint: dict[str, Tensor]
+    ) -> nn.Module:
+        """Apply pretrained weights to model"""
         missing, unused = model.load_state_dict(
-            checkpoint, strict=os.environ.get("PRETRAINED_STRICT", "true") == "true"
+            checkpoint, strict=self.pretrained_strict
         )
 
-        logger = getLogger()
         if len(missing) > 0 or len(unused) > 0:
-            logger.warning(
-                "Loaded pretrained checkpoint from %s "
-                "with %d missing and %d unused weights",
-                ckpt_path,
+            getLogger().warning(
+                "Loaded pretrained checkpoint with %d missing and %d unused weights",
                 len(missing),
                 len(unused),
             )
-        else:
-            logger.info("Loaded pretrained checkpoint from %s", ckpt_path)
 
         return model
 
@@ -82,7 +89,12 @@ class TorchModelConfig(ModelConfig):
                     module.track_running_stats = False
 
         if self.pretrained is not None:
-            self.apply_pretrained(model)
+            getLogger().info(
+                "Loading pretrained checkpoint from %s", self.get_checkpoint_source()
+            )
+            self.apply_pretrained(
+                model, self.load_pretrained(self.get_checkpoint_source())
+            )
 
         return model
 
