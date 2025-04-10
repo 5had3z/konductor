@@ -111,7 +111,7 @@ class _ParquetWriter:
 
         if write_path.exists():  # Concatenate to original data
             original_data = pq.read_table(
-                write_path, pre_buffer=False, memory_map=True, use_threads=True
+                write_path, pre_buffer=False, use_threads=True
             )
             data = pa.concat_tables([original_data, data])
 
