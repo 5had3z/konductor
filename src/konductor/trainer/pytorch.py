@@ -349,6 +349,7 @@ class PyTorchTrainer(BaseTrainer):
         self.modules.model.train()
         self.data_manager.perflog.train()
 
+        self.modules.optimizer.zero_grad()
         for data in self.modules.trainloader:
             try:
                 data = self.data_transform(data)
@@ -366,12 +367,13 @@ class PyTorchTrainer(BaseTrainer):
             if pbar is not None:
                 pbar.update(1)
             if profiler is not None:
-                if (
+                should_break = (
                     profiler.schedule(profiler.step_num)
                     == ProfilerAction.RECORD_AND_SAVE
-                ):
-                    break
+                )
                 profiler.step()
+                if should_break:
+                    break
 
     def train_step(self, data) -> tuple[dict[str, Tensor], dict[str, Tensor] | None]:
         """
