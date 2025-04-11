@@ -1,13 +1,15 @@
+import atexit
 from datetime import datetime
+from io import BufferedWriter
 from logging import getLogger
 from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
-from pyarrow import parquet as pq
+from pyarrow import ipc
 
-from .base_writer import LogWriter, Split
 from ...utilities.comm import get_rank
+from .base_writer import LogWriter, Split
 
 
 class _ParquetWriter:
@@ -25,10 +27,14 @@ class _ParquetWriter:
         self.file_prefix = file_prefix
         self._logger = getLogger(f"pqwriter_{file_prefix}")
         self._end_idx = -1
+        self._file: BufferedWriter | None = None
+        self._writer = None
 
         self._columns: dict[str, np.ndarray] = {}
         if column_names is not None:
             self._register_columns(column_names)
+
+        atexit.register(self.close)
 
         self._iteration_key = np.empty(self._buffer_length, dtype=np.int32)
         self._timestamp_key = np.empty(self._buffer_length, dtype="datetime64[ms]")
@@ -84,43 +90,50 @@ class _ParquetWriter:
         data_["timestamp"] = self._timestamp_key[: self.size]
         return data_
 
-    def _get_write_path(self) -> Path:
-        """Get path to write which is last shard if it exists and is under size threshold"""
-        # Default write path which is earliest iteration
-        write_path = (
-            self.run_dir / f"{self.file_prefix}_{self._iteration_key[0]}.parquet"
-        )
+    def _next_write_path(self) -> Path:
+        """Get the next path to log data to"""
+        # Default write earliest iteration
+        return self.run_dir / f"{self.file_prefix}_{self._iteration_key[0]}.arrow"
 
-        # Override default if a previous shard is found and under size limit
-        existing_shards = list(self.run_dir.glob(f"{self.file_prefix}*.parquet"))
-        if len(existing_shards) > 0:
-            last_shard = max(existing_shards, key=lambda x: int(x.stem.split("_")[-1]))
-            if last_shard.stat().st_size < 100 * 1 << 20:  # 100 MB
-                write_path = last_shard
+    @property
+    def write_path(self) -> Path | None:
+        """Get the path to the current write file"""
+        if self._file is None:
+            return None
+        return Path(self._file.name)
 
-        return write_path
+    def _create_new_writer(self, schema: pa.Schema) -> None:
+        self._file = open(self._next_write_path(), "wb")
+        self._writer = ipc.new_stream(self._file, schema)
+
+    def close(self):
+        """Close the writer and file handle. Further writing will create a new file."""
+        if self._writer is not None:
+            self._writer.close()
+            self._writer = None
+        if self._file is not None:
+            self._file.close()
+            self._file = None
 
     def flush(self) -> None:
         """Writes valid data from memory to parquet file"""
         if self.empty:
             return
 
-        data = pa.table(self._as_dict())
+        table = pa.table(self._as_dict())
 
-        write_path = self._get_write_path()
+        if self._file is None:
+            self._create_new_writer(table.schema)
+        elif self.write_path.stat().st_size > 100 * 1 << 20:  # 100 MB
+            self.close()
+            self._create_new_writer(table.schema)
 
-        if write_path.exists():  # Concatenate to original data
-            original_data = pq.read_table(
-                write_path, pre_buffer=False, use_threads=True
-            )
-            data = pa.concat_tables([original_data, data])
-
-        with pq.ParquetWriter(write_path, data.schema) as writer:
-            writer.write_table(data)
+        assert self._writer is not None, "Writer should be initialized"
+        self._writer.write_table(table)
 
         self._end_idx = -1
-        for data in self._columns.values():
-            data.fill(np.nan)
+        for table in self._columns.values():
+            table.fill(np.nan)
 
 
 class ParquetLogger(LogWriter):

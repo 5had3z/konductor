@@ -6,7 +6,7 @@ from konductor.utilities import metadata as meta_utils
 
 def test_shard_regex():
     true_examples = [
-        f"{'_'.join(s)}.parquet"
+        f"{'_'.join(s)}.arrow"
         for s in product(
             ["train", "val"],
             ["loss", "IoU", "foo-bar", "AP50"],
