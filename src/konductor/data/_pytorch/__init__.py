@@ -1,1 +1,1 @@
-from . import dataloader, cityscapes, mnist
+from . import cityscapes, dataloader, mnist

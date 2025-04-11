@@ -16,8 +16,8 @@ from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 from torch.optim.optimizer import Optimizer
 from torch.profiler import ProfilerAction, profile, record_function
 
-from ..utilities import comm
 from ..models._pytorch import ModelEma
+from ..utilities import comm
 from .trainer import (
     BaseTrainer,
     DataManager,

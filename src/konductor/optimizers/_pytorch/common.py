@@ -1,11 +1,11 @@
-from typing import Tuple
 from dataclasses import dataclass, field
+from typing import Tuple
 
 from torch import nn
-from torch.optim import Adam, AdamW, SGD
+from torch.optim import SGD, Adam, AdamW
 
-from .base import PytorchOptimizer
 from ...optimizers import REGISTRY
+from .base import PytorchOptimizer
 
 
 @dataclass

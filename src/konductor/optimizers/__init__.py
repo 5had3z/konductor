@@ -3,9 +3,10 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
-from ..registry import Registry, BaseConfig
 from ..init import OptimizerInitConfig
-from ..scheduler import REGISTRY as SCHEDULER_REGISTRY, SchedulerConfig
+from ..registry import BaseConfig, Registry
+from ..scheduler import REGISTRY as SCHEDULER_REGISTRY
+from ..scheduler import SchedulerConfig
 
 REGISTRY = Registry("optimizers")
 

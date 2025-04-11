@@ -2,19 +2,19 @@
 Synchronise workspace with folder of remote machine
 """
 
+import os
+import subprocess
 from dataclasses import dataclass
 from functools import wraps
 from getpass import getpass
 from pathlib import Path
 from typing import Any
-import subprocess
-import os
 
 import paramiko
 
-from . import REGISTRY, RemoteConfig, ExperimentInitConfig
-from ._base import _RemoteSyncrhoniser
 from ...utilities.comm import is_main_process
+from . import REGISTRY, ExperimentInitConfig, RemoteConfig
+from ._base import _RemoteSyncrhoniser
 
 
 def _parse_ssh_config(filepath: Path, hostname: str) -> paramiko.SSHConfigDict:

@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from torchvision.transforms import ToTensor
 from torchvision.datasets import Cityscapes
 from torchvision.models.segmentation import DeepLabV3_ResNet50_Weights
+from torchvision.transforms import ToTensor
 
-from .. import DatasetConfig, DATASET_REGISTRY, Split, ExperimentInitConfig
+from .. import DATASET_REGISTRY, DatasetConfig, ExperimentInitConfig, Split
 
 
 @dataclass

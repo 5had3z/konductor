@@ -2,8 +2,8 @@
 
 from copy import deepcopy
 
-import torch
 import pytest
+import torch
 from torch.utils.data import DataLoader, TensorDataset
 
 from konductor.metadata import Checkpointer, DataManager, PerfLogger

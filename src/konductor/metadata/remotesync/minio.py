@@ -4,15 +4,15 @@ Synchronise workspace with minio s3 bucket
 
 import os
 from dataclasses import dataclass
-from typing import Any
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 from minio import Minio, S3Error
 
-from . import REGISTRY, RemoteConfig, ExperimentInitConfig
-from ._base import _RemoteSyncrhoniser
 from ...utilities.comm import is_main_process
+from . import REGISTRY, ExperimentInitConfig, RemoteConfig
+from ._base import _RemoteSyncrhoniser
 
 
 @dataclass

@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import Any
 from warnings import warn
 
-from ...registry import Registry, BaseConfig
 from ...init import ExperimentInitConfig
+from ...registry import BaseConfig, Registry
 from ._base import _RemoteSyncrhoniser
 
 REGISTRY = Registry("remote")

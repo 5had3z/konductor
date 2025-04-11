@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 try:
     from tensorboard.summary import Writer
 except ImportError:

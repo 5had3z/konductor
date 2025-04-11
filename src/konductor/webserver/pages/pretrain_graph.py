@@ -3,8 +3,9 @@ from pathlib import Path
 import dash_cytoscape as cyto
 import yaml
 from dash import Input, Output, callback, html
-from konductor.metadata.manager import Metadata
+
 from konductor.init import ExperimentInitConfig
+from konductor.metadata.manager import Metadata
 from konductor.webserver.utils import Experiment, fill_experiments
 
 EXPERIMENTS: list[Experiment] = []

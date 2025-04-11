@@ -2,10 +2,10 @@
 interfaces required for remote synchronisation.
 """
 
+import re
 from abc import ABC, abstractmethod
 from logging import getLogger
 from pathlib import Path
-import re
 
 
 class _RemoteSyncrhoniser(ABC):

@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from konductor.metadata import Checkpointer, DataManager, PerfLogger, CkptConfig
+from konductor.metadata import Checkpointer, CkptConfig, DataManager, PerfLogger
 from konductor.metadata.loggers import ParquetLogger
 
 pytestmark = pytest.mark.statistics

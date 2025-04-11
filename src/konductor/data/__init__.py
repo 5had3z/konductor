@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 from warnings import warn
 
-from ..init import ExperimentInitConfig, ModuleInitConfig, Split, DatasetInitConfig
+from ..init import DatasetInitConfig, ExperimentInitConfig, ModuleInitConfig, Split
 from ..registry import BaseConfig, Registry
 
 DATASET_REGISTRY = Registry("dataset")

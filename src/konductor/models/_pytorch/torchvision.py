@@ -1,9 +1,10 @@
-from typing import Any
 from dataclasses import dataclass
+from typing import Any
 
-from torchvision.models.resnet import resnet50, ResNet50_Weights
 from torch import nn
-from ...models import MODEL_REGISTRY, ModelConfig, ExperimentInitConfig
+from torchvision.models.resnet import ResNet50_Weights, resnet50
+
+from ...models import MODEL_REGISTRY, ExperimentInitConfig, ModelConfig
 
 
 @dataclass

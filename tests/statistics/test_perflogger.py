@@ -5,7 +5,7 @@ import pytest
 pytestmark = pytest.mark.statistics
 
 from konductor.metadata import PerfLogger
-from konductor.metadata.loggers import ParquetLogger, AverageMeter
+from konductor.metadata.loggers import AverageMeter, ParquetLogger
 
 
 @pytest.fixture

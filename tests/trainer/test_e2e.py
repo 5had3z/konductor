@@ -1,14 +1,12 @@
 from pathlib import Path
 
 import pytest
+
 from konductor.init import ExperimentInitConfig
 from konductor.metadata import DataManager
-from konductor.trainer.pytorch import (
-    PyTorchTrainerConfig,
-    PyTorchTrainerModules,
-)
+from konductor.trainer.pytorch import PyTorchTrainerConfig, PyTorchTrainerModules
 
-from ..utils import MnistTrainer, Accuracy
+from ..utils import Accuracy, MnistTrainer
 
 pytestmark = pytest.mark.e2e
 

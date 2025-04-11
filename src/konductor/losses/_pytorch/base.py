@@ -1,11 +1,11 @@
-from typing import Any
 from dataclasses import dataclass
+from typing import Any
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 
 from ...data import get_dataset_properties
-from ...losses import LossConfig, REGISTRY, ExperimentInitConfig
+from ...losses import REGISTRY, ExperimentInitConfig, LossConfig
 
 
 class MSELoss(nn.MSELoss):

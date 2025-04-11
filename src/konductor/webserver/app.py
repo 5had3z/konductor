@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # Run this app and visit the default address http://127.0.0.1:8050/ in your web browser.
 
-import json
 import atexit
+import json
 from pathlib import Path
 from subprocess import Popen
 from typing import Annotated

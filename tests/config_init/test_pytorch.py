@@ -1,13 +1,13 @@
-import pytest
 import numpy as np
+import pytest
 from torch import nn
 
 from konductor.init import ExperimentInitConfig
 from konductor.models import get_training_model
 from konductor.optimizers._pytorch import PG_REGISTRY
 
-from ..init_config import example_config
 from .. import utils
+from ..init_config import example_config
 
 
 @PG_REGISTRY.register_module("custom_pg")

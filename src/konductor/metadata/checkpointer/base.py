@@ -1,8 +1,8 @@
 import logging
-from abc import ABC, abstractmethod
-from typing import Any
-from pathlib import Path
 import shutil
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any
 
 
 class BaseCheckpointer(ABC):

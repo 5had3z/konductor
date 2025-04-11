@@ -2,12 +2,12 @@
 # using remote synchronisers for new training / resume from success / resume from crash
 from pathlib import Path
 
-from ..init_config import example_config
-
-
 import pytest
+
+from konductor.init import ExperimentInitConfig, ModuleInitConfig
 from konductor.metadata.remotesync import get_remote
-from konductor.init import ModuleInitConfig, ExperimentInitConfig
+
+from ..init_config import example_config
 
 pytestmark = pytest.mark.remote
 

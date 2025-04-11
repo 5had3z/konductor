@@ -13,8 +13,8 @@ class Loss:
 from dataclasses import dataclass
 from typing import Any
 
-from ..registry import Registry, BaseConfig
-from ..init import ModuleInitConfig, ExperimentInitConfig
+from ..init import ExperimentInitConfig, ModuleInitConfig
+from ..registry import BaseConfig, Registry
 
 REGISTRY = Registry("losses")
 

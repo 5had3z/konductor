@@ -1,13 +1,13 @@
-import time
-import os
-import itertools
-from threading import Thread, Event, Lock
-from datetime import timedelta
-from typing import Any
 import enum
+import itertools
+import os
+import time
+from datetime import timedelta
+from threading import Event, Lock, Thread
+from typing import Any
 
-from tqdm.auto import tqdm
 from colorama import Fore
+from tqdm.auto import tqdm
 
 
 class PbarType(enum.Enum):

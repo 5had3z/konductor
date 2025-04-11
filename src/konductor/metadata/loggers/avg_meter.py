@@ -1,4 +1,5 @@
 from math import isfinite
+
 from .base_writer import LogWriter, Split
 
 

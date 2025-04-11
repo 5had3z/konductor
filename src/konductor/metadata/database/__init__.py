@@ -1,4 +1,4 @@
 """Database to hold summary data between experiments for comparison"""
 
-from .interface import Database, DB_REGISTRY
+from .interface import DB_REGISTRY, Database
 from .metadata import Metadata

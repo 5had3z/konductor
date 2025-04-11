@@ -2,12 +2,13 @@ from dataclasses import dataclass
 
 from torch import Tensor, nn
 from torchvision.models.resnet import BasicBlock, ResNet
+
+from konductor.data import get_dataset_properties
 from konductor.init import ExperimentInitConfig
-from konductor.trainer.pytorch import PyTorchTrainer
 from konductor.metadata import Statistic
 from konductor.models import MODEL_REGISTRY
 from konductor.models._pytorch import TorchModelConfig
-from konductor.data import get_dataset_properties
+from konductor.trainer.pytorch import PyTorchTrainer
 
 
 class MyResNet(ResNet):

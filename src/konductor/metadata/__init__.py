@@ -1,6 +1,6 @@
-from .manager import DataManager, CkptConfig, Metadata
-from .checkpointer import Checkpointer
-from .perflogger import PerfLogger
 from .base_statistic import Statistic
+from .checkpointer import Checkpointer
 from .loggers import LogWriter
-from .remotesync import get_remote_config, _RemoteSyncrhoniser
+from .manager import CkptConfig, DataManager, Metadata
+from .perflogger import PerfLogger
+from .remotesync import _RemoteSyncrhoniser, get_remote_config

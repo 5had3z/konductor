@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
-from ..registry import Registry
 from ..init import ExperimentInitConfig
+from ..registry import Registry
 
 STATISTICS_REGISTRY = Registry("STATISTICS")
 

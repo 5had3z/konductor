@@ -3,12 +3,12 @@ from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Callable, Sequence, TypeVar
 
-from ..utilities import comm
-from ..metadata import DataManager
 from ..data import Split, get_dataset_config
-from ..models import get_training_model
 from ..init import ExperimentInitConfig
 from ..losses import get_criterion
+from ..metadata import DataManager
+from ..models import get_training_model
+from ..utilities import comm
 
 
 @dataclass

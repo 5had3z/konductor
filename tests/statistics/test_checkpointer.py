@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import pytest
 import torch
-from torch import nn, inference_mode, optim, Tensor
+from torch import Tensor, inference_mode, nn, optim
 
 from konductor.metadata.checkpointer._pytorch import Checkpointer
 

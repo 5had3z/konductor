@@ -3,23 +3,26 @@
 import json
 import os
 import re
+from collections import defaultdict
 from contextlib import closing
 from io import StringIO
 from pathlib import Path
 from typing import Any
 
+import pyarrow as pa
 import typer
 from colorama import Fore, Style
 from pandas import DataFrame as df
 from pyarrow import compute as pc
+from pyarrow import ipc
 from pyarrow import parquet as pq
 from typing_extensions import Annotated
 
 from ..metadata.database import DB_REGISTRY, Database, Metadata
 from ..metadata.database.sqlite import DEFAULT_FILENAME
 
-_PQ_SHARD_RE = r"\A(train|val)_[a-zA-Z0-9-]+_[0-9]+_[0-9]+.parquet\Z"
-_PQ_REDUCED_RE = r"\A(train|val)_[a-zA-Z0-9-]+.parquet\Z"
+_PQ_SHARD_RE = r"\A(train|val)_(?:[a-zA-Z0-9-]+_)?[0-9]+_[0-9]+.arrow\Z"
+_PQ_REDUCED_RE = r"\A(train|val)(?:_[a-zA-Z0-9-]+)?.parquet\Z"
 
 app = typer.Typer()
 
@@ -112,29 +115,39 @@ def describe(exp_path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
 
 def get_reduced_path(path: Path) -> Path:
     """Determine reduced log path from a shard's path"""
-    split_ = path.stem.split("_")
-    new_path = path.parent / f"{'_'.join(split_[:2])}.parquet"
+    split_ = path.stem.rsplit("_", 2)[0]
+    new_path = path.parent / f"{split_}.parquet"
     assert re.match(
         _PQ_REDUCED_RE, new_path.name
     ), f"Failed to infer valid log name: {new_path.name}"
     return new_path
 
 
+def read_arrow_log(shard_file: Path) -> pa.Table:
+    """Read the shard file"""
+    with pa.OSFile(str(shard_file), "rb") as file:
+        with ipc.open_stream(file) as reader:
+            data = reader.read_all()
+    return data
+
+
 def reduce_shard(shards: list[Path]) -> None:
     """Reduce shards into single parquet file"""
+    # Sort shards by iteration, this ensures that the data is mostly in order
+    shards = sorted(shards, key=lambda x: int(x.stem.rsplit("_", 1)[-1]))
     target = get_reduced_path(shards[0])
     print(f"{Fore.BLUE+Style.BRIGHT}Grouping for {target.name}{Style.RESET_ALL}")
-    schema = pq.read_schema(shards[0])
+    with pa.OSFile(str(shards[0]), "rb") as file:
+        schema = ipc.read_schema(file)
 
-    pq_kwargs = {"pre_buffer": False, "memory_map": True, "use_threads": True}
-    old_data = pq.read_table(target, **pq_kwargs) if target.exists() else None
+    old_data = pq.read_table(target) if target.exists() else None
 
     with pq.ParquetWriter(target, schema) as writer:
         if old_data is not None:  # rewrite original data
             writer.write_table(old_data)
 
         for shard in shards:
-            data = pq.read_table(shard, **pq_kwargs)
+            data = read_arrow_log(shard)
 
             # check if iteration has been added before if there's a matching timestamp
             ret = (
@@ -171,13 +184,9 @@ def reduce(exp_path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
     )
 
     # Group shards to same split and name
-    grouped: dict[str, list[Path]] = {}
+    grouped: dict[str, list[Path]] = defaultdict(lambda: [])
     for shard in shards:
-        target_name = get_reduced_path(shard).stem
-        if target_name not in grouped:
-            grouped[target_name] = [shard]
-        else:
-            grouped[target_name].append(shard)
+        grouped[get_reduced_path(shard).stem].append(shard)
 
     for shard_list in grouped.values():
         reduce_shard(shard_list)
