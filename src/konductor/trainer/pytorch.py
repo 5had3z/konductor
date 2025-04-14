@@ -102,7 +102,7 @@ def _amp_wrapper(func, amp_kwargs: dict[str, Any]):
 
     def with_amp(*args, **kwargs):
         with autocast(**amp_kwargs):
-            func(*args, **kwargs)
+            return func(*args, **kwargs)
 
     return with_amp
 
@@ -196,8 +196,8 @@ class PyTorchTrainer(BaseTrainer):
             data_manager.checkpointer.add_checkpointable(
                 "grad_scaler", modules.grad_scaler
             )
-            self._train = _amp_wrapper(self._train, config.amp)
-            self._validate = _amp_wrapper(self._validate, config.amp)
+            self.train_step = _amp_wrapper(self.train_step, config.amp)
+            self.val_step = _amp_wrapper(self.val_step, config.amp)
 
         if config.model_ema is not None:
             modules.model_ema = ModelEma(modules.model, **config.model_ema)
