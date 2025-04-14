@@ -1,7 +1,6 @@
 """Pytorch trainer"""
 
 import os
-from copy import deepcopy
 from dataclasses import dataclass, field
 from threading import Event, Lock, Thread
 from typing import Any
@@ -25,6 +24,7 @@ from .trainer import (
     TrainerModules,
     TrainingError,
 )
+from ..shutdown import register_shutdown_hook
 
 if torch.__version__ > "2.3":
     from torch.amp.grad_scaler import GradScaler
@@ -118,6 +118,7 @@ class AsyncFiniteMonitor(Thread):
         self.mtx = Lock()
         self.data: dict[str, Tensor] = {}
         self.err = None
+        register_shutdown_hook(self.stop)
 
     def run(self) -> None:
         try:

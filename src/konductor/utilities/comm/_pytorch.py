@@ -14,6 +14,8 @@ import torch
 import torch.distributed as dist
 from torch import Tensor
 
+from ...shutdown import register_shutdown_hook
+
 
 def initialize(timeout: timedelta = timedelta(minutes=5)) -> None:
     """
@@ -27,6 +29,7 @@ def initialize(timeout: timedelta = timedelta(minutes=5)) -> None:
     # If all of these non-defaulted args are specified, we must be doing DDP
     if dist.is_available() and int(os.environ.get("WORLD_SIZE", 1)) > 1:
         dist.init_process_group(backend="nccl", timeout=timeout)
+        register_shutdown_hook(finalize)
 
 
 def finalize():

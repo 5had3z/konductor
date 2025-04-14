@@ -1,13 +1,13 @@
 """Loss Modules
 
-The forward method for loss modules should take in batch data and prediction 
+The forward method for loss modules should take in batch data and prediction
 and return a dictionary with with descriptive keys, this enables a loss module
 to apply multiple loss functions which can be tracked separately (and are accumulated
 for the final loss).
 
 class Loss:
     def forward(self, label, pred) -> float:
-        return {'loss': label - pred} 
+        return {'loss': label - pred}
 """
 
 from dataclasses import dataclass

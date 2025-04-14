@@ -1,4 +1,4 @@
-""" 
+"""
 Initialisation configuration dataclasses for library modules
 """
 

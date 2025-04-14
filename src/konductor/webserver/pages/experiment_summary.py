@@ -1,4 +1,4 @@
-""" 
+"""
 TODO https://dash.plotly.com/datatable/conditional-formatting#highlighting-cells-by-value-with-a-colorscale-like-a-heatmap
 """
 

@@ -1,9 +1,9 @@
 """
 The design rationale for a configuration registry which returns models
 is that we can partially initialise and gather the relevant variables
-throughout the initialisation phase of the program. This allows for 
+throughout the initialisation phase of the program. This allows for
 circular dependencies between classes such as the number of classes defined
-by a dataset can be used to configure the model 
+by a dataset can be used to configure the model
 """
 
 import inspect

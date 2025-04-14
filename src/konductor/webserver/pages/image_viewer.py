@@ -1,4 +1,4 @@
-""" 
+"""
 Image Viewing Page
 Experiment Folder Structure should be shown below where samples.txt
 is a newline separated list of image uuids.
@@ -6,7 +6,7 @@ The data folder contains ground truth data and source materials
 The pred folder contains predictions from the model
 images /
     - samples.txt
-    - data / 
+    - data /
         - uuid1_image.png
         - uuid1_panoptic.png
         - uuid2_image.png
@@ -15,7 +15,7 @@ images /
         - uuid1_semantic.png
         - uuid1_panoptic.png
         - uuid2_semantic.png
-        - uuid2_panoptic.png      
+        - uuid2_panoptic.png
 """
 
 from pathlib import Path

@@ -1,4 +1,3 @@
-import atexit
 from datetime import datetime
 from io import BufferedWriter
 from logging import getLogger
@@ -8,6 +7,7 @@ import numpy as np
 import pyarrow as pa
 from pyarrow import ipc
 
+from ...shutdown import register_shutdown_hook
 from ...utilities.comm import get_rank
 from .base_writer import LogWriter, Split
 
@@ -34,7 +34,11 @@ class _ParquetWriter:
         if column_names is not None:
             self._register_columns(column_names)
 
-        atexit.register(self.close)
+        def flush_and_close():
+            self.flush()
+            self.close()
+
+        register_shutdown_hook(flush_and_close)
 
         self._iteration_key = np.empty(self._buffer_length, dtype=np.int32)
         self._timestamp_key = np.empty(self._buffer_length, dtype="datetime64[ms]")
