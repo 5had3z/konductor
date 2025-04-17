@@ -133,6 +133,8 @@ def read_arrow_log(shard_file: Path) -> pa.Table:
                     batches.append(batch)
             except pa.lib.ArrowInvalid as err:
                 print(f"Error reading batch, skipping: {err}")
+            except StopIteration:
+                pass
     data = pa.Table.from_batches(batches)
     return data
 
