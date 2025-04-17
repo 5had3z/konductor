@@ -125,9 +125,15 @@ def get_reduced_path(path: Path) -> Path:
 
 def read_arrow_log(shard_file: Path) -> pa.Table:
     """Read the shard file"""
+    batches: list[pa.RecordBatch] = []
     with pa.OSFile(str(shard_file), "rb") as file:
         with ipc.open_stream(file) as reader:
-            data = reader.read_all()
+            try:
+                while batch := reader.read_next_batch():
+                    batches.append(batch)
+            except pa.lib.ArrowInvalid as err:
+                print(f"Error reading batch, skipping: {err}")
+    data = pa.Table.from_batches(batches)
     return data
 
 
