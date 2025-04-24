@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # Run this app and visit the default address http://127.0.0.1:8050/ in your web browser.
 
-import atexit
+import errno
 import json
+import socket
 from pathlib import Path
 from subprocess import Popen
 from typing import Annotated
@@ -57,6 +58,21 @@ def get_basic_layout(root_dir: str, content_url: str, db_type: str, db_kwargs: s
     )
 
 
+def port_in_use(port: int) -> bool:
+    """Check if port on localhost is in use"""
+    s = None
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(("localhost", port))
+        return False
+    except Exception:  # If we get any error trying to bind the port, return True
+        return True
+    finally:
+        if s:
+            s.close()
+
+
 @cliapp.command()
 def main(
     workspace: Annotated[Path, typer.Option(help="Experiment Workspace Directory")],
@@ -68,6 +84,9 @@ def main(
     db_kwargs: Annotated[str, typer.Option(help="Database Kwargs")] = "{}",
 ) -> None:
     """Experiment performance and metadata visualisation tool"""
+    if port_in_use(port):
+        raise ValueError(f"Port {port} is already in use, please choose another port")
+
     try:
         json.loads(db_kwargs)
     except json.JSONDecodeError as err:
@@ -75,17 +94,24 @@ def main(
 
     content_url = f"http://localhost:{content_port}"
     webapp.layout = get_basic_layout(str(workspace), content_url, db_type, db_kwargs)
-
+    proc = None
     try:
         if enable_server:
+            if port_in_use(content_port):
+                raise ValueError(
+                    f"Content server port {content_port} is already in use"
+                    ", please choose another port"
+                )
             proc = Popen(
                 f"python3 -m http.server {content_port} --directory {workspace}",
                 shell=True,
             )
-            atexit.register(proc.terminate)
         webapp.run(port=str(port), debug=debug)
     except Exception as e:
         print(e)
+    finally:
+        if proc is not None:
+            proc.terminate()
 
 
 def _main():
