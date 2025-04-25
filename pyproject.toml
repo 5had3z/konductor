@@ -18,6 +18,8 @@ local_scheme = "no-local-version"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.isort]
+profile = "black"
 
 [project]
 name = "konductor"
@@ -55,7 +57,7 @@ konduct-tools = "konductor.utilities.tools:app"
 [project.optional-dependencies]
 REMOTE = ["paramiko", "minio"]
 WEBUI = ["dash", "plotly", "dash_bootstrap_components"]
-DEV = ["pytest"]
+DEV = ["pytest", "pre-commit"]
 
 [project.urls]
 "Homepage" = "https://github.com/5had3z/konductor"
