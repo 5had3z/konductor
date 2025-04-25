@@ -1,3 +1,5 @@
+import os
+import shutil
 from datetime import datetime
 from io import BufferedWriter
 from logging import getLogger
@@ -97,18 +99,19 @@ class _ParquetWriter:
     def _next_write_path(self) -> Path:
         """Get the next path to log data to"""
         # Default write earliest iteration
-        return self.run_dir / f"{self.file_prefix}_{self._iteration_key[0]}.arrow"
+        return self.run_dir / f"{self.file_prefix}_{self._iteration_key[0]}.arrow.tmp"
 
     @property
-    def write_path(self) -> Path | None:
-        """Get the path to the current write file"""
+    def write_path(self) -> Path:
+        """Get the path to the current write file without the .tmp suffix"""
         if self._file is None:
-            return None
-        return Path(self._file.name)
+            raise RuntimeError("Writer not currently writing file")
+        return Path(self._file.name.replace(".tmp", ""))
 
     def _create_new_writer(self, schema: pa.Schema) -> None:
         self._file = open(self._next_write_path(), "wb")
         self._writer = ipc.new_stream(self._file, schema)
+        self.write_path.touch()  # Create emtpy file that will be destination later
 
     def close(self):
         """Close the writer and file handle. Further writing will create a new file."""
@@ -117,6 +120,7 @@ class _ParquetWriter:
             self._writer = None
         if self._file is not None:
             self._file.close()
+            shutil.move(self._file.name, self.write_path)
             self._file = None
 
     def flush(self) -> None:
@@ -128,7 +132,7 @@ class _ParquetWriter:
 
         if self._file is None:
             self._create_new_writer(table.schema)
-        elif self.write_path.stat().st_size > 100 * 1 << 20:  # 100 MB
+        elif os.stat(self._file.name).st_size > 100 * 1 << 20:  # 100 MB
             self.close()
             self._create_new_writer(table.schema)
 

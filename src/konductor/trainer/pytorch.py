@@ -16,6 +16,7 @@ from torch.optim.optimizer import Optimizer
 from torch.profiler import ProfilerAction, profile, record_function
 
 from ..models._pytorch import ModelEma
+from ..shutdown import register_shutdown_hook
 from ..utilities import comm
 from .trainer import (
     BaseTrainer,
@@ -24,7 +25,6 @@ from .trainer import (
     TrainerModules,
     TrainingError,
 )
-from ..shutdown import register_shutdown_hook
 
 if torch.__version__ > "2.3":
     from torch.amp.grad_scaler import GradScaler
