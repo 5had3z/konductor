@@ -60,7 +60,7 @@ class Checkpointer(BaseCheckpointer):
     def save(self, filename: str, is_latest: bool = True, **extras) -> None:
         """
         Saves checkpointables with extra scalar data kwargs
-        Use latest.pt if you don't want to accumulate checkponts.
+        Use latest.pt if you don't want to accumulate checkpoints.
         Otherwise the new file will be saved and latest.pt will link to it.
         """
         _path = self._get_path(filename)

@@ -40,7 +40,7 @@ class LogWriter(ABC):
 
 
 class MultiWriter(LogWriter):
-    """Forwards write to multple backends"""
+    """Forwards write to multiple backends"""
 
     def __init__(self, writers: list[LogWriter]) -> None:
         self.writers = writers

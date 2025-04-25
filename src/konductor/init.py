@@ -124,6 +124,9 @@ def _hash_from_config(config: dict[str, Any]) -> str:
     return hashlib.md5(ss.read().encode("utf-8")).hexdigest()
 
 
+TRAIN_CONFIG_FILENAME = "train_config.yaml"
+
+
 @dataclass
 class ExperimentInitConfig:
     """
@@ -142,7 +145,7 @@ class ExperimentInitConfig:
     @classmethod
     def from_run(cls, run_path: Path):
         """Load Config from Existing Run Folder"""
-        with open(run_path / "train_config.yml", "r", encoding="utf-8") as conf_f:
+        with open(run_path / TRAIN_CONFIG_FILENAME, "r", encoding="utf-8") as conf_f:
             exp_config = yaml.safe_load(conf_f)
         exp_config["exp_path"] = run_path
         return cls.from_dict(exp_config)
@@ -166,7 +169,7 @@ class ExperimentInitConfig:
             logging.info("Using experiment directory %s", run_path)
 
         # Write config to run path if it doesn't already exist
-        config_path = run_path / "train_config.yml"
+        config_path = run_path / TRAIN_CONFIG_FILENAME
         if not config_path.exists() and comm.get_local_rank() == 0:
             with open(config_path, "w", encoding="utf-8") as conf_f:
                 yaml.safe_dump(exp_config, conf_f)
@@ -198,7 +201,7 @@ class ExperimentInitConfig:
     def set_workers(self, num: int):
         """
         Set number of workers for dataloaders.
-        These are divided evenly if there are multple datasets.
+        These are divided evenly if there are multiple datasets.
         """
         for data in self.data:
             data.val_loader.args["workers"] = num // len(self.data)

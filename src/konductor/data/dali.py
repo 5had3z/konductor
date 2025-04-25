@@ -208,7 +208,7 @@ class DALIExternalSource(ABC):
         return _num_iter
 
     def resample_indices(self, epoch_idx: int):
-        """Resample dataset sampling indicies. Shuffling seed based
+        """Resample dataset sampling indices. Shuffling seed based
         on epoch_idx so it is unique each time.
 
         Args:

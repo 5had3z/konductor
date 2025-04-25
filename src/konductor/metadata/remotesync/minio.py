@@ -43,7 +43,7 @@ class MinioRemote(RemoteConfig):
 
 class MinioSync(_RemoteSyncrhoniser):
     """
-    Manages syncrhonisation between a folder and minio bucket.
+    Manages synchronisation between a folder and minio bucket.
 
     Typical push/pull commands for individual objects or whole bucket.
     """

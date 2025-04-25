@@ -1,4 +1,4 @@
-"""Abstract Base remote syncrhonisation that defines
+"""Abstract Base remote synchronisation that defines
 interfaces required for remote synchronisation.
 """
 

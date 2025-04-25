@@ -4,6 +4,7 @@ Single class which manages metadata, statistics and checkpoints during training.
 
 import enum
 import os
+import re
 import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -247,12 +248,16 @@ class DataManager:
         if comm.is_main_process():  # Main rank pushes all data (logs + weights)
             self.remote_sync.push_all()
         elif comm.get_local_rank() == 0:  # Rank 0 of other machines push logs
-            self.remote_sync.push_select([r".*\.parquet", "events.out.tfevents.*"])
+            self.remote_sync.push_select(
+                [r".*\.parquet", r".*\.arrow", "events.out.tfevents.*"]
+            )
 
-        # Local rank 0 removes parquet logs after push to prevent excess accumulation
+        # Local rank 0 removes logs after push to prevent excess accumulation
         if comm.get_local_rank() == 0:
-            for file in self.workspace.glob("*.parquet"):
-                file.unlink()
+            pattern = re.compile(r".*\.parquet|.*\.arrow|events.out.tfevents.*")
+            for file in self.workspace.iterdir():
+                if pattern.match(file.name):
+                    file.unlink()
 
     def _remote_resume(self) -> None:
         """Pulls latest checkpoint and configuration files from remote"""
@@ -260,8 +265,6 @@ class DataManager:
             return
 
         if comm.get_local_rank() == 0:
-            self.remote_sync.pull_select(
-                [r".*\.yaml", r".*\.yml", self.checkpointer.latest.name]
-            )
+            self.remote_sync.pull_select([r".*\.yaml", self.checkpointer.latest.name])
 
         comm.synchronize()

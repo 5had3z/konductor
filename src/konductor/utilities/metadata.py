@@ -19,7 +19,8 @@ from pyarrow import parquet as pq
 from typing_extensions import Annotated
 
 from ..metadata.database import DB_REGISTRY, Database, Metadata
-from ..metadata.database.sqlite import DEFAULT_FILENAME
+from ..metadata.database.metadata import DEFAULT_FILENAME as METADATA_FILENAME
+from ..metadata.database.sqlite import DEFAULT_FILENAME as SQLITE_FILENAME
 
 _PQ_SHARD_RE = r"\A(train|val)_(?:[a-zA-Z0-9-]+_)?[0-9]+_[0-9]+.arrow\Z"
 _PQ_REDUCED_RE = r"\A(train|val)(?:_[a-zA-Z0-9-]+)?.parquet\Z"
@@ -107,7 +108,7 @@ def describe(exp_path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
             f"you reduce shards first: {exp_path.name}{Style.RESET_ALL}"
         )
 
-    print_metadata(exp_path / "metadata.yaml")
+    print_metadata(exp_path / METADATA_FILENAME)
 
     for log in logs:
         summarize_stats(log)
@@ -214,7 +215,7 @@ def get_database_with_defaults(
 ) -> Database:
     """Add extra default db_kwargs based on db_type and return Database instance"""
     if db_type == "sqlite":
-        db_kwargs["path"] = db_kwargs.get("path", workspace / DEFAULT_FILENAME)
+        db_kwargs["path"] = db_kwargs.get("path", workspace / SQLITE_FILENAME)
 
     return DB_REGISTRY[db_type](**db_kwargs)
 
@@ -230,7 +231,7 @@ def update_database(
     def iterate_metadata():
         """Iterate over metadata files in workspace"""
         for run in workspace.iterdir():
-            metapath = run / "metadata.yaml"
+            metapath = run / METADATA_FILENAME
             if metapath.exists():
                 yield metapath
 

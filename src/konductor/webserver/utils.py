@@ -11,8 +11,10 @@ import pandas as pd
 import yaml
 from pyarrow import parquet as pq
 
+from konductor.init import TRAIN_CONFIG_FILENAME
 from konductor.metadata.database import DB_REGISTRY, Database
-from konductor.metadata.database.sqlite import DEFAULT_FILENAME
+from konductor.metadata.database.metadata import DEFAULT_FILENAME as METADATA_FILENAME
+from konductor.metadata.database.sqlite import DEFAULT_FILENAME as SQLITE_FILENAME
 from konductor.utilities.metadata import _PQ_REDUCED_RE
 
 
@@ -45,7 +47,7 @@ class Experiment:
             keys.extend([f"{split}/{name}/{k}" for k in Experiment.get_keys(log_file)])
 
         try:
-            with open(root / "metadata.yaml", "r", encoding="utf-8") as f:
+            with open(root / METADATA_FILENAME, "r", encoding="utf-8") as f:
                 mdata = yaml.safe_load(f)
             name: str = mdata.get("brief", mdata["notes"][:30])
             ts = mdata.get("train_last", datetime(1, 1, 1))
@@ -57,6 +59,14 @@ class Experiment:
             name = root.name
 
         return cls(root, name, ts, keys)
+
+    @property
+    def config_path(self) -> Path:
+        return self.root / TRAIN_CONFIG_FILENAME
+
+    @property
+    def metadata_path(self) -> Path:
+        return self.root / METADATA_FILENAME
 
     def _get_group_data(self, split: str, group: str) -> pd.DataFrame:
         """Return all statistics within a group with averaged iteration"""
@@ -174,7 +184,7 @@ def add_default_db_kwargs(db_type: str, db_kwargs: str, workspace: Path | str) -
     """Adds default kwargs for db initialization based on the db type"""
     kwargs = json.loads(db_kwargs)
     if db_type == "sqlite":
-        kwargs["path"] = kwargs.get("path", str(Path(workspace) / DEFAULT_FILENAME))
+        kwargs["path"] = kwargs.get("path", str(Path(workspace) / SQLITE_FILENAME))
     return json.dumps(kwargs)
 
 

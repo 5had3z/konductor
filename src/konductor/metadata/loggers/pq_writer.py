@@ -55,7 +55,7 @@ class _ParquetWriter:
 
     def __call__(self, iteration: int, data: dict[str, float]) -> None:
         if len(self._columns) == 0:
-            self._register_columns(data.keys())
+            self._register_columns(list(data))
 
         if self.full:
             self._logger.debug("in-memory buffer full, flushing")
@@ -111,7 +111,7 @@ class _ParquetWriter:
     def _create_new_writer(self, schema: pa.Schema) -> None:
         self._file = open(self._next_write_path(), "wb")
         self._writer = ipc.new_stream(self._file, schema)
-        self.write_path.touch()  # Create emtpy file that will be destination later
+        self.write_path.touch()  # Create empty file that will be destination later
 
     def close(self):
         """Close the writer and file handle. Further writing will create a new file."""
@@ -151,8 +151,8 @@ class ParquetLogger(LogWriter):
         self.run_dir = run_dir
         self.topics: dict[str, _ParquetWriter] = {}
 
-    def add_topic(self, category: str, column_names: list[str]):
-        """Add a new topic ()"""
+    def add_topic(self, category: str | None, column_names: list[str]):
+        """Add a new topic"""
         for split in [Split.TRAIN, Split.VAL]:
             name = LogWriter.get_prefix(split, category)
             if category is None:
@@ -170,7 +170,7 @@ class ParquetLogger(LogWriter):
     ) -> None:
         topic_name = LogWriter.get_prefix(split, category)
         if topic_name not in self.topics:
-            self.add_topic(category, data.keys())
+            self.add_topic(category, list(data))
         self.topics[topic_name](iteration, data)
 
     def flush(self):

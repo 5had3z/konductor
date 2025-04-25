@@ -109,7 +109,7 @@ def _parameter_cmd(
     Currently only PyTorch is supported.
     Example usage where 'src' folder in cwd contains source code:
 
-    konduct-tools param-count --config-path checkpoint/train_config.yml --module src
+    konduct-tools param-count --config-path checkpoint/train_config.yaml --module src
 
     >>> # Learnable Param: 653760
     """

@@ -154,7 +154,7 @@ def update_left(exp_name):
     if not exp_name:
         raise PreventUpdate
     exp = next(x for x in EXPERIMENTS if x.name == exp_name)
-    with open(exp.root / "train_config.yml", "r", encoding="utf-8") as f:
+    with open(exp.config_path, "r", encoding="utf-8") as f:
         s = f.read()
     return s
 
@@ -164,7 +164,7 @@ def update_right(exp_name):
     if not exp_name:
         raise PreventUpdate
     exp = next(x for x in EXPERIMENTS if x.name == exp_name)
-    with open(exp.root / "train_config.yml", "r", encoding="utf-8") as f:
+    with open(exp.config_path, "r", encoding="utf-8") as f:
         s = f.read()
     return s
 
@@ -179,13 +179,13 @@ def diff_files(left_file, right_file):
         raise PreventUpdate
 
     exp = next(x for x in EXPERIMENTS if x.name == left_file)
-    with open(exp.root / "train_config.yml", "r", encoding="utf-8") as f:
+    with open(exp.config_path, "r", encoding="utf-8") as f:
         left = f.readlines()
 
     exp = next(x for x in EXPERIMENTS if x.name == right_file)
-    with open(exp.root / "train_config.yml", "r", encoding="utf-8") as f:
+    with open(exp.config_path, "r", encoding="utf-8") as f:
         right = f.readlines()
 
     diff = difflib.unified_diff(left, right, fromfile=left_file, tofile=right_file)
 
-    return "".join([d for d in diff])
+    return "".join(d for d in diff)

@@ -12,9 +12,10 @@ EXPERIMENTS: list[Experiment] = []
 
 layout = html.Div(
     [
-        html.H2("Pretrained Weights Depenency Graph"),
+        html.H2("Pretrained Weights Dependency Graph"),
         html.Div(
-            "If an experiment is a parent or child in a pretrained weights dependency graph, it will show up here"
+            "If an experiment is a parent or child in a pretrained"
+            " weights dependency graph, it will show up here"
         ),
         cyto.Cytoscape(
             id="cytoscape",
@@ -43,15 +44,14 @@ def init_exp(root_dir: str):
 
     for e in EXPERIMENTS:
         exp_id = str(e.root.name)
-        exp_meta = Metadata.from_yaml(e.root / "metadata.yaml")
+        exp_meta = Metadata.from_yaml(e.metadata_path)
         potentials[exp_id] = {"data": {"id": exp_id, "label": exp_meta.brief}}
 
         # Initialise potential node as false
         if exp_id not in should_add:
             should_add[exp_id] = False
 
-        cfg_path = e.root / "train_config.yml"
-        with open(cfg_path, "r", encoding="utf-8") as f:
+        with open(e.config_path, "r", encoding="utf-8") as f:
             config_dict = yaml.safe_load(f)
         config_dict["exp_path"] = e.root
         config = ExperimentInitConfig.from_dict(config_dict)
@@ -65,8 +65,8 @@ def init_exp(root_dir: str):
             should_add[exp_id] = True
             should_add[source] = True
 
-    for id, data in potentials.items():
-        if should_add[id]:
+    for id_, data in potentials.items():
+        if should_add[id_]:
             elements_data.append(data)
 
     return elements_data

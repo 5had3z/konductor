@@ -170,8 +170,8 @@ def selected_experiment(key: str, btn: str):
     for split in OPTION_TREE.keys:
         stat_groups.update(OPTION_TREE[split].keys)
 
-    cfg_txt = (exp.root / "train_config.yml").read_text()
-    meta_txt = (exp.root / "metadata.yaml").read_text()
+    cfg_txt = exp.config_path.read_text()
+    meta_txt = exp.metadata_path.read_text()
 
     return sorted(stat_groups), None, cfg_txt, meta_txt
 
