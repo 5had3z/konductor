@@ -14,6 +14,10 @@ from pandas import DataFrame as df
 from pyarrow import compute as pc
 from pyarrow import ipc
 from pyarrow import parquet as pq
+from sqlalchemy import Connection, MetaData, Table, create_engine, select
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from typing_extensions import Annotated
 
 from ..metadata.database import Metadata, get_database_with_defaults
@@ -225,6 +229,71 @@ def update_database(
         for meta_file in iterate_metadata():
             db_handle.session.merge(Metadata.from_yaml(meta_file))
         db_handle.commit()
+
+
+def upsert(conn: Connection, table: Table, data: list[dict]):
+    """Insert data into a table, updating existing rows if they already exist"""
+    pks = [pk.name for pk in table.primary_key]
+    if conn.dialect.name == "sqlite":
+        stmt = sqlite_insert(table)
+        update_columns = {
+            col.name: stmt.excluded[col.name] for col in table.c if not col.primary_key
+        }
+        stmt = stmt.on_conflict_do_update(index_elements=pks, set_=update_columns)
+    elif conn.dialect.name == "postgresql":
+        stmt = pg_insert(table)
+        update_columns = {
+            col.name: stmt.excluded[col.name] for col in table.c if not col.primary_key
+        }
+        stmt = stmt.on_conflict_do_update(index_elements=pks, set_=update_columns)
+    elif conn.dialect.name == "mysql":
+        stmt = mysql_insert(table)
+        update_columns = {
+            col.name: stmt.inserted[col.name] for col in table.c if not col.primary_key
+        }
+        stmt = stmt.on_duplicate_key_update(**update_columns)
+    else:
+        raise NotImplementedError(f"Upsert not implemented for {conn.dialect.name}")
+    conn.execute(stmt, data)
+
+
+@app.command()
+def copy_database(
+    src: Annotated[str, typer.Option()], dst: Annotated[str, typer.Option()]
+):
+    """Copies the contents of a database from a source uri to a destination uri.
+    This might be useful for copying a database from a remote postgres to a local
+    sqlite or vice-versa.
+
+    Currently no logic to 'choose' the most up-to-date data, so be careful, does
+    a blanket upsert from source to destination.
+    """
+    src_engine = create_engine(src)
+    dst_engine = create_engine(dst)
+    metadata = MetaData()
+    metadata.reflect(bind=src_engine)
+    metadata.create_all(bind=dst_engine)
+
+    src_conn = src_engine.connect()
+    dst_conn = dst_engine.connect()
+    for table_name in metadata.tables.keys():
+        print(f"Copying table {table_name}.")
+        src_table = metadata.tables[table_name]
+        select_stmt = select(src_table)
+        result = src_conn.execute(select_stmt)
+        batch_size = 1000
+        with dst_conn.begin():
+            while True:
+                batch = result.fetchmany(batch_size)
+                if not batch:
+                    break
+                data_to_insert = [
+                    dict(zip(src_table.columns.keys(), row)) for row in batch
+                ]
+                upsert(dst_conn, src_table, data_to_insert)
+    src_conn.close()
+    dst_conn.close()
+    print("Database copy complete.")
 
 
 if __name__ == "__main__":
