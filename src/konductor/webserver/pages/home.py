@@ -7,8 +7,8 @@ import pandas as pd
 from dash import Input, Output, callback, dash_table, dcc, html
 from dash.exceptions import PreventUpdate
 
+from konductor.metadata.database import get_database_with_defaults
 from konductor.utilities.metadata import reduce_all, update_database
-from konductor.webserver.utils import add_default_db_kwargs, get_database
 
 dash.register_page(__name__, path="/")
 
@@ -58,11 +58,6 @@ Contents of results.db which contains recorded summary statistics for simple fin
 )
 
 
-def get_db(db_type: str, db_kwargs: str, workspace: str):
-    db_kwargs = add_default_db_kwargs(db_type, db_kwargs, workspace)
-    return get_database(db_type, db_kwargs)
-
-
 @dash.callback(
     dash.Output("h-alert", "is_open", allow_duplicate=True),
     dash.Output("h-alert", "color", allow_duplicate=True),
@@ -100,11 +95,10 @@ def btn_update_database(_, root_dir):
     Input("h-refresh", "n_clicks"),
     Input("root-dir", "data"),
     Input("db-type", "data"),
-    Input("db-kwargs", "data"),
 )
-def update_avail_tables(_, root_dir: str, db_type: str, db_kwargs: str):
+def update_avail_tables(_, root_dir: str, db_type: str):
     """ """
-    with closing(get_db(db_type, db_kwargs, root_dir)) as db_handle:
+    with closing(get_database_with_defaults(db_type, Path(root_dir))) as db_handle:
         table_names = [t for t in db_handle.get_tables() if t != "metadata"]
     return table_names
 
@@ -115,16 +109,16 @@ def update_avail_tables(_, root_dir: str, db_type: str, db_kwargs: str):
     Input("h-table-select", "value"),
     Input("root-dir", "data"),
     Input("db-type", "data"),
-    Input("db-kwargs", "data"),
 )
-def update_table(table: str, root: str, db_type: str, db_kwargs: str):
+def update_table(table: str, root: str, db_type: str):
     if any(f is None for f in [table, root]):
         raise PreventUpdate
 
-    with closing(get_db(db_type, db_kwargs, root)) as db_handle:
-        perf = pd.read_sql_query(f"SELECT * FROM {table}", db_handle, index_col="hash")
+    with closing(get_database_with_defaults(db_type, Path(root))) as db_handle:
+        conn = db_handle.session.connection()
+        perf = pd.read_sql_query(f"SELECT * FROM {table}", conn, index_col="hash")
         meta = pd.read_sql_query(
-            "SELECT hash, train_last, brief FROM metadata", db_handle, index_col="hash"
+            "SELECT hash, train_last, brief FROM metadata", conn, index_col="hash"
         )
 
     perf = perf.join(meta)

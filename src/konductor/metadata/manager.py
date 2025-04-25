@@ -148,9 +148,9 @@ class DataManager:
         self.remote_timer = _Timer()
         self._logger = getLogger("DataManager")
         self.metadata = Metadata(
+            hash=self.workspace.name,
             commit_begin=_get_commit(),
             commit_last=_get_commit(),
-            filepath=self.workspace / META_FNAME,
         )
 
     @property
@@ -181,7 +181,7 @@ class DataManager:
             self._logger.warning("No checkpoint to resume")
             return
 
-        self.metadata = Metadata.from_yaml(self.metadata.filepath)
+        self.metadata = Metadata.from_yaml(self.workspace / META_FNAME)
         extras = self.checkpointer.resume()
 
         # Ensure that metadata file has same information as checkpoint
@@ -229,7 +229,7 @@ class DataManager:
         # Only save checkpoint on local rank zero
         if comm.get_local_rank() == 0:
             self.checkpointer.save(filename, epoch=self.epoch, iteration=self.iteration)
-            self.metadata.write()
+            self.metadata.write(self.workspace / META_FNAME)
 
         self.perflog.flush()  # Ensure all perf data is logged, move to next shard
         comm.synchronize()  # Ensure all workers have saved data before push

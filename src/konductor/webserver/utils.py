@@ -1,4 +1,3 @@
-import json
 import re
 from collections import deque
 from dataclasses import dataclass
@@ -12,9 +11,7 @@ import yaml
 from pyarrow import parquet as pq
 
 from konductor.init import TRAIN_CONFIG_FILENAME
-from konductor.metadata.database import DB_REGISTRY, Database
 from konductor.metadata.database.metadata import DEFAULT_FILENAME as METADATA_FILENAME
-from konductor.metadata.database.sqlite import DEFAULT_FILENAME as SQLITE_FILENAME
 from konductor.utilities.metadata import _PQ_REDUCED_RE
 
 
@@ -178,19 +175,3 @@ def fill_option_tree(exp: list[Experiment], tree: OptionTree):
     """Add experiments to the option tree"""
     for s in list(s for e in exp for s in e.stats):
         tree.add(s)
-
-
-def add_default_db_kwargs(db_type: str, db_kwargs: str, workspace: Path | str) -> str:
-    """Adds default kwargs for db initialization based on the db type"""
-    kwargs = json.loads(db_kwargs)
-    if db_type == "sqlite":
-        kwargs["path"] = kwargs.get("path", str(Path(workspace) / SQLITE_FILENAME))
-    return json.dumps(kwargs)
-
-
-def get_database(db_type: str, db_kwargs: str) -> Database:
-    """
-    Get a handle to the experiment database where the kwargs
-    to initialize the db are in stringified json format.
-    """
-    return DB_REGISTRY[db_type](**json.loads(db_kwargs))

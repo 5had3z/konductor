@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # Run this app and visit the default address http://127.0.0.1:8050/ in your web browser.
 
-import errno
-import json
 import socket
 from pathlib import Path
 from subprocess import Popen
@@ -27,7 +25,7 @@ def get_padding():
     return padding
 
 
-def get_basic_layout(root_dir: str, content_url: str, db_type: str, db_kwargs: str):
+def get_basic_layout(root_dir: str, content_url: str, db_type: str):
     """
     Get layout for app after registering all other pages,
     the root directory of the experiment folder is saved in
@@ -42,7 +40,6 @@ def get_basic_layout(root_dir: str, content_url: str, db_type: str, db_kwargs: s
             dcc.Store(id="root-dir", data=root_dir),
             dcc.Store(id="content-url", data=content_url),
             dcc.Store(id="db-type", data=db_type),
-            dcc.Store(id="db-kwargs", data=db_kwargs),
             html.Div(
                 dbc.ButtonGroup(
                     [
@@ -80,20 +77,14 @@ def main(
     enable_server: Annotated[bool, typer.Option(help="Enable Content Server")] = True,
     content_port: Annotated[int, typer.Option(help="Content Server Port")] = 8000,
     debug: Annotated[bool, typer.Option(help="Dash Debug Mode")] = False,
-    db_type: Annotated[str, typer.Option(help="Type of Database")] = "sqlite",
-    db_kwargs: Annotated[str, typer.Option(help="Database Kwargs")] = "{}",
+    db_uri: Annotated[str, typer.Option(help="Type of Database")] = "sqlite",
 ) -> None:
     """Experiment performance and metadata visualisation tool"""
     if port_in_use(port):
         raise ValueError(f"Port {port} is already in use, please choose another port")
 
-    try:
-        json.loads(db_kwargs)
-    except json.JSONDecodeError as err:
-        raise ValueError("Unable to parse db_kwargs, should be valid json") from err
-
     content_url = f"http://localhost:{content_port}"
-    webapp.layout = get_basic_layout(str(workspace), content_url, db_type, db_kwargs)
+    webapp.layout = get_basic_layout(str(workspace), content_url, db_uri)
     proc = None
     try:
         if enable_server:

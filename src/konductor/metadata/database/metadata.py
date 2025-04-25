@@ -1,24 +1,26 @@
 import inspect
-from dataclasses import dataclass
+from dataclasses import asdict
 from datetime import datetime
 from logging import warning
 from pathlib import Path
 from typing import Any
 
 import yaml
+from sqlalchemy.orm import Mapped, mapped_column
+
+from .interface import OrmModelBase
 
 DEFAULT_FILENAME = "metadata.yaml"
 
 
-@dataclass
-class Metadata:
+class Metadata(OrmModelBase):
     """
     Experiment metadata such as training state and auxiliary notes.
     """
 
-    # Filepath is intended for convenience, not written to metadata file
-    filepath: Path
+    __tablename__ = "metadata"
 
+    hash: Mapped[str] = mapped_column(primary_key=True)
     commit_begin: str = ""
     commit_last: str = ""
     epoch: int = 0
@@ -32,11 +34,6 @@ class Metadata:
     def train_duration(self):
         """Difference between train begin and last timestamp"""
         return self.train_last - self.train_begin
-
-    @property
-    def no_log_keys(self):
-        """Metadata keys that should not be logged"""
-        return {"filepath"}
 
     @classmethod
     def from_yaml(cls, path: Path):
@@ -54,20 +51,19 @@ class Metadata:
             else:
                 unknown.add(k)
 
-        known.remove("filepath")  # This is set by path arg
+        if "hash" in known:
+            filtered["hash"] = path.stem
+            known.remove("hash")
+            warning(f"Adding missing 'hash' to metadata: {path.parent.name}")
+
         if len(known) > 0:
             warning(f"missing keys from metadata: {known}")
         if len(unknown) > 0:
             warning(f"extra keys in metadata: {unknown}")
 
-        return cls(**filtered, filepath=path)
+        return cls(**filtered)
 
-    @property
-    def filtered_dict(self):
-        """Return a dict with no_log_keys removed"""
-        return {k: v for k, v in self.__dict__.items() if k not in self.no_log_keys}
-
-    def write(self):
+    def write(self, path: Path):
         """Write metadata to current filepath defined"""
-        with open(self.filepath, "w", encoding="utf-8") as f:
-            yaml.safe_dump(self.filtered_dict, f)
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(asdict(self), f)

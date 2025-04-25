@@ -1,13 +1,11 @@
 """Extra cli utilities for metadata management"""
 
-import json
 import os
 import re
 from collections import defaultdict
 from contextlib import closing
 from io import StringIO
 from pathlib import Path
-from typing import Any
 
 import pyarrow as pa
 import typer
@@ -18,9 +16,8 @@ from pyarrow import ipc
 from pyarrow import parquet as pq
 from typing_extensions import Annotated
 
-from ..metadata.database import DB_REGISTRY, Database, Metadata
+from ..metadata.database import Metadata, get_database_with_defaults
 from ..metadata.database.metadata import DEFAULT_FILENAME as METADATA_FILENAME
-from ..metadata.database.sqlite import DEFAULT_FILENAME as SQLITE_FILENAME
 
 _PQ_SHARD_RE = r"\A(train|val)_(?:[a-zA-Z0-9-]+_)?[0-9]+_[0-9]+.arrow\Z"
 _PQ_REDUCED_RE = r"\A(train|val)(?:_[a-zA-Z0-9-]+)?.parquet\Z"
@@ -210,21 +207,10 @@ def reduce_all(workspace: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
         reduce(folder)
 
 
-def get_database_with_defaults(
-    db_type: str, db_kwargs: dict[str, Any], workspace: Path
-) -> Database:
-    """Add extra default db_kwargs based on db_type and return Database instance"""
-    if db_type == "sqlite":
-        db_kwargs["path"] = db_kwargs.get("path", workspace / SQLITE_FILENAME)
-
-    return DB_REGISTRY[db_type](**db_kwargs)
-
-
 @app.command()
 def update_database(
     workspace: Annotated[Path, typer.Option()] = Path.cwd(),
-    db_type: Annotated[str, typer.Option()] = "sqlite",
-    db_kwargs: Annotated[str, typer.Option()] = "{}",
+    uri: Annotated[str, typer.Option()] = "sqlite",
 ):
     """Update the results database metadata from experiments in the workspace"""
 
@@ -235,12 +221,9 @@ def update_database(
             if metapath.exists():
                 yield metapath
 
-    with closing(
-        get_database_with_defaults(db_type, json.loads(db_kwargs), workspace)
-    ) as db_handle:
+    with closing(get_database_with_defaults(uri, workspace)) as db_handle:
         for meta_file in iterate_metadata():
-            meta = Metadata.from_yaml(meta_file)
-            db_handle.update_metadata(meta_file.parent.name, meta)
+            db_handle.session.merge(Metadata.from_yaml(meta_file))
         db_handle.commit()
 
 
