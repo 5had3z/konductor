@@ -10,7 +10,7 @@ from .interface import Database
 def find_outdated_evaluation_data(db: Database, key: str = "iteration") -> list[str]:
     """
     Search evaluation tables for runs where the key in the
-    evaluation table is less than the metadata table.
+    evaluation tables are less than the metadata table.
     """
     with closing(db.session.connection()) as conn:
         meta = pd.read_sql_query(

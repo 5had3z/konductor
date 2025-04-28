@@ -20,7 +20,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from typing_extensions import Annotated
 
-from ..metadata.database import Metadata, get_database_with_defaults
+from ..metadata.database import Database, Metadata
 from ..metadata.database.metadata import DEFAULT_FILENAME as METADATA_FILENAME
 
 _PQ_SHARD_RE = r"\A(train|val)_(?:[a-zA-Z0-9-]+_)?[0-9]+_[0-9]+.arrow\Z"
@@ -214,7 +214,7 @@ def reduce_all(workspace: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
 @app.command()
 def update_database(
     workspace: Annotated[Path, typer.Option()] = Path.cwd(),
-    uri: Annotated[str, typer.Option()] = "sqlite",
+    uri: Annotated[str, typer.Option()] = "env",
 ):
     """Update the results database metadata from experiments in the workspace"""
 
@@ -225,7 +225,7 @@ def update_database(
             if metapath.exists():
                 yield metapath
 
-    with closing(get_database_with_defaults(uri, workspace)) as db_handle:
+    with closing(Database(uri, workspace)) as db_handle:
         for meta_file in iterate_metadata():
             db_handle.session.merge(Metadata.from_yaml(meta_file))
         db_handle.commit()

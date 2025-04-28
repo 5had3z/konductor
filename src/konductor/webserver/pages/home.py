@@ -7,7 +7,7 @@ import pandas as pd
 from dash import Input, Output, callback, dash_table, dcc, html
 from dash.exceptions import PreventUpdate
 
-from konductor.metadata.database import get_database_with_defaults
+from konductor.metadata.database import Database
 from konductor.utilities.metadata import reduce_all, update_database
 
 dash.register_page(__name__, path="/")
@@ -94,11 +94,11 @@ def btn_update_database(_, root_dir):
     Output("h-table-select", "options"),
     Input("h-refresh", "n_clicks"),
     Input("root-dir", "data"),
-    Input("db-type", "data"),
+    Input("db-uri", "data"),
 )
 def update_avail_tables(_, root_dir: str, db_type: str):
     """ """
-    with closing(get_database_with_defaults(db_type, Path(root_dir))) as db_handle:
+    with closing(Database(db_type, Path(root_dir))) as db_handle:
         table_names = [t for t in db_handle.get_tables() if t != "metadata"]
     return table_names
 
@@ -108,13 +108,13 @@ def update_avail_tables(_, root_dir: str, db_type: str):
     Output("h-table", "columns"),
     Input("h-table-select", "value"),
     Input("root-dir", "data"),
-    Input("db-type", "data"),
+    Input("db-uri", "data"),
 )
 def update_table(table: str, root: str, db_type: str):
     if any(f is None for f in [table, root]):
         raise PreventUpdate
 
-    with closing(get_database_with_defaults(db_type, Path(root))) as db_handle:
+    with closing(Database(db_type, Path(root))) as db_handle:
         conn = db_handle.session.connection()
         perf = pd.read_sql_query(f"SELECT * FROM {table}", conn, index_col="hash")
         meta = pd.read_sql_query(

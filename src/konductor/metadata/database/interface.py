@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from warnings import warn
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, MappedAsDataclass, sessionmaker
@@ -14,9 +15,25 @@ class OrmModelBase(MappedAsDataclass, DeclarativeBase):
 
 
 class Database:
-    """Database holding experiment metadata"""
+    """Database used for storing experiment data such as `Metadata` and
+    inherited `ExperimentData` classes.
 
-    def __init__(self, uri: str):
+    Args:
+        uri (str): Database URI. If 'env' is used, `get_env_uri` will be called with `workspace`.
+        workspace (Path | None): Workspace directory. Required if 'sqlite' is used as the URI.
+    """
+
+    def __init__(self, uri: str, workspace: Path | None = None):
+        if uri == "env":
+            try:
+                uri = get_uri_from_env(workspace)
+            except KeyError:
+                warn("KONDUCTOR_DB_URI not set. Using sqlite default.")
+                uri = "sqlite"
+        if uri == "sqlite":
+            assert workspace is not None, "Workspace must be provided for 'sqlite' uri"
+            uri = get_sqlite_uri(workspace)
+
         engine = create_engine(uri)
         OrmModelBase.metadata.create_all(engine)
         self.session = sessionmaker(engine)()
@@ -34,21 +51,21 @@ class Database:
         self.session.commit()
 
 
+def get_uri_from_env(workspace: Path | None = None) -> str:
+    """Get the database URI from the environment variable KONDUCTOR_DB_URI.
+    If workspace is provided, it will be used to substitute the %s in the URI if present.
+    """
+    uri = os.environ["KONDUCTOR_DB_URI"]
+    if workspace is not None:
+        try:
+            uri = uri % workspace.name
+        except TypeError:  # Doesn't need substitution
+            pass
+    return uri
+
+
 def get_sqlite_uri(path: Path) -> str:
     """Get SQLite URI from path. If path is a directory, append the default filename."""
     if path.is_dir():
         path /= DEFAULT_SQLITE_FILENAME
     return f"sqlite:///{path.resolve()}"
-
-
-def get_database_with_defaults(uri: str, workspace: Path) -> Database:
-    """Add extra default db_kwargs based on db_type and return Database instance"""
-    if uri == "sqlite":
-        uri = get_sqlite_uri(workspace)
-    elif uri == "env":
-        uri = os.environ.get("KONDUCTOR_DB_URI", "sqlite")
-        try:
-            uri = uri % workspace.name
-        except TypeError:  # Doesn't need substitution
-            pass
-    return Database(uri)

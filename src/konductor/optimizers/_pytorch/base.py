@@ -60,7 +60,7 @@ class PytorchOptimizer(OptimizerConfig):
                         *[x["params"] for x in self.param_groups]
                     )
                     nn.utils.clip_grad_norm_(all_params, gradient_clipping)
-                    super().step(closure=closure)
+                    return super().step(closure=closure)
 
             return FullModelGradientClippingOptimizer
 
