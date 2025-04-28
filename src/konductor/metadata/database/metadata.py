@@ -58,7 +58,7 @@ class Metadata(OrmModelBase):
                 unknown.add(k)
 
         if "hash" in known:
-            filtered["hash"] = path.stem
+            filtered["hash"] = path.parent.name
             known.remove("hash")
             warning(f"Adding missing 'hash' to metadata: {path.parent.name}")
         if "data" in known:
