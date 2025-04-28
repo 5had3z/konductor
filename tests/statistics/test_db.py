@@ -2,33 +2,51 @@ import random
 from pathlib import Path
 
 import pytest
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
-from konductor.metadata.database import Database, Metadata, OrmModelBase, get_sqlite_uri
+from konductor.metadata.database import (
+    Database,
+    ExperimentData,
+    Metadata,
+    get_sqlite_uri,
+)
 
 
 @pytest.fixture
 def dummy_metadata():
-    return [Metadata("foo"), Metadata("bar"), Metadata("baz")]
+    return [Metadata(hash="foo"), Metadata(hash="bar"), Metadata(hash="baz")]
 
 
-class Detection(OrmModelBase):
+class Detection(ExperimentData):
     __tablename__ = "detection"
-    hash: Mapped[str] = mapped_column(primary_key=True)
-    iou: float = 0.0
-    ap: float = 0.0
-    acc: float = 0.0
-    iou_big: float = 0.0
-    iou_small: float = 0.0
-    ap_big: float = 0.0
-    ap_small: float = 0.0
+
+    id: Mapped[int] = mapped_column(
+        ForeignKey("experiment_data.id"), primary_key=True, init=False
+    )
+
+    iou: Mapped[float]
+    ap: Mapped[float]
+    acc: Mapped[float]
+    iou_big: Mapped[float]
+    iou_small: Mapped[float]
+    ap_big: Mapped[float]
+    ap_small: Mapped[float]
+
+    __mapper_args__ = {"polymorphic_identity": "detection_data"}
 
 
-class Segmentation(OrmModelBase):
+class Segmentation(ExperimentData):
     __tablename__ = "segmentation"
-    hash: Mapped[str] = mapped_column(primary_key=True)
-    iou: float = 0.0
-    acc: float = 0.0
+
+    id: Mapped[int] = mapped_column(
+        ForeignKey("experiment_data.id"), primary_key=True, init=False
+    )
+
+    iou: Mapped[float]
+    acc: Mapped[float]
+
+    __mapper_args__ = {"polymorphic_identity": "segmentation_data"}
 
 
 @pytest.fixture()
@@ -40,41 +58,46 @@ def sample_db(tmp_path: Path):
 
 def test_adding_tables(sample_db: Database):
     """Test all the tables have been added"""
-    assert set(sample_db.get_tables()) == {"metadata", "detection", "segmentation"}
+    assert set(sample_db.get_tables()) == {
+        "metadata",
+        "experiment_data",
+        "detection",
+        "segmentation",
+    }
 
 
 def test_adding_metadata(sample_db: Database, dummy_metadata: list[Metadata]):
-    for sample in dummy_metadata:
-        sample_db.session.merge(sample)
+    sample_db.session.add_all(dummy_metadata)
+    sample_db.session.commit()
 
     hashes = {m.hash for m in sample_db.session.query(Metadata).all()}
     assert hashes == {s.hash for s in dummy_metadata}
 
 
 def test_write_and_read(sample_db: Database, dummy_metadata: list[Metadata]):
-    for sample in dummy_metadata:
-        sample_db.session.merge(sample)
-
     # Make data in the form run[table[data]]
-    logs: list[OrmModelBase] = []
+    logs: list[ExperimentData] = []
     run_data: dict[str, dict[str, dict[str, float]]] = {}
     for sample in dummy_metadata:
         data = {}
         for table in [Detection, Segmentation]:
             sample_data = {
-                c: random.random() if c != "hash" else sample.hash
+                c: random.random()
                 for c in table.__dict__["__annotations__"]
+                if c != "id"
             }
             data[table.__tablename__] = sample_data
-            logs.append(table(**sample_data))
+            logs.append(table(experiment_metadata=sample, **sample_data))
         run_data[sample.hash] = data
 
     # Write all the data
-    sample_db.session.add_all(logs)
+    sample_db.session.add_all(dummy_metadata + logs)
+    sample_db.session.commit()
 
     # Read each data type and check can recover what has been written
     for run, data in run_data.items():
         for table in [Detection, Segmentation]:
-            entry = table(**data[table.__tablename__])
             db = sample_db.session.query(table).filter_by(hash=run).first()
-            assert entry == db
+            assert all(
+                v == getattr(db, k) for k, v in data[table.__tablename__].items()
+            )
