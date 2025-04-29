@@ -227,7 +227,22 @@ def update_database(
 
     with closing(Database(uri, workspace)) as db_handle:
         for meta_file in iterate_metadata():
-            db_handle.session.merge(Metadata.from_yaml(meta_file))
+            meta = Metadata.from_yaml(meta_file)
+            existing = (
+                db_handle.session.query(Metadata)
+                .filter(Metadata.hash == meta.hash)
+                .first()
+            )
+            if existing is None:
+                print(f"Adding {meta.hash} to database")
+                db_handle.session.add(meta)
+            else:
+                # Copy all the fields from the new metadata to the existing one
+                if existing.train_last < meta.train_last:
+                    for field in meta.__dataclass_fields__.keys():
+                        if field in {"hash", "data"}:
+                            continue
+                        setattr(existing, field, getattr(meta, field))
         db_handle.commit()
 
 
