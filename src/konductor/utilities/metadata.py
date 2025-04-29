@@ -228,11 +228,8 @@ def update_database(
     with closing(Database(uri, workspace)) as db_handle:
         for meta_file in iterate_metadata():
             meta = Metadata.from_yaml(meta_file)
-            existing = (
-                db_handle.session.query(Metadata)
-                .filter(Metadata.hash == meta.hash)
-                .first()
-            )
+            stmt = select(Metadata).where(Metadata.hash == meta.hash)
+            existing = db_handle.session.execute(stmt).scalar()
             if existing is None:
                 print(f"Adding {meta.hash} to database")
                 db_handle.session.add(meta)

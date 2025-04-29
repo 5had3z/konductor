@@ -2,7 +2,7 @@ import random
 from pathlib import Path
 
 import pytest
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, select
 from sqlalchemy.orm import Mapped, mapped_column
 
 from konductor.metadata.database import (
@@ -70,7 +70,7 @@ def test_adding_metadata(sample_db: Database, dummy_metadata: list[Metadata]):
     sample_db.session.add_all(dummy_metadata)
     sample_db.session.commit()
 
-    hashes = {m.hash for m in sample_db.session.query(Metadata).all()}
+    hashes = {m.hash for m in sample_db.session.execute(select(Metadata)).scalars()}
     assert hashes == {s.hash for s in dummy_metadata}
 
 
@@ -97,7 +97,8 @@ def test_write_and_read(sample_db: Database, dummy_metadata: list[Metadata]):
     # Read each data type and check can recover what has been written
     for run, data in run_data.items():
         for table in [Detection, Segmentation]:
-            db = sample_db.session.query(table).filter_by(hash=run).first()
+            stmt = select(table).where(ExperimentData.hash == run)
+            db = sample_db.session.execute(stmt).scalar()
             assert all(
                 v == getattr(db, k) for k, v in data[table.__tablename__].items()
             )
