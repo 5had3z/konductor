@@ -34,10 +34,6 @@ class Experiment:
         assert not root.is_file(), "Experiment root should be a folder"
         log_files = [f for f in root.iterdir() if re.match(_PQ_REDUCED_RE, f.name)]
 
-        if len(log_files) == 0:
-            debug(f"Skipping {root.name}")
-            return None
-
         keys: list[str] = []
         for log_file in log_files:
             split, name = log_file.stem.split("_")[:2]
