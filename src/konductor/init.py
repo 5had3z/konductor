@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from io import StringIO
 from pathlib import Path
 from typing import Any
+from warnings import warn
 
 import yaml
 
@@ -16,6 +17,8 @@ from .utilities import comm
 
 
 class Split(str, enum.Enum):
+    """Enum for the different splits of a dataset"""
+
     @staticmethod
     def _generate_next_value_(
         name: str, start: int, count: int, last_values: list
@@ -50,6 +53,13 @@ class OptimizerInitConfig:
 
     @classmethod
     def from_dict(cls, parsed_dict: dict[str, Any]):
+        """Create from configuration dictionary with keys [type, args, scheduler]"""
+        keys = set(parsed_dict.keys())
+        expected = {"type", "args", "scheduler"}
+        if keys != expected:
+            raise ValueError(
+                f"Invalid optimizer config, expected {expected} but got {keys}"
+            )
         return cls(
             parsed_dict["type"],
             parsed_dict["args"],
@@ -69,6 +79,13 @@ class ModelInitConfig:
 
     @classmethod
     def from_dict(cls, parsed_dict: dict[str, Any]):
+        """Create from configuration dictionary with keys [type, args, optimizer]"""
+        keys = set(parsed_dict.keys())
+        expected = {"type", "args", "optimizer"}
+        if keys != expected:
+            raise ValueError(
+                f"Invalid model config, expected {expected} but got {keys}"
+            )
         return cls(
             parsed_dict["type"],
             parsed_dict["args"],
@@ -88,7 +105,15 @@ class DatasetInitConfig:
 
     @classmethod
     def from_dict(cls, parsed_dict: dict[str, Any]):
-        """Create from configuration dictionary with keys [type, args, train_loader, val_loader]"""
+        """Create from configuration dictionary with keys [type, args] with
+        train_loader and val_loader or just loader if they are the same"""
+        expected = {"type", "args", "train_loader", "val_loader", "loader"}
+        keys = set(parsed_dict.keys())
+        if not keys.issubset(expected):
+            raise ValueError(
+                f"Invalid dataset config, expected {expected} but got {keys}"
+            )
+
         dataset = ModuleInitConfig(parsed_dict["type"], parsed_dict["args"])
         if "loader" in parsed_dict:
             train_loader = val_loader = ModuleInitConfig(**parsed_dict["loader"])
@@ -180,6 +205,20 @@ class ExperimentInitConfig:
     @classmethod
     def from_dict(cls, parsed_dict: dict[str, Any]):
         """Setup experiment configuration from dictionary"""
+        expected = {
+            "remote_sync",
+            "model",
+            "dataset",
+            "criterion",
+            "exp_path",
+            "checkpointer",
+            "logger",
+            "trainer",
+        }
+        keys = set(parsed_dict.keys())
+        if not keys.issubset(expected):
+            warn(f"Got unexpected keys in config: {keys - expected}")
+
         if "remote_sync" in parsed_dict:
             remote_sync = ModuleInitConfig(**parsed_dict["remote_sync"])
         else:
