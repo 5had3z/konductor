@@ -23,8 +23,8 @@ class Metadata(OrmModelBase):
 
     hash: Mapped[str] = mapped_column(primary_key=True)
 
-    commit_begin: Mapped[str] = mapped_column(default="")
-    commit_last: Mapped[str] = mapped_column(default="")
+    commit_begin: Mapped[str] = mapped_column(default="Unknown")
+    commit_last: Mapped[str] = mapped_column(default="Unknown")
     epoch: Mapped[int] = mapped_column(default=0)
     iteration: Mapped[int] = mapped_column(default=0)
     notes: Mapped[str] = mapped_column(default="")

@@ -198,8 +198,15 @@ def reduce(exp_path: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
     for shard in shards:
         grouped[get_reduced_path(shard).stem].append(shard)
 
-    for shard_list in grouped.values():
-        reduce_shard(shard_list)
+    for name, shard_list in grouped.items():
+        try:
+            reduce_shard(shard_list)
+        except Exception as err:
+            print(
+                f"{Fore.RED+Style.BRIGHT}Skipping {name},"
+                f"Failed to reduce shards: {err}{Style.RESET_ALL}"
+            )
+            continue
 
 
 @app.command()
