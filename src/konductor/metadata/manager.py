@@ -152,6 +152,9 @@ class DataManager:
             commit_begin=_get_commit(),
             commit_last=_get_commit(),
         )
+        meta_path = self.workspace / META_FNAME
+        if not meta_path.exists():
+            self.metadata.write(meta_path)
 
     @property
     def workspace(self):
