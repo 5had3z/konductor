@@ -45,6 +45,10 @@ layout = html.Div(
                     dbc.Switch(id="im-nn-interp", label="NN Interp.", value=False),
                     width="auto",
                 ),
+                dbc.Col(
+                    dbc.Switch("im-scale-down", label="Downscale Image", value=True),
+                    width="auto",
+                ),
                 dbc.Col(html.H4("Experiment: "), width="auto"),
                 dbc.Col(dcc.Dropdown(id="im-experiment"), width=True),
             ]
@@ -83,7 +87,7 @@ def init_exp(root_dir: str):
 
 
 def make_carousel(
-    path: Path, prefix: str, enable_dark: bool, nn_interp: bool
+    path: Path, prefix: str, enable_dark: bool, nn_interp: bool, scale_down: bool
 ) -> dbc.Carousel:
     image_files = list(path.glob(f"{prefix}_*.png"))
     image_files.sort()  # Ensure consistency
@@ -92,7 +96,7 @@ def make_carousel(
     for image in image_files:
         im_type = image.stem.removeprefix(prefix + "_")
         image_data = Image.open(image)
-        if image_data.width > 1024:
+        if scale_down and any(s > 1024 for s in [image_data.width, image_data.height]):
             image_data = image_data.reduce(4)
         items.append({"key": im_type, "src": image_data, "caption": im_type})
 
@@ -104,14 +108,22 @@ def make_carousel(
 
 
 def make_carousel_row(
-    root_dir: Path, sample_name: str, enable_dark: bool, nn_interp: bool
+    root_dir: Path,
+    sample_name: str,
+    enable_dark: bool,
+    nn_interp: bool,
+    scale_down: bool,
 ):
     """Adds thumbnail to grid"""
     data_col = dbc.Col(
-        make_carousel(root_dir / "data", sample_name, enable_dark, nn_interp)
+        make_carousel(
+            root_dir / "data", sample_name, enable_dark, nn_interp, scale_down
+        )
     )
     pred_col = dbc.Col(
-        make_carousel(root_dir / "pred", sample_name, enable_dark, nn_interp)
+        make_carousel(
+            root_dir / "pred", sample_name, enable_dark, nn_interp, scale_down
+        )
     )
     return dbc.Row([data_col, pred_col])
 
@@ -148,6 +160,7 @@ def update_pagination(root_dir: str, experiment_name: str):
     Input("im-pages", "active_page"),
     Input("im-dark-cap", "value"),
     Input("im-nn-interp", "value"),
+    Input("im-scale-down", "value"),
 )
 def update_thumbnails(
     root_dir: str,
@@ -155,6 +168,7 @@ def update_thumbnails(
     sample_idx: int,
     enable_dark: bool,
     nn_interp: bool,
+    scale_down: bool,
 ):
     """ """
     if not all((experiment_name, root_dir, sample_idx)):
@@ -174,7 +188,7 @@ def update_thumbnails(
 
     sample_name = sample_names[sample_idx - 1]
     image_data = make_carousel_row(
-        exp.root / "images", sample_name, enable_dark, nn_interp
+        exp.root / "images", sample_name, enable_dark, nn_interp, scale_down
     )
 
     return image_data, f"Sample Name: {sample_name}"
