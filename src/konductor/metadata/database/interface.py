@@ -34,9 +34,14 @@ class Database:
             assert workspace is not None, "Workspace must be provided for 'sqlite' uri"
             uri = get_sqlite_uri(workspace)
 
+        self._uri = uri
         engine = create_engine(uri)
         OrmModelBase.metadata.create_all(engine)
         self.session = sessionmaker(engine)()
+
+    @property
+    def uri(self) -> str:
+        return self._uri
 
     def close(self):
         """Close Database Connection"""
@@ -69,3 +74,14 @@ def get_sqlite_uri(path: Path) -> str:
     if path.is_dir():
         path /= DEFAULT_SQLITE_FILENAME
     return f"sqlite:///{path.resolve()}"
+
+
+def get_orm_classes():
+    """Get all classes that inherit from OrmModelBase"""
+
+    def all_subclasses(cls):
+        return set(cls.__subclasses__()).union(
+            [s for c in cls.__subclasses__() for s in all_subclasses(c)]
+        )
+
+    return all_subclasses(OrmModelBase)

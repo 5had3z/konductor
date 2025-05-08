@@ -33,7 +33,9 @@ class Metadata(OrmModelBase):
     brief: Mapped[str] = mapped_column(default="")
 
     data: Mapped[list["ExperimentData"]] = relationship(
-        back_populates="experiment_metadata", default_factory=list
+        back_populates="experiment_metadata",
+        default_factory=list,
+        cascade="all, delete-orphan",
     )
 
     @property

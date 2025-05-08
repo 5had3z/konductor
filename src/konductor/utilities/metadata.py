@@ -1,11 +1,16 @@
 """Extra cli utilities for metadata management"""
 
+import importlib
+import importlib.util
 import os
 import re
+import sys
 from collections import defaultdict
 from contextlib import closing
 from io import StringIO
 from pathlib import Path
+from typing import Annotated, Optional
+from warnings import warn
 
 import pyarrow as pa
 import typer
@@ -18,9 +23,9 @@ from sqlalchemy import Connection, MetaData, Table, create_engine, select
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from typing_extensions import Annotated
 
 from ..metadata.database import Database, Metadata
+from ..metadata.database.interface import get_orm_classes
 from ..metadata.database.metadata import DEFAULT_FILENAME as METADATA_FILENAME
 
 _PQ_SHARD_RE = r"\A(train|val)_(?:[a-zA-Z0-9-]+_)?[0-9]+_[0-9]+.arrow\Z"
@@ -313,6 +318,71 @@ def copy_database(
     src_conn.close()
     dst_conn.close()
     print("Database copy complete.")
+
+
+def _import_user_code(path: Path):
+    """Import the user code from the given path so any of their stuff is
+    registered/imported properly. For example derived ExperimentData tables.
+
+    Args:
+        path (Path): Path to the user code, can be a directory or a file.
+    """
+    if path.is_dir():
+        sys.path.append(str(path.parent))
+        importlib.import_module(path.stem)
+    elif path.is_file():
+        spec = importlib.util.spec_from_file_location("table_defs", path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Could not load module from {path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    else:
+        raise ValueError(f"Invalid path: {path}, must be a directory or file")
+
+
+@app.command()
+def clean_database(
+    uri: Annotated[str, typer.Option()] = "env",
+    workspace: Annotated[Path, typer.Option()] = Path.cwd(),
+    import_tables: Annotated[Optional[Path], typer.Option()] = None,
+    yes: Annotated[bool, "--yes", "-y"] = False,
+):
+    """Clean the database of any metadata entries that are not in the workspace
+    Entries to be deleted will be printed, which is to be confirmed by the user.
+    """
+    print("Entries are listed: hash - train_last - iteration - brief")
+
+    if import_tables is not None:
+        print("Importing user code to register tables")
+        _import_user_code(import_tables)
+
+        print("Discovered ORM models:")
+        for cls in get_orm_classes():
+            print(f"  - {cls.__name__} ({cls.__module__})")
+            print(f"    Table: {cls.__tablename__}")
+    else:
+        warn(
+            "--import-tables not provided, this is required to cascade the deletion "
+            "to user-defined tables and not just clean the main metadata table."
+        )
+
+    with closing(Database(uri, workspace)) as db_handle:
+        existing = db_handle.session.execute(select(Metadata)).scalars().all()
+        for meta in existing:
+            if not (workspace / meta.hash).exists():
+                print(
+                    f"Selected for deletion: {meta.hash} - "
+                    f"{meta.train_last} - {meta.iteration} - {meta.brief}"
+                )
+                db_handle.session.delete(meta)
+
+        if not yes:
+            yes = input("confirm? (y): ").lower() == "y"
+        if yes:
+            print("Deleting entries from database")
+            db_handle.commit()
+        else:
+            print("Aborting deletion command")
 
 
 if __name__ == "__main__":
