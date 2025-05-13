@@ -54,17 +54,13 @@ class _ParquetWriter:
         self._logger.info("Registering: %s", ", ".join(keys))
 
     def __call__(self, iteration: int, data: dict[str, float]) -> None:
-        if len(self._columns) == 0:
-            self._register_columns(list(data))
+        new_cols = set(data).difference(self._columns)
+        if len(new_cols) > 0:
+            self._register_columns(list(new_cols))
 
         if self.full:
             self._logger.debug("in-memory buffer full, flushing")
             self.flush()
-
-        if len(set(data).difference(self._columns)) > 0:
-            raise KeyError(
-                f"Unexpected new keys: {set(data).difference(set(self._columns))}"
-            )
 
         self._end_idx += 1
 
