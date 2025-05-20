@@ -2,6 +2,7 @@
 TODO https://dash.plotly.com/datatable/conditional-formatting#highlighting-cells-by-value-with-a-colorscale-like-a-heatmap
 """
 
+import base64
 from pathlib import Path
 
 import dash
@@ -98,6 +99,18 @@ layout = html.Div(
                             style={"width": "100%", "height": 600},
                         ),
                     ]
+                ),
+            ]
+        ),
+        dbc.Row(
+            [
+                html.H4("Generated Figures", style={"text-align": "center"}),
+                dbc.Carousel(
+                    id="summary-figures",
+                    items=[],
+                    controls=True,
+                    indicators=True,
+                    style={"backgroundColor": "#f8f9fa"},
                 ),
             ]
         ),
@@ -221,3 +234,41 @@ def update_graph(key: str, btn: str, group: str, name: str):
         )
 
     return fig
+
+
+# Add helper function after existing functions
+def get_figure_paths(experiment_path: Path) -> list[dict]:
+    """Get all PNG files in the figures directory and convert to format needed for carousel"""
+    figure_dir = experiment_path / "figures"
+    if not figure_dir.exists():
+        return []
+
+    items = []
+    for img_path in figure_dir.glob("*.png"):
+        # Read and encode image
+        with open(img_path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode()
+
+        items.append(
+            {
+                "key": img_path.stem,
+                "src": f"data:image/png;base64,{encoded}",
+                "header": img_path.stem,
+                "img_style": {"max-height": "500px", "object-fit": "contain"},
+            }
+        )
+
+    return items
+
+
+@callback(
+    Output("summary-figures", "items"),
+    Input("summary-select", "value"),
+    Input("summary-opt", "value"),
+)
+def update_figures(key: str, btn: str):
+    if not all([key, btn]):
+        return []
+
+    exp = get_experiment(key, btn)
+    return get_figure_paths(exp.root)
