@@ -105,7 +105,17 @@ layout = html.Div(
         ),
         dbc.Row(
             [
-                html.H4("Generated Figures", style={"text-align": "center"}),
+                dbc.Col(html.H4("Generated Figures")),
+                dbc.Col(
+                    dbc.Switch(
+                        id="summary-dark-cap", label="Dark Captions", value=False
+                    ),
+                    width="auto",
+                ),
+            ]
+        ),
+        dbc.Row(
+            [
                 dbc.Carousel(
                     id="summary-figures",
                     items=[],
@@ -291,6 +301,12 @@ def update_figures(key: str, btn: str):
 
     exp = get_experiment(key, btn)
     return get_figure_paths(exp.root)
+
+
+@callback(Output("summary-figures", "variant"), Input("summary-dark-cap", "value"))
+def update_dark_caption(dark: bool):
+    """Update the variant of the carousel based on the dark caption switch"""
+    return "dark" if dark else ""
 
 
 read_fn: dict[str, Callable[[Path], pd.DataFrame]] = {
