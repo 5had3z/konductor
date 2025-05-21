@@ -4,12 +4,13 @@ TODO https://dash.plotly.com/datatable/conditional-formatting#highlighting-cells
 
 import base64
 from pathlib import Path
+from typing import Callable
 
 import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Input, Output, callback, dcc, html
+from dash import Input, Output, callback, dash_table, dcc, html
 from dash.exceptions import PreventUpdate
 
 from konductor.webserver.utils import (
@@ -111,6 +112,24 @@ layout = html.Div(
                     controls=True,
                     indicators=True,
                     style={"backgroundColor": "#f8f9fa"},
+                ),
+            ]
+        ),
+        dbc.Row(
+            [
+                dbc.Col(html.H4("Generated Tables")),
+                dbc.Col(dcc.Dropdown(id="summary-table-select"), width=True),
+            ]
+        ),
+        dbc.Row(
+            [
+                dash_table.DataTable(
+                    id="summary-table",
+                    columns=[],
+                    data=[],
+                    sort_action="native",
+                    filter_action="native",
+                    style_table={"overflowX": "auto", "minWidth": "100%"},
                 ),
             ]
         ),
@@ -272,3 +291,62 @@ def update_figures(key: str, btn: str):
 
     exp = get_experiment(key, btn)
     return get_figure_paths(exp.root)
+
+
+read_fn: dict[str, Callable[[Path], pd.DataFrame]] = {
+    ".parquet": pd.read_parquet,
+    ".csv": pd.read_csv,
+}
+
+
+@callback(
+    Output("summary-table-select", "options"),
+    Output("summary-table-select", "value"),
+    Input("summary-select", "value"),
+    Input("summary-opt", "value"),
+)
+def update_table_select(key: str, btn: str):
+    if not all([key, btn]):
+        return [], None
+
+    exp = get_experiment(key, btn)
+
+    table_dir = exp.root / "tables"
+    if not table_dir.exists():
+        return [], None
+
+    all_files = list(table_dir.iterdir())
+    compat_files = [f for f in all_files if f.suffix in read_fn]
+    if len(compat_files) != len(all_files):
+        print(
+            f"Skipping files in tables directory without compatible suffix {read_fn.keys()}"
+        )
+    table_names = sorted(f.name for f in compat_files)
+
+    return table_names, None
+
+
+@callback(
+    Output("summary-table", "data"),
+    Output("summary-table", "columns"),
+    Input("summary-select", "value"),
+    Input("summary-opt", "value"),
+    Input("summary-table-select", "value"),
+)
+def update_table(key: str, btn: str, table: str):
+    if not all((key, btn, table)):
+        return [], []
+
+    exp = get_experiment(key, btn)
+
+    datapath = exp.root / "tables" / table
+
+    if not datapath.exists():
+        return [], []
+
+    # Get the table data
+    table_data = read_fn[Path(table).suffix](exp.root / "tables" / table)
+    cols = [{"name": col, "id": col} for col in sorted(table_data.columns)]
+    print(len(table_data))
+
+    return table_data.to_dict("records"), cols
