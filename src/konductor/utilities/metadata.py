@@ -4,6 +4,7 @@ import importlib
 import importlib.util
 import os
 import re
+import shutil
 import sys
 from collections import defaultdict
 from contextlib import closing
@@ -24,6 +25,7 @@ from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
+from ..metadata.checkpointer._pytorch import Checkpointer as PytorchCheckpointer
 from ..metadata.database import Database, Metadata
 from ..metadata.database.interface import get_orm_classes
 from ..metadata.database.metadata import DEFAULT_FILENAME as METADATA_FILENAME
@@ -383,6 +385,30 @@ def clean_database(
             db_handle.commit()
         else:
             print("Aborting deletion command")
+
+
+@app.command()
+def clean_workspace(workspace: Annotated[Path, typer.Option()] = Path.cwd()):
+    """Clean the workspace of folders with no logs or weights"""
+    for folder in workspace.iterdir():
+        if not folder.is_dir():
+            continue
+        keep = False
+        contents = set(map(lambda f: f.name, folder.iterdir()))
+        if f"latest{PytorchCheckpointer.EXTENSION}" in contents:
+            keep = True
+
+        for log_re in [_PQ_SHARD_RE, _PQ_REDUCED_RE]:
+            if any(re.match(log_re, f) for f in contents):
+                keep = True
+
+        if keep:
+            continue
+
+        print(f"Folder contents: {', '.join(contents)}")
+
+        if input(f"Delete {folder.name} folder? (y/n): ").lower() == "y":
+            shutil.rmtree(folder)
 
 
 if __name__ == "__main__":
