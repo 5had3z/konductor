@@ -3,6 +3,7 @@ from dataclasses import dataclass, fields
 from logging import getLogger
 from typing import Any, Callable, Sequence, TypeVar
 
+from ..config import ExperimentTrainConfig
 from ..data import Split, get_dataset_config
 from ..init import ExperimentInitConfig
 from ..losses import get_criterion
@@ -42,6 +43,10 @@ class TrainerModules:
         criterion = get_criterion(exp_config)
 
         return cls(models, criterion, optims, scheds, train_loaders, val_loaders)
+
+    @classmethod
+    def from_train_config(cls, cfg: ExperimentTrainConfig):
+        raise NotImplementedError()
 
     def __post_init__(self):
         # Remove list wrapper if only one model/dataset etc

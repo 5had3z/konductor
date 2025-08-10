@@ -1,7 +1,10 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 from torch import nn
 
+from konductor.config import ExperimentTrainConfig
 from konductor.init import ExperimentInitConfig
 from konductor.models import get_training_model
 from konductor.optimizers._pytorch import PG_REGISTRY
@@ -19,6 +22,16 @@ def _custom_pg_fn(model: nn.Module, lr, arg, **kwargs):
         else:
             pgs[1]["params"].append(param)
     return pgs
+
+
+def test_back_compat_loader():
+    """Test that old dataset configuration is still supported"""
+    ExperimentInitConfig.from_config(Path(__file__).parent.parent / "base_old.yaml")
+
+
+def test_train_config_from_init(example_config: ExperimentInitConfig):
+    """Test current training config can be created"""
+    train_config = ExperimentTrainConfig.from_init_config(example_config)
 
 
 def test_optim_param_groups(example_config: ExperimentInitConfig):

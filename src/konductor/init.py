@@ -93,6 +93,30 @@ class ModelInitConfig:
         )
 
 
+def _parse_old_loader(cfg: dict[str, Any]) -> tuple[str, dict, dict]:
+    """"""
+    warn("Old dataset configuration detected, please move to new layout")
+    if "loader" in cfg:
+        loader_type = cfg["loader"]["type"]
+        train_args = val_args = cfg["loader"]["args"]
+    else:
+        loader_type = cfg["train_loader"]["type"]
+        train_args = cfg["train_loader"]["args"]
+        val_args = cfg["val_loader"]["args"]
+
+    return loader_type, train_args, val_args
+
+
+def _parse_new_loader(parsed_dict: dict[str, Any]) -> tuple[str, dict, dict]:
+    """"""
+    if "loader_args" in parsed_dict:
+        train_args = val_args = parsed_dict["loader_args"]
+    else:
+        train_args = parsed_dict["train_args"]
+        val_args = parsed_dict["val_args"]
+    return parsed_dict["loader_type"], train_args, val_args
+
+
 @dataclass
 class DatasetInitConfig:
     """
@@ -109,18 +133,23 @@ class DatasetInitConfig:
     def from_dict(cls, parsed_dict: dict[str, Any]):
         """Create from configuration dictionary with keys [type, args] with
         train_loader and val_loader or just loader if they are the same"""
-        expected = {"type", "args", "train_loader", "val_loader", "loader"}
+        # fmt: off
+        expected = {
+            "type", "args", # Both
+            "loader", "train_loader", "val_loader", # V1
+            "loader_type", "loader_args", "train_args", "val_args", # V2
+        }
+        # fmt: on
         keys = set(parsed_dict.keys())
         if not keys.issubset(expected):
             raise ValueError(
                 f"Invalid dataset config, expected {expected} but got {keys}"
             )
 
-        if "loader" in parsed_dict:
-            train_args = val_args = parsed_dict["loader_args"]
+        if "loader_type" in parsed_dict:
+            loader_type, train_args, val_args = _parse_new_loader(parsed_dict)
         else:
-            train_args = parsed_dict["train_args"]
-            val_args = parsed_dict["val_args"]
+            loader_type, train_args, val_args = _parse_old_loader(parsed_dict)
 
         # Transform augmentations from dict to ModuleInitConfig
         if "augmentations" in train_args:
@@ -134,11 +163,7 @@ class DatasetInitConfig:
             ]
 
         return cls(
-            parsed_dict["type"],
-            parsed_dict["args"],
-            parsed_dict["loader_type"],
-            train_args,
-            val_args,
+            parsed_dict["type"], parsed_dict["args"], loader_type, train_args, val_args
         )
 
 
@@ -285,14 +310,13 @@ class ExperimentInitConfig:
             filter_keys={"exp_path", "remote_sync", "checkpointer", "logger"}
         )
 
-        # Add uuids that exist in the dataset's folder to add uniqueness
-        for idx in range(len(self.dataset)):
-            dataset_cfg = get_dataset_config(self, idx)
-            if uuid := dataset_cfg.get_uuid():
-                base_config["data"][idx]["uuid"] = uuid
-
         ss = StringIO()
         yaml.safe_dump(base_config, ss)
+
+        # Add uuids that exist in the dataset's folder to add uniqueness
+        for idx in range(len(self.dataset)):
+            if uuid := get_dataset_config(self, idx).get_uuid():
+                ss.write(uuid)
         ss.seek(0)
 
         return hashlib.md5(ss.read().encode("utf-8")).hexdigest()
