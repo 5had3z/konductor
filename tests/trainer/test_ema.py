@@ -28,8 +28,8 @@ def trainer(tmp_path):
     modules = PyTorchTrainerModules(
         model,
         [TrivialLoss()],
-        optim,
-        PolyLRConfig(max_iter=10).get_instance(optimizer=optim),
+        [optim],
+        [PolyLRConfig(max_iter=10).get_instance(optimizer=optim)],
         DataLoader(TensorDataset(*make_dataset(32)), batch_size=8),
         DataLoader(TensorDataset(*make_dataset(8)), batch_size=4),
     )

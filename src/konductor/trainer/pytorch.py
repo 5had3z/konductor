@@ -38,13 +38,15 @@ class PyTorchTrainerModules(TrainerModules):
 
     model: nn.Module
     criterion: list[nn.Module]
-    optimizer: Optimizer
-    scheduler: LRScheduler
+    optimizer: list[Optimizer]
+    scheduler: list[LRScheduler]
     grad_scaler: GradScaler | None = None
     model_ema: ModelEma | None = None
 
     def __post_init__(self):
         super().__post_init__()
+        if isinstance(self.model, list):  # Use module list if necessary
+            self.model = nn.ModuleList(self.model)
 
         # Move criterion modules to cuda device, useful if they
         # have static buffers used for calculating the loss
@@ -230,14 +232,19 @@ class PyTorchTrainer(BaseTrainer):
 
         # Optimizer and scheduler needs extra attributes injected
         # to check when they need to be stepped
-        assert hasattr(self.modules.scheduler, "epoch_step"), (
-            "Scheduler needs 'epoch_step' attribute to "
-            "determine whether to step on iteration or epoch"
-        )
-        assert hasattr(self.modules.optimizer, "step_interval"), (
-            "Optimizer needs 'step_interval' attribute to "
-            "determine the interval optimizer should be stepped"
-        )
+        assert len(self.modules.scheduler) == len(
+            self.modules.optimizer
+        ), "Number of schedulers and optimizers must match"
+        for sched in self.modules.scheduler:
+            assert hasattr(sched, "epoch_step"), (
+                "Scheduler needs 'epoch_step' attribute to "
+                "determine whether to step on iteration or epoch"
+            )
+        for optim in self.modules.optimizer:
+            assert hasattr(optim, "step_interval"), (
+                "Optimizer needs 'step_interval' attribute to "
+                "determine the interval optimizer should be stepped"
+            )
 
         # Warn user if they're on ampere or above and do not have tensor cores enabled
         if (
@@ -255,60 +262,55 @@ class PyTorchTrainer(BaseTrainer):
                 all_loss = self.modules.grad_scaler.scale(all_loss)
             all_loss.backward()
 
-    def _maybe_step_scheduler(self, is_epoch: bool) -> bool:
+    def _maybe_step_scheduler(self, sched: LRScheduler, is_epoch: bool) -> bool:
         """Return true if the scheduler was stepped"""
 
         # Don't step if is_epoch and epoch_step do not match
-        if self.modules.scheduler.epoch_step != is_epoch:
+        if sched.epoch_step != is_epoch:
             return False
 
-        if isinstance(self.modules.scheduler, ReduceLROnPlateau):
+        if isinstance(sched, ReduceLROnPlateau):
             assert (
                 self.plateau_loss.count > 0
             ), "Appropriate use of self.plateau_loss.update() required"
-            self.modules.scheduler.step(self.plateau_loss.value)
+            sched.step(self.plateau_loss.value)
             self.plateau_loss.reset()
         else:
-            self.modules.scheduler.step()
+            sched.step()
         return True
 
-    def _maybe_step_optimiser(self) -> bool:
+    def _maybe_step_optimiser(self, optim: Optimizer, sched: LRScheduler) -> bool:
         """Returns true if the optimizer was stepped"""
         self.data_manager.iter_step()
-        if self.data_manager.iteration % self.modules.optimizer.step_interval != 0:
+        if self.data_manager.iteration % optim.step_interval != 0:
             return False
 
         if self.modules.grad_scaler is not None:
-            self.modules.grad_scaler.step(self.modules.optimizer)
+            self.modules.grad_scaler.step(optim)
             # Check if we actually stepped by getting at internal state
-            optim_state = self.modules.grad_scaler._per_optimizer_states[
-                id(self.modules.optimizer)
-            ]
+            optim_state = self.modules.grad_scaler._per_optimizer_states[id(optim)]
             if sum(optim_state["found_inf_per_device"].values()).item() == 0.0:
-                self._maybe_step_scheduler(is_epoch=False)
+                self._maybe_step_scheduler(sched, is_epoch=False)
                 self.non_finite_grad_counter = 0
             else:
                 self._logger.warning("Iteration skipped due to non-finite gradient")
                 self.non_finite_grad_counter += 1
                 # If we didn't step, undo the iteration counter by the step
                 # interval since this has not contributed to the training
-                self.data_manager.iteration -= self.modules.optimizer.step_interval
+                self.data_manager.iteration -= optim.step_interval
                 if self.non_finite_grad_counter > self._config.max_nonfinite_grad:
                     raise RuntimeError(
                         "Exceeded number of allowed non-finite gradients "
                         f"in a row ({self._config.max_nonfinite_grad})"
                     )
-
             self.modules.grad_scaler.update()
         else:
-            self.modules.optimizer.step()
-            self._maybe_step_scheduler(is_epoch=False)
+            optim.step()
+            self._maybe_step_scheduler(sched, is_epoch=False)
 
-        self.modules.optimizer.zero_grad()
+        optim.zero_grad()
         if self.modules.model_ema is not None:
-            grad_step_count = (
-                self.data_manager.iteration // self.modules.optimizer.step_interval
-            )
+            grad_step_count = self.data_manager.iteration // optim.step_interval
             self.modules.model_ema.update(
                 self.modules.get_model(), step=grad_step_count
             )
@@ -330,10 +332,17 @@ class PyTorchTrainer(BaseTrainer):
         """
         with record_function("statistics"):
             if losses is not None:
-                loss_lrs = {
-                    f"lr_{i}": lr
-                    for i, lr in enumerate(self.modules.scheduler.get_last_lr())
-                }
+                if isinstance(self.modules.scheduler, list):
+                    loss_lrs = {
+                        f"lr_{s}_{i}": lr
+                        for s, scheduler in enumerate(self.modules.scheduler)
+                        for i, lr in enumerate(scheduler.get_last_lr())
+                    }
+                else:
+                    loss_lrs = {
+                        f"lr_{i}": lr
+                        for i, lr in enumerate(self.modules.scheduler.get_last_lr())
+                    }
                 loss_lrs.update(losses)  # Copy losses
                 self.data_manager.perflog.log("loss", loss_lrs)
 
@@ -350,15 +359,22 @@ class PyTorchTrainer(BaseTrainer):
         self.modules.model.train()
         self.data_manager.perflog.train()
 
-        self.modules.optimizer.zero_grad()
+        for optim in self.modules.optimizer:
+            optim.zero_grad()
+
         for data in self.modules.trainloader:
             try:
                 data = self.data_transform(data)
                 losses, preds = self.train_step(data)
                 self.log_step(data, preds, losses)
                 self._accumulate_losses(losses)
+
                 with record_function("optimizer"):
-                    self._maybe_step_optimiser()
+                    for optim, sched in zip(
+                        self.modules.optimizer, self.modules.scheduler
+                    ):
+                        self._maybe_step_optimiser(optim, sched)
+
             except TrainingError as err:
                 self.training_exception(err, data)
 
