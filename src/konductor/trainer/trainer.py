@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from logging import getLogger
 from typing import Any, Callable, Sequence, TypeVar
 
@@ -25,7 +25,8 @@ class TrainerModules:
     @classmethod
     def from_config(cls, exp_config: ExperimentInitConfig):
         dataset_cfgs = [
-            get_dataset_config(exp_config, idx) for idx in range(len(exp_config.data))
+            get_dataset_config(exp_config, idx)
+            for idx in range(len(exp_config.dataset))
         ]
         train_loaders = [cfg.get_dataloader(Split.TRAIN) for cfg in dataset_cfgs]
         val_loaders = [cfg.get_dataloader(Split.VAL) for cfg in dataset_cfgs]
@@ -44,12 +45,12 @@ class TrainerModules:
 
     def __post_init__(self):
         # Remove list wrapper if only one model/dataset etc
-        for field in self.__dataclass_fields__:
-            if field == "criterion":
+        for field in fields(TrainerModules):
+            if field.name == "criterion":
                 continue  # don't unwrap criterion
-            obj = getattr(self, field)
+            obj = getattr(self, field.name)
             if isinstance(obj, list) and len(obj) == 1:
-                setattr(self, field, obj[0])
+                setattr(self, field.name, obj[0])
 
     def get_checkpointables(self):
         """
@@ -229,7 +230,8 @@ class BaseTrainer(ABC):
 
 
 def _run_hooks(hooks: list[Callable]):
-    [h() for h in hooks]
+    for h in hooks:
+        h()
 
 
 TrainerT = TypeVar("TrainerT", bound=BaseTrainer)

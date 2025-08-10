@@ -24,8 +24,8 @@ DALI_AUGMENTATIONS = Registry("DALI_AUGMENTATIONS")
 class DaliLoaderConfig(DataloaderConfig):
     """DALI Dataloader configuration"""
 
-    py_num_workers: int = 1
-    prefetch_queue_depth: int = 2
+    py_workers: int = 1
+    source_prefetch: int = 1
 
     def pipe_kwargs(self):
         """Common keyword arguments used for pipeline definition"""
@@ -37,8 +37,8 @@ class DaliLoaderConfig(DataloaderConfig):
             "batch_size": self.batch_size // get_world_size(),
             "augmentations": self.augmentations,
             "random_shuffle": self.shuffle,
-            "py_num_workers": self.py_num_workers,
-            "prefetch_queue_depth": self.prefetch_queue_depth,
+            "py_num_workers": self.py_workers,
+            "prefetch_queue_depth": self.prefetch,
         }
 
     def get_instance(
@@ -63,6 +63,17 @@ class DaliLoaderConfig(DataloaderConfig):
             auto_reset=True,
             last_batch_policy=last_batch,
         )
+
+    def set_workers_and_prefetch(self, workers: int, prefetch: int, **kwargs):
+        self.workers = workers
+        self.prefetch = prefetch
+        self.source_prefetch = kwargs.get("source_prefetch", self.source_prefetch)
+        self.py_workers = kwargs.get("py_workers", self.py_workers)
+        unknown_keys = set(kwargs.keys()) - {"source_prefetch", "py_workers"}
+        if unknown_keys:
+            getLogger(type(self).__name__).warning(
+                "DALI dataloader does not support setting %s", ", ".join(unknown_keys)
+            )
 
 
 @dataclass

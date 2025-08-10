@@ -24,13 +24,23 @@ class DataloaderConfig(BaseConfig):
 
     batch_size: int
     workers: int = 0
+    prefetch: int = 2
     shuffle: bool = False
     drop_last: bool = True
-    augmentations: list[ModuleInitConfig] = field(default_factory=lambda: [])
+    augmentations: list[ModuleInitConfig] = field(default_factory=list)
 
     @classmethod
     def from_config(cls, *args, **kwargs) -> Any:
         return cls(*args, **kwargs)
+
+    def set_workers_and_prefetch(self, workers: int, prefetch: int, **kwargs):
+        """Set dataloader worker and prefetch settings"""
+        self.workers = workers
+        self.prefetch = prefetch
+        if kwargs:
+            logging.getLogger(type(self).__name__).warning(
+                "DALI dataloader does not support setting %s", ", ".join(kwargs.keys())
+            )
 
 
 @dataclass
@@ -57,16 +67,10 @@ class DatasetConfig(BaseConfig):
         :param idx: Index of the dataset to be configured, defaults to 0
         :return: Returns a dataset configuration.
         """
-        data_cfg = config.data[idx]
-        train_loader = DATALOADER_REGISTRY[data_cfg.train_loader.type](
-            **data_cfg.train_loader.args
-        )
-        val_loader = DATALOADER_REGISTRY[data_cfg.val_loader.type](
-            **data_cfg.val_loader.args
-        )
-        return cls(
-            train_loader=train_loader, val_loader=val_loader, **data_cfg.dataset.args
-        )
+        data_cfg = config.dataset[idx]
+        train_loader = DATALOADER_REGISTRY[data_cfg.loader_type](**data_cfg.train_args)
+        val_loader = DATALOADER_REGISTRY[data_cfg.loader_type](**data_cfg.val_args)
+        return cls(train_loader=train_loader, val_loader=val_loader, **data_cfg.args)
 
     @property
     def properties(self) -> dict[str, Any]:
@@ -85,6 +89,22 @@ class DatasetConfig(BaseConfig):
         """Redirect to get_dataloader"""
         warn("get_dataloader should be used with split argument")
         return self.get_dataloader(*args, **kwargs)
+
+    def get_uuid(self) -> str | None:
+        """Get the uuid of the dataset if it exists.
+        The default implementation assumes this is a 'uuid' file in the dataset's basepath
+        """
+        uuid_path = self.basepath / "uuid"
+        if uuid_path.exists():
+            return uuid_path.read_text().strip()
+        return None
+
+    def set_dataloader_workers_and_prefetch(
+        self, workers: int, prefetch: int, **kwargs
+    ):
+        """Set dataloader worker and prefetch settings for both train and validation loaders"""
+        for loader in [self.train_loader, self.val_loader]:
+            loader.set_workers_and_prefetch(workers, prefetch, **kwargs)
 
 
 try:
@@ -119,26 +139,22 @@ if _check_framework("tensorflow"):
 
 def make_from_init_config(config: DatasetInitConfig) -> DatasetConfig:
     """Create dataset config from init config"""
-    dataset_config = DATASET_REGISTRY[config.dataset.type](
-        train_loader=DATALOADER_REGISTRY[config.train_loader.type](
-            **config.train_loader.args
-        ),
-        val_loader=DATALOADER_REGISTRY[config.val_loader.type](
-            **config.val_loader.args
-        ),
-        **config.dataset.args,
+    dataset_config = DATASET_REGISTRY[config.type](
+        train_loader=DATALOADER_REGISTRY[config.loader_type](**config.train_args),
+        val_loader=DATALOADER_REGISTRY[config.loader_type](**config.val_args),
+        **config.args,
     )
     return dataset_config
 
 
 def get_dataset_config(config: ExperimentInitConfig, idx: int = 0) -> DatasetConfig:
     """Get dataset configuration at index"""
-    return DATASET_REGISTRY[config.data[idx].dataset.type].from_config(config, idx)
+    return DATASET_REGISTRY[config.dataset[idx].type].from_config(config, idx)
 
 
 def get_dataset_properties(config: ExperimentInitConfig) -> dict[str, Any]:
     """Get properties of all datasets in experiment"""
     properties = {}
-    for idx in range(len(config.data)):
+    for idx in range(len(config.dataset)):
         properties.update(get_dataset_config(config, idx).properties)
     return properties

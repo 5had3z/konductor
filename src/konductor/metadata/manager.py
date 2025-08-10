@@ -85,16 +85,20 @@ class CkptConfig:
 
     @property
     def epoch_mode(self):
+        """The checkpointer should save at epoch intervals"""
         return self.mode is CkptConfig.Mode.EPOCH
 
     @property
     def iter_mode(self):
+        """The checkpointer should save at iteration intervals"""
         return self.mode is CkptConfig.Mode.ITERATION
 
     def save_latest(self, x: int):
+        """Check if the latest checkpoint should be saved"""
         return x % self.latest == 0
 
     def save_extra(self, x: int):
+        """Check if the extra checkpoint interval should be saved"""
         return self.extra is not None and x % self.extra == 0
 
 
@@ -129,6 +133,9 @@ class DataManager:
         PerfLogger initialized with given statistics, if log_writer is
         None the bundled parquet logging backend is used.
         """
+        assert (
+            exp_config.exp_path is not None
+        ), "Experiment path must be set in exp_config"
         remote_sync = None if exp_config.remote_sync is None else get_remote(exp_config)
 
         checkpointer = Checkpointer(exp_config.exp_path, **checkpointables)
