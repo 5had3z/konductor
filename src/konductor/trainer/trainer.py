@@ -4,11 +4,11 @@ from logging import getLogger
 from typing import Any, Callable, Sequence, TypeVar
 
 from ..config import ExperimentTrainConfig
-from ..data import Split, get_dataset_config
+from ..data import Split, get_dataset_configs
 from ..init import ExperimentInitConfig
 from ..losses import get_criterion
 from ..metadata import DataManager
-from ..models import get_training_model
+from ..models import get_training_models
 from ..utilities import comm
 
 
@@ -24,29 +24,24 @@ class TrainerModules:
     valloader: Sequence | None
 
     @classmethod
-    def from_config(cls, exp_config: ExperimentInitConfig):
-        dataset_cfgs = [
-            get_dataset_config(exp_config, idx)
-            for idx in range(len(exp_config.dataset))
-        ]
+    def from_init_config(cls, exp_config: ExperimentInitConfig):
+        """Instantiate training modules from ExperimentInitConfig"""
+        dataset_cfgs = get_dataset_configs(exp_config)
         train_loaders = [cfg.get_dataloader(Split.TRAIN) for cfg in dataset_cfgs]
         val_loaders = [cfg.get_dataloader(Split.VAL) for cfg in dataset_cfgs]
-
-        modules = [
-            get_training_model(exp_config, idx) for idx in range(len(exp_config.model))
-        ]
-        # Unpack tuple into each category
-        models = [m[0] for m in modules]
-        optims = [m[1] for m in modules]
-        scheds = [m[2] for m in modules]
-
+        models, optims, scheds = get_training_models(exp_config)
         criterion = get_criterion(exp_config)
-
         return cls(models, criterion, optims, scheds, train_loaders, val_loaders)
 
     @classmethod
     def from_train_config(cls, cfg: ExperimentTrainConfig):
-        raise NotImplementedError()
+        """Instantiate training modules from ExperimentTrainConfig"""
+        # Get train and val dataloaders
+        train_loaders = [d.get_dataloader(Split.TRAIN) for d in cfg.dataset]
+        val_loaders = [d.get_dataloader(Split.VAL) for d in cfg.dataset]
+        models, optims, scheds = cfg.get_training_modules()
+        criterion = [c.get_instance() for c in cfg.criterion]
+        return cls(models, criterion, optims, scheds, train_loaders, val_loaders)
 
     def __post_init__(self):
         # Remove list wrapper if only one model/dataset etc

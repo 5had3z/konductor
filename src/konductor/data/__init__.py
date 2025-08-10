@@ -99,9 +99,7 @@ class DatasetConfig(BaseConfig):
             return uuid_path.read_text().strip()
         return None
 
-    def set_dataloader_workers_and_prefetch(
-        self, workers: int, prefetch: int, **kwargs
-    ):
+    def set_workers_and_prefetch(self, workers: int, prefetch: int, **kwargs):
         """Set dataloader worker and prefetch settings for both train and validation loaders"""
         for loader in [self.train_loader, self.val_loader]:
             loader.set_workers_and_prefetch(workers, prefetch, **kwargs)
@@ -152,9 +150,14 @@ def get_dataset_config(config: ExperimentInitConfig, idx: int = 0) -> DatasetCon
     return DATASET_REGISTRY[config.dataset[idx].type].from_config(config, idx)
 
 
+def get_dataset_configs(config: ExperimentInitConfig) -> list[DatasetConfig]:
+    """Get all dataset configurations"""
+    return [get_dataset_config(config, i) for i in range(len(config.dataset))]
+
+
 def get_dataset_properties(config: ExperimentInitConfig) -> dict[str, Any]:
     """Get properties of all datasets in experiment"""
     properties = {}
-    for idx in range(len(config.dataset)):
-        properties.update(get_dataset_config(config, idx).properties)
+    for ds_config in get_dataset_configs(config):
+        properties.update(ds_config.properties)
     return properties

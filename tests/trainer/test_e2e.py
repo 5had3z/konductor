@@ -15,7 +15,7 @@ pytestmark = pytest.mark.e2e
 def trainer(tmp_path):
     cfg = ExperimentInitConfig.from_config(Path(__file__).parent.parent / "base.yaml")
     cfg.write_config(tmp_path)
-    train_modules = PyTorchTrainerModules.from_config(cfg)
+    train_modules = PyTorchTrainerModules.from_init_config(cfg)
     data_manager = DataManager.default_build(
         cfg, train_modules.get_checkpointables(), statistics={"acc": Accuracy()}
     )
