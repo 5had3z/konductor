@@ -13,7 +13,7 @@ pytestmark = pytest.mark.e2e
 
 @pytest.fixture
 def trainer(tmp_path):
-    cfg = ExperimentInitConfig.from_config(Path(__file__).parent.parent / "base.yaml")
+    cfg = ExperimentInitConfig.from_yaml(Path(__file__).parent.parent / "base.yaml")
     cfg.write_config(tmp_path)
     train_modules = PyTorchTrainerModules.from_init_config(cfg)
     data_manager = DataManager.default_build(

@@ -2,12 +2,21 @@ from pathlib import Path
 
 import pytest
 
+from konductor.config import ExperimentTrainConfig
 from konductor.init import ExperimentInitConfig
 
 
 @pytest.fixture
-def example_config(tmp_path):
+def init_cfg():
+    """Get example initialization configuration."""
+    config = ExperimentInitConfig.from_yaml(Path(__file__).parent / "base.yaml")
+    return config
+
+
+@pytest.fixture
+def train_cfg(tmp_path):
     """Setup example experiment and path to scratch"""
-    config = ExperimentInitConfig.from_config(Path(__file__).parent / "base.yaml")
-    config.write_config(tmp_path)
+    config = ExperimentTrainConfig.from_config_file(
+        Path(__file__).parent / "base.yaml", workspace=tmp_path
+    )
     return config

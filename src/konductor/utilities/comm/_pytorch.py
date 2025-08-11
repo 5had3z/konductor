@@ -76,6 +76,11 @@ def is_main_process() -> bool:
     return get_rank() == 0
 
 
+def is_main_local_rank() -> bool:
+    """Return if main process in local (per-machine) group"""
+    return get_local_rank() == 0
+
+
 def synchronize():
     """
     Helper function to synchronize (barrier) among all processes when

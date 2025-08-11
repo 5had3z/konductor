@@ -10,7 +10,7 @@ from konductor.models import get_training_model
 from konductor.optimizers._pytorch import PG_REGISTRY
 
 from .. import utils
-from ..init_config import example_config
+from ..init_config import init_cfg
 
 
 @PG_REGISTRY.register_module("custom_pg")
@@ -26,35 +26,37 @@ def _custom_pg_fn(model: nn.Module, lr, arg, **kwargs):
 
 def test_back_compat_loader():
     """Test that old dataset configuration is still supported"""
-    ExperimentInitConfig.from_config(Path(__file__).parent.parent / "base_old.yaml")
+    ExperimentInitConfig.from_yaml(Path(__file__).parent.parent / "base_old.yaml")
 
 
-def test_train_config_from_init(example_config: ExperimentInitConfig):
+def test_train_config_from_init(init_cfg: ExperimentInitConfig):
     """Test current training config can be created"""
-    train_config = ExperimentTrainConfig.from_init_config(example_config)
+    train_config = ExperimentTrainConfig.from_init_config(
+        init_cfg, workspace=Path.cwd()
+    )
 
 
-def test_optim_param_groups(example_config: ExperimentInitConfig):
+def test_optim_param_groups(init_cfg: ExperimentInitConfig):
     lr_mult = 0.1
-    example_config.model[0].optimizer.args["param_group_fn"] = {
+    init_cfg.model[0].optimizer.args["param_group_fn"] = {
         "type": "custom_pg",
         "args": {"arg": lr_mult},
     }
-    _, optim, _ = get_training_model(example_config)
+    _, optim, _ = get_training_model(init_cfg)
 
     pg1, pg2 = optim.param_groups
     assert np.allclose(pg1["lr"] / lr_mult, pg2["lr"])
 
 
-def test_model_arguments(example_config: ExperimentInitConfig):
-    model, _, _ = get_training_model(example_config)
+def test_model_arguments(init_cfg: ExperimentInitConfig):
+    model, _, _ = get_training_model(init_cfg)
     assert model.some_valid_param == "foo"
 
-    example_config.model[0].args["some_valid_param"] = "bar"
-    model, _, _ = get_training_model(example_config)
+    init_cfg.model[0].args["some_valid_param"] = "bar"
+    model, _, _ = get_training_model(init_cfg)
 
     assert model.some_valid_param == "bar"
 
     with pytest.raises(TypeError):  # TODO: Change to KeyError
-        example_config.model[0].args["some_invalid_param"] = "baz"
-        model, _, _ = get_training_model(example_config)
+        init_cfg.model[0].args["some_invalid_param"] = "baz"
+        model, _, _ = get_training_model(init_cfg)

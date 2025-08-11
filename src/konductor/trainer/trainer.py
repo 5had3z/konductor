@@ -68,7 +68,7 @@ class TrainerModules:
         # Get train and val dataloaders
         train_loaders = _get_dataloader_from_dataset_configs(cfg.dataset, Split.TRAIN)
         val_loaders = _get_dataloader_from_dataset_configs(cfg.dataset, Split.VAL)
-        models, optims, scheds = cfg.get_training_modules()
+        models, optims, scheds = cfg.get_all_training_modules()
         criterion = [c.get_instance() for c in cfg.criterion]
         return cls(models, criterion, optims, scheds, train_loaders, val_loaders)
 

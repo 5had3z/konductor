@@ -167,9 +167,6 @@ class DatasetInitConfig:
         )
 
 
-TRAIN_CONFIG_FILENAME = "train_config.yaml"
-
-
 @dataclass
 class ExperimentInitConfig:
     """
@@ -184,18 +181,8 @@ class ExperimentInitConfig:
     logger: dict[str, Any]
     trainer: dict[str, Any]
 
-    exp_path: Path | None = None  # Directory for saving everything
-
     @classmethod
-    def from_run(cls, run_path: Path):
-        """Load Config from Existing Run Folder"""
-        with open(run_path / TRAIN_CONFIG_FILENAME, "r", encoding="utf-8") as conf_f:
-            exp_config = yaml.safe_load(conf_f)
-        exp_config["exp_path"] = run_path
-        return cls.from_dict(exp_config)
-
-    @classmethod
-    def from_config(cls, path: Path):
+    def from_yaml(cls, path: Path):
         """Load config file and run_path based on the workspace folder."""
         with open(path, "r", encoding="utf-8") as conf_f:
             exp_config = yaml.safe_load(conf_f)
@@ -218,45 +205,11 @@ class ExperimentInitConfig:
             model=[ModelInitConfig.from_dict(cfg) for cfg in cfg["model"]],
             dataset=[DatasetInitConfig.from_dict(cfg) for cfg in cfg["dataset"]],
             criterion=[ModuleInitConfig(**crit_dict) for crit_dict in cfg["criterion"]],
-            exp_path=cfg.get("exp_path"),
             remote_sync=remote_sync,
             checkpointer=cfg.get("checkpointer", {}),
             logger=cfg.get("logger", {}),
             trainer=cfg.get("trainer", {}),
         )
-
-    def set_workers(self, num: int):
-        """
-        Set number of workers for dataloaders.
-        These are divided evenly if there are multiple datasets.
-        """
-        for data in self.dataset:
-            data.val_args["workers"] = num // len(self.dataset)
-            data.train_args["workers"] = num // len(self.dataset)
-
-    def set_batch_size(self, num: int, split: Split):
-        """Set the loaded batch size for the dataloader"""
-        for data in self.dataset:
-            match split:
-                case Split.VAL | Split.TEST:
-                    data.val_args["batch_size"] = num
-                case Split.TRAIN:
-                    data.train_args["batch_size"] = num
-                case _:
-                    raise ValueError(f"Invalid split {split}")
-
-    def get_batch_size(self, split: Split) -> int | list[int]:
-        """Get the batch size of the dataloader for a split"""
-        batch_size: list[int] = []
-        for data in self.dataset:
-            match split:
-                case Split.VAL | Split.TEST:
-                    batch_size.append(data.val_args["batch_size"])
-                case Split.TRAIN:
-                    batch_size.append(data.train_args["batch_size"])
-                case _:
-                    raise ValueError(f"Invalid split {split}")
-        return batch_size[0] if len(batch_size) == 1 else batch_size
 
     def get_dict(self, filter_keys: set[str] | None = None):
         """Get a dictionary representation of the experiment configuration.
@@ -268,55 +221,3 @@ class ExperimentInitConfig:
         if filter_keys:
             exp_dict = {k: v for k, v in exp_dict.items() if k not in filter_keys}
         return exp_dict
-
-    def setup_exp_path(self, workspace: Path):
-        """Set the exp_path based on the workspace directory and the experiment's
-        calculated hash. Creates the directory if it doesn't exist."""
-        self.exp_path = workspace / self.experiment_hash()
-
-        if not self.exp_path.exists() and comm.get_local_rank() == 0:
-            logging.info("Creating experiment directory %s", self.exp_path)
-            self.exp_path.mkdir(parents=True)
-        else:
-            logging.info("Using experiment directory %s", self.exp_path)
-
-    def write_config(self, workspace: Path | None = None):
-        """Write the experiment configuration to the run_path,
-        creating the run_path directory if it doesn't exist.
-
-        If run_path is None, workspace should be passed, which will generate
-        the run_path based on the experiment's calculated hash.
-        """
-        if self.exp_path is None:
-            assert workspace is not None, "Workspace must be set if exp_path is not set"
-            self.setup_exp_path(workspace)
-        assert self.exp_path is not None  # Fixes linter
-
-        config_dict = self.get_dict(filter_keys={"exp_path", "remote_sync"})
-
-        # Write config to run path if it doesn't already exist
-        path = self.exp_path / TRAIN_CONFIG_FILENAME
-        if not path.exists() and comm.get_local_rank() == 0:
-            with open(path, "w", encoding="utf-8") as conf_f:
-                yaml.safe_dump(config_dict, conf_f)
-
-    def experiment_hash(self) -> str:
-        """Returns a hash of the experiment based on its configuration and the
-        dataset uuids if they exist."""
-        # Import here to avoid circular import
-        from .data import get_dataset_config
-
-        base_config = self.get_dict(
-            filter_keys={"exp_path", "remote_sync", "checkpointer", "logger"}
-        )
-
-        ss = StringIO()
-        yaml.safe_dump(base_config, ss)
-
-        # Add uuids that exist in the dataset's folder to add uniqueness
-        for idx in range(len(self.dataset)):
-            if uuid := get_dataset_config(self, idx).get_uuid():
-                ss.write(uuid)
-        ss.seek(0)
-
-        return hashlib.md5(ss.read().encode("utf-8")).hexdigest()
