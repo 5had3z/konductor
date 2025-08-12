@@ -155,9 +155,21 @@ def get_dataset_configs(config: ExperimentInitConfig) -> list[DatasetConfig]:
     return [get_dataset_config(config, i) for i in range(len(config.dataset))]
 
 
-def get_dataset_properties(config: ExperimentInitConfig) -> dict[str, Any]:
+def get_dataset_properties(
+    config: ExperimentInitConfig | list[DatasetConfig] | DatasetConfig,
+) -> dict[str, Any]:
     """Get properties of all datasets in experiment"""
     properties = {}
-    for ds_config in get_dataset_configs(config):
-        properties.update(ds_config.properties)
+    if isinstance(config, ExperimentInitConfig):
+        for ds_config in get_dataset_configs(config):
+            properties.update(ds_config.properties)
+    elif isinstance(config, list):
+        for ds_config in config:
+            properties.update(ds_config.properties)
+    elif isinstance(config, DatasetConfig):
+        properties.update(config.properties)
+    else:
+        raise TypeError(
+            "config must be ExperimentInitConfig, DatasetConfig or list of DatasetConfig"
+        )
     return properties

@@ -9,6 +9,7 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from logging import getLogger
+from pathlib import Path
 from typing import Any
 
 from ..init import ExperimentInitConfig
@@ -121,6 +122,7 @@ class DataManager:
     @classmethod
     def default_build(
         cls,
+        logdir: Path,
         exp_config: ExperimentInitConfig,
         checkpointables: dict[str, Any],
         statistics: dict[str, Statistic],
@@ -133,15 +135,10 @@ class DataManager:
         PerfLogger initialized with given statistics, if log_writer is
         None the bundled parquet logging backend is used.
         """
-        assert (
-            exp_config.exp_path is not None
-        ), "Experiment path must be set in exp_config"
         remote_sync = None if exp_config.remote_sync is None else get_remote(exp_config)
-
-        checkpointer = Checkpointer(exp_config.exp_path, **checkpointables)
-
+        checkpointer = Checkpointer(logdir, **checkpointables)
         if log_writer is None:
-            log_writer = ParquetLogger(exp_config.exp_path)
+            log_writer = ParquetLogger(logdir)
         perf_logger = PerfLogger(log_writer, statistics, **exp_config.logger)
 
         return cls(
