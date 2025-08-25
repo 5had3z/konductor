@@ -17,9 +17,9 @@ DATAPIPE_AUG = Registry("datapipe_augmentations")
 
 
 @dataclass
-@DATALOADER_REGISTRY.register_module("PYTORCH_V1")
-class DataloaderV1Config(DataloaderConfig):
-    """Original PyTorch Dataset Dataloader"""
+@DATALOADER_REGISTRY.register_module("PYTORCH")
+class TorchLoaderConfig(DataloaderConfig):
+    """PyTorch Dataset Dataloader"""
 
     pin_memory: bool = True
     sampler: Type[Sampler] | None = None
@@ -58,3 +58,6 @@ class DataloaderV1Config(DataloaderConfig):
             collate_fn=self.collate_fn,
             prefetch_factor=self.prefetch,
         )
+
+
+DATALOADER_REGISTRY.register_module("PYTORCH_V1", TorchLoaderConfig)  # Backcompat
