@@ -332,7 +332,7 @@ class PyTorchTrainer(BaseTrainer):
         """
         with record_function("statistics"):
             if losses is not None:
-                if isinstance(self.modules.scheduler, list):
+                if len(self.modules.scheduler) > 1:
                     loss_lrs = {
                         f"lr_{s}_{i}": lr
                         for s, scheduler in enumerate(self.modules.scheduler)
@@ -341,7 +341,7 @@ class PyTorchTrainer(BaseTrainer):
                 else:
                     loss_lrs = {
                         f"lr_{i}": lr
-                        for i, lr in enumerate(self.modules.scheduler.get_last_lr())
+                        for i, lr in enumerate(self.modules.scheduler[0].get_last_lr())
                     }
                 loss_lrs.update(losses)  # Copy losses
                 self.data_manager.perflog.log("loss", loss_lrs)
