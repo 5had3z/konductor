@@ -27,8 +27,8 @@ def trainer(tmp_path):
     modules = PyTorchTrainerModules(
         model,
         [TrivialLoss()],
-        optim,
-        PolyLRConfig(max_iter=10).get_instance(optimizer=optim),
+        [optim],
+        [PolyLRConfig(max_iter=10).get_instance(optimizer=optim)],
         DataLoader(TensorDataset(*make_dataset(256)), 128),
         DataLoader(TensorDataset(*make_dataset(64)), 128),
     )
@@ -37,6 +37,25 @@ def trainer(tmp_path):
         Checkpointer(tmp_path, model=modules.get_model()),
     )
     return PyTorchTrainer(PyTorchTrainerConfig(), modules, data_manager)
+
+
+def test_normalize_to_lists():
+    model = TrivialLearner(1, 1)
+    optim = torch.optim.SGD(model.parameters(), lr=1e-4)
+    optim.step_interval = 1
+
+    modules = PyTorchTrainerModules(
+        model,
+        TrivialLoss(),
+        optim,
+        PolyLRConfig(max_iter=10).get_instance(optimizer=optim),
+        DataLoader(TensorDataset(*make_dataset(256)), 128),
+        DataLoader(TensorDataset(*make_dataset(64)), 128),
+    )
+    for mod_name in ["criterion", "optimizer", "scheduler"]:
+        assert isinstance(
+            getattr(modules, mod_name), list
+        ), f"{mod_name.capitalize()} should be a list"
 
 
 def test_nan_detection(trainer: PyTorchTrainer):
@@ -94,8 +113,8 @@ def trainer_no_val(tmp_path):
     modules = PyTorchTrainerModules(
         model,
         [TrivialLoss()],
-        optim,
-        PolyLRConfig(max_iter=10).get_instance(optimizer=optim),
+        [optim],
+        [PolyLRConfig(max_iter=10).get_instance(optimizer=optim)],
         DataLoader(TensorDataset(*make_dataset(256)), 128),
         None,
     )

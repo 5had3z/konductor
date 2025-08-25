@@ -28,8 +28,8 @@ def trainer(tmp_path):
     modules = PyTorchTrainerModules(
         model,
         [TrivialLoss()],
-        optim,
-        PolyLRConfig(max_iter=10).get_instance(optimizer=optim),
+        [optim],
+        [PolyLRConfig(max_iter=10).get_instance(optimizer=optim)],
         DataLoader(TensorDataset(*make_dataset(32)), batch_size=8),
         DataLoader(TensorDataset(*make_dataset(8)), batch_size=4),
     )
@@ -43,6 +43,7 @@ def trainer(tmp_path):
 def test_ema_functionality(trainer: PyTorchTrainer):
     """Check that EMA is updating during training, its state dict is saved
     correctly, and it can be loaded correctly"""
+    assert trainer.modules.model_ema is not None, "Model EMA should be initialized"
     initial_ema = deepcopy(trainer.modules.model_ema.state_dict())
     trainer.train(epoch=3)
     current_ema = deepcopy(trainer.modules.model_ema.state_dict())

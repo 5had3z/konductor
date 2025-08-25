@@ -3,53 +3,87 @@ from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Callable, Sequence, TypeVar
 
-from ..data import Split, get_dataset_config
+from ..config import ExperimentTrainConfig
+from ..data import DatasetConfig, Split, get_dataset_configs
 from ..init import ExperimentInitConfig
 from ..losses import get_criterion
 from ..metadata import DataManager
-from ..models import get_training_model
+from ..models import get_training_models
 from ..utilities import comm
+
+
+class ZipDataloader:
+    """Zips multiple dataloaders together."""
+
+    def __init__(self, dataloaders: list[Sequence]) -> None:
+        self.dataloaders = dataloaders
+        self.length = min(len(dl) for dl in dataloaders)
+
+    def __len__(self):
+        return self.length
+
+    def __iter__(self):
+        return zip(*self.dataloaders)
+
+    def __getitem__(self, idx):
+        return [dl[idx] for dl in self.dataloaders]
+
+
+def _get_dataloader_from_dataset_configs(
+    configs: list[DatasetConfig], split: Split
+) -> Sequence:
+    """Normalize a multiple dataloaders to a ZipDataloader or return single dataloader"""
+    dataloaders = [cfg.get_dataloader(split) for cfg in configs]
+    if len(dataloaders) > 1:
+        dataloaders = ZipDataloader(dataloaders)
+    return dataloaders[0]
 
 
 @dataclass
 class TrainerModules:
     """Holds all common training Modules"""
 
-    model: Any  # Model to train
+    # Model to train, unwrap from list, ideally this is always one module
+    # with multiple submodule if necessary, like a GAN
+    model: Any
     criterion: list[Any]  # list of loss functions
-    optimizer: Any  # Optimizer
-    scheduler: Any  # Learning rate scheduler
+    optimizer: list[Any]  # Optimizer
+    scheduler: list[Any]  # Learning rate scheduler
     trainloader: Sequence
     valloader: Sequence | None
 
     @classmethod
-    def from_config(cls, exp_config: ExperimentInitConfig):
-        dataset_cfgs = [
-            get_dataset_config(exp_config, idx) for idx in range(len(exp_config.data))
-        ]
-        train_loaders = [cfg.get_dataloader(Split.TRAIN) for cfg in dataset_cfgs]
-        val_loaders = [cfg.get_dataloader(Split.VAL) for cfg in dataset_cfgs]
-
-        modules = [
-            get_training_model(exp_config, idx) for idx in range(len(exp_config.model))
-        ]
-        # Unpack tuple into each category
-        models = [m[0] for m in modules]
-        optims = [m[1] for m in modules]
-        scheds = [m[2] for m in modules]
-
+    def from_init_config(cls, exp_config: ExperimentInitConfig):
+        """Instantiate training modules from ExperimentInitConfig"""
+        dataset_cfgs = get_dataset_configs(exp_config)
+        train_loaders = _get_dataloader_from_dataset_configs(dataset_cfgs, Split.TRAIN)
+        val_loaders = _get_dataloader_from_dataset_configs(dataset_cfgs, Split.VAL)
+        models, optims, scheds = get_training_models(exp_config)
         criterion = get_criterion(exp_config)
+        return cls(models, criterion, optims, scheds, train_loaders, val_loaders)
 
+    @classmethod
+    def from_train_config(cls, cfg: ExperimentTrainConfig):
+        """Instantiate training modules from ExperimentTrainConfig"""
+        # Get train and val dataloaders
+        train_loaders = _get_dataloader_from_dataset_configs(cfg.dataset, Split.TRAIN)
+        val_loaders = _get_dataloader_from_dataset_configs(cfg.dataset, Split.VAL)
+        models, optims, scheds = cfg.get_all_training_modules()
+        criterion = [c.get_instance() for c in cfg.criterion]
         return cls(models, criterion, optims, scheds, train_loaders, val_loaders)
 
     def __post_init__(self):
-        # Remove list wrapper if only one model/dataset etc
-        for field in self.__dataclass_fields__:
-            if field == "criterion":
-                continue  # don't unwrap criterion
-            obj = getattr(self, field)
-            if isinstance(obj, list) and len(obj) == 1:
-                setattr(self, field, obj[0])
+        # Remove list wrapper if only one model for simplicity
+        # otherwise the downstream should convert to the native
+        # framework module list i.e. nn.ModuleList
+        if isinstance(self.model, list) and len(self.model) == 1:
+            self.model = self.model[0]
+
+        # Normalize modules to list of one
+        for mod in ["criterion", "optimizer", "scheduler"]:
+            val = getattr(self, mod)
+            if not isinstance(val, list):
+                setattr(self, mod, [val])
 
     def get_checkpointables(self):
         """
@@ -97,10 +131,7 @@ class BaseTrainer(ABC):
     modules: TrainerModules
 
     def __init__(
-        self,
-        config: TrainerConfig,
-        modules: TrainerModules,
-        data_manager: DataManager,
+        self, config: TrainerConfig, modules: TrainerModules, data_manager: DataManager
     ):
         self.modules = modules
         self.data_manager = data_manager
@@ -136,7 +167,8 @@ class BaseTrainer(ABC):
             self._validate()
             _run_hooks(self.post_val_hooks)
 
-        self._maybe_step_scheduler(is_epoch=True)
+        for sched in self.modules.scheduler:
+            self._maybe_step_scheduler(sched, is_epoch=True)
         self.data_manager.epoch_step()
 
     def train(self, *, epoch: int | None = None, iteration: int | None = None) -> None:
@@ -211,12 +243,20 @@ class BaseTrainer(ABC):
         grad scaler here if using amp"""
 
     @abstractmethod
-    def _maybe_step_optimiser(self) -> None:
-        """Step optimizer if iteration is divisible by interval"""
+    def _maybe_step_optimiser(self, optim: Any, sched: Any) -> bool:
+        """Step optimizer if iteration is divisible by interval
+
+        Returns:
+            True if the optimizer was stepped
+        """
 
     @abstractmethod
-    def _maybe_step_scheduler(self, is_epoch: bool):
-        """Step lr scheduler if necessary"""
+    def _maybe_step_scheduler(self, sched: Any, is_epoch: bool) -> bool:
+        """Step lr scheduler if necessary
+
+        Returns:
+            True if the scheduler was stepped
+        """
 
     @abstractmethod
     def _train(self, max_iter: int | None) -> None:
@@ -229,7 +269,8 @@ class BaseTrainer(ABC):
 
 
 def _run_hooks(hooks: list[Callable]):
-    [h() for h in hooks]
+    for h in hooks:
+        h()
 
 
 TrainerT = TypeVar("TrainerT", bound=BaseTrainer)

@@ -13,10 +13,11 @@ model:
 dataset:
   - type: MNIST
     args: {}
-    loader_type: PYTORCH_V1
-    loader_args:
-      batch_size: 32
-      workers: 8
+    loader:
+      type: PYTORCH_V1
+      args:
+        batch_size: 32
+        workers: 8
 criterion:
   - type: ce
     args: {}

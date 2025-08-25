@@ -24,12 +24,9 @@ def test_basic_writer_usage(pq_writer: _ParquetWriter):
     assert not pq_writer.empty
     assert "some_data" in pq_writer._columns
     assert "other_data" not in pq_writer._columns
-
-    with pytest.raises(KeyError):
-        pq_writer(1, {"other_data": 100})
-
     pq_writer(1, {"some_data": 20.0})
-    assert pq_writer.size == 2
+    pq_writer(2, {"other_data": 100})
+    assert pq_writer.size == 3
 
 
 def test_logger_files(pq_logger: ParquetLogger):

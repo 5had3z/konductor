@@ -9,6 +9,7 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from logging import getLogger
+from pathlib import Path
 from typing import Any
 
 from ..init import ExperimentInitConfig
@@ -85,16 +86,20 @@ class CkptConfig:
 
     @property
     def epoch_mode(self):
+        """The checkpointer should save at epoch intervals"""
         return self.mode is CkptConfig.Mode.EPOCH
 
     @property
     def iter_mode(self):
+        """The checkpointer should save at iteration intervals"""
         return self.mode is CkptConfig.Mode.ITERATION
 
     def save_latest(self, x: int):
+        """Check if the latest checkpoint should be saved"""
         return x % self.latest == 0
 
     def save_extra(self, x: int):
+        """Check if the extra checkpoint interval should be saved"""
         return self.extra is not None and x % self.extra == 0
 
 
@@ -117,6 +122,7 @@ class DataManager:
     @classmethod
     def default_build(
         cls,
+        logdir: Path,
         exp_config: ExperimentInitConfig,
         checkpointables: dict[str, Any],
         statistics: dict[str, Statistic],
@@ -130,11 +136,9 @@ class DataManager:
         None the bundled parquet logging backend is used.
         """
         remote_sync = None if exp_config.remote_sync is None else get_remote(exp_config)
-
-        checkpointer = Checkpointer(exp_config.exp_path, **checkpointables)
-
+        checkpointer = Checkpointer(logdir, **checkpointables)
         if log_writer is None:
-            log_writer = ParquetLogger(exp_config.exp_path)
+            log_writer = ParquetLogger(logdir)
         perf_logger = PerfLogger(log_writer, statistics, **exp_config.logger)
 
         return cls(

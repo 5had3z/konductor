@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from logging import debug
-from typing import Any
 
 from ..init import ExperimentInitConfig
 from ..optimizers import OptimizerConfig, get_optimizer_config
@@ -26,7 +25,7 @@ class ModelConfig(BaseConfig):
     bn_freeze: bool = field(default=False, kw_only=True)
 
     @classmethod
-    def from_config(cls, config: ExperimentInitConfig, idx: int = 0) -> Any:
+    def from_config(cls, config: ExperimentInitConfig, idx: int = 0):
         model_cfg = config.model[idx]
         optim_cfg = get_optimizer_config(model_cfg.optimizer)
         return cls(optimizer=optim_cfg, **model_cfg.args)
@@ -40,18 +39,39 @@ class ModelConfig(BaseConfig):
 
 
 def get_model_config(config: ExperimentInitConfig, idx: int = 0) -> ModelConfig:
+    """Returns a ModelConfig instance for the specified model in the config."""
     return MODEL_REGISTRY[config.model[idx].type].from_config(config, idx)
 
 
-def get_model(config: ExperimentInitConfig, idx: int = 0) -> Any:
-    """Returns standalone model, use get_training_model
-    to also get optimizer and lr scheduler"""
+def get_model_configs(config: ExperimentInitConfig) -> list[ModelConfig]:
+    """Returns a list of ModelConfig instances for each model in the config."""
+    return [get_model_config(config, i) for i in range(len(config.model))]
+
+
+def get_model(config: ExperimentInitConfig, idx: int = 0):
+    """Returns standalone model, use get_training_model to also get optimizer and scheduler"""
     return get_model_config(config, idx).get_instance()
 
 
-def get_training_model(config: ExperimentInitConfig, idx: int = 0) -> Any:
+def get_training_model(config: ExperimentInitConfig, idx: int = 0):
     """Returns model with optimizer and lr scheduler"""
     return get_model_config(config, idx).get_training_modules()
+
+
+def unpack_model_optim_sched_from_modules(
+    modules: list[tuple],
+) -> tuple[list, list, list]:
+    """Unpacks a list of training module tuples into separate lists."""
+    models = [m[0] for m in modules]
+    optimizers = [m[1] for m in modules]
+    schedulers = [m[2] for m in modules]
+    return models, optimizers, schedulers
+
+
+def get_training_models(config: ExperimentInitConfig) -> tuple[list, list, list]:
+    """Returns a tuple of lists of models, optimizers and schedulers"""
+    modules = [get_training_model(config, i) for i in range(len(config.model))]
+    return unpack_model_optim_sched_from_modules(modules)
 
 
 try:
