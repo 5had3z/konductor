@@ -211,6 +211,12 @@ class ExperimentInitConfig:
             trainer=cfg.get("trainer", {}),
         )
 
+    @classmethod
+    def from_run(cls, run_path: Path):
+        """Load config file from a run directory."""
+        config_path = run_path / "train_config.yaml"
+        return cls.from_yaml(config_path)
+
     def get_dict(self, filter_keys: set[str] | None = None):
         """Get a dictionary representation of the experiment configuration.
 
