@@ -15,6 +15,8 @@ import yaml
 
 from .utilities import comm
 
+TRAIN_CONFIG_FILENAME = "train_config.yaml"
+
 
 class Split(str, enum.Enum):
     """Enum for the different splits of a dataset"""
@@ -210,6 +212,12 @@ class ExperimentInitConfig:
             logger=cfg.get("logger", {}),
             trainer=cfg.get("trainer", {}),
         )
+
+    @classmethod
+    def from_run(cls, run_path: Path):
+        """Load config file from a run directory."""
+        config_path = run_path / TRAIN_CONFIG_FILENAME
+        return cls.from_yaml(config_path)
 
     def get_dict(self, filter_keys: set[str] | None = None):
         """Get a dictionary representation of the experiment configuration.
