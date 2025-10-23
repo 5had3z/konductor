@@ -9,7 +9,7 @@ import pandas as pd
 import yaml
 from pyarrow import parquet as pq
 
-from konductor.config import TRAIN_CONFIG_FILENAME
+from konductor.init import TRAIN_CONFIG_FILENAME
 from konductor.metadata.database.metadata import DEFAULT_FILENAME as METADATA_FILENAME
 from konductor.utilities.metadata import _PQ_REDUCED_RE
 

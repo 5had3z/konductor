@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 
 from .data import DatasetConfig, Split, get_dataset_configs
-from .init import ExperimentInitConfig
+from .init import TRAIN_CONFIG_FILENAME, ExperimentInitConfig
 from .losses import LossConfig, get_criterion_config
 from .models import (
     ModelConfig,
@@ -19,8 +19,6 @@ from .models import (
 from .optimizers import OptimizerConfig
 from .scheduler import SchedulerConfig
 from .utilities import comm
-
-TRAIN_CONFIG_FILENAME = "train_config.yaml"
 
 
 @dataclass(slots=True)
