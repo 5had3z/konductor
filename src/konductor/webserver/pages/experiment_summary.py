@@ -107,21 +107,21 @@ layout = html.Div(
             [
                 dbc.Col(html.H4("Generated Figures")),
                 dbc.Col(
-                    dbc.Switch(
-                        id="summary-dark-cap", label="Dark Captions", value=False
+                    dcc.Dropdown(
+                        id="summary-fig-dropdown",
+                        options=[],
+                        value=None,
+                        clearable=False,
                     ),
-                    width="auto",
+                    width=4,
                 ),
             ]
         ),
         dbc.Row(
             [
-                dbc.Carousel(
-                    id="summary-figures",
-                    items=[],
-                    controls=True,
-                    indicators=True,
-                    style={"backgroundColor": "#f8f9fa"},
+                html.Div(
+                    id="summary-fig-image",
+                    style={"text-align": "center", "margin": "20px 0"},
                 ),
             ]
         ),
@@ -272,41 +272,54 @@ def get_figure_paths(experiment_path: Path) -> list[dict]:
     if not figure_dir.exists():
         return []
 
-    items = []
-    for img_path in figure_dir.glob("*.png"):
-        # Read and encode image
-        with open(img_path, "rb") as f:
-            encoded = base64.b64encode(f.read()).decode()
-
-        items.append(
-            {
-                "key": img_path.stem,
-                "src": f"data:image/png;base64,{encoded}",
-                "header": img_path.stem,
-                "img_style": {"max-height": "500px", "object-fit": "contain"},
-            }
-        )
-
+    items = [
+        {"label": img_path.name, "value": img_path.name}
+        for img_path in figure_dir.glob("*.png")
+    ]
     return items
 
 
+# Update the figure dropdown options and reset value
 @callback(
-    Output("summary-figures", "items"),
+    Output("summary-fig-dropdown", "options"),
+    Output("summary-fig-dropdown", "value"),
     Input("summary-select", "value"),
     Input("summary-opt", "value"),
 )
-def update_figures(key: str, btn: str):
+def update_fig_dropdown(key: str, btn: str):
     if not all([key, btn]):
-        return []
+        return [], None
+    exp = get_experiment(key, btn)
+    options = get_figure_paths(exp.root)
+    value = options[0]["value"] if options else None
+    return options, value
+
+
+# Display the selected figure
+@callback(
+    Output("summary-fig-image", "children"),
+    Input("summary-fig-dropdown", "value"),
+    Input("summary-select", "value"),
+    Input("summary-opt", "value"),
+)
+def display_selected_figure(fig_name: str, key: str, btn: str):
+    if not all([fig_name, key, btn]):
+        return None
 
     exp = get_experiment(key, btn)
-    return get_figure_paths(exp.root)
 
+    fig_path = exp.root / "figures" / fig_name
 
-@callback(Output("summary-figures", "variant"), Input("summary-dark-cap", "value"))
-def update_dark_caption(dark: bool):
-    """Update the variant of the carousel based on the dark caption switch"""
-    return "dark" if dark else ""
+    if not fig_path.exists():
+        return None
+
+    with open(fig_path, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode()
+
+    return html.Img(
+        src=f"data:image/png;base64,{encoded}",
+        style={"max-height": "500px", "object-fit": "contain", "margin": "auto"},
+    )
 
 
 read_fn: dict[str, Callable[[Path], pd.DataFrame]] = {
@@ -331,12 +344,14 @@ def update_table_select(key: str, btn: str):
     if not table_dir.exists():
         return [], None
 
-    all_files = list(table_dir.iterdir())
-    compat_files = [f for f in all_files if f.suffix in read_fn]
-    if len(compat_files) != len(all_files):
+    all_files = set(table_dir.iterdir())
+    compat_files = set(f for f in all_files if f.suffix in read_fn)
+    if compat_files != all_files:
         print(
-            f"Skipping files in tables directory without compatible suffix {read_fn.keys()}"
+            "Skipping files in tables directory without "
+            f"compatible suffix {all_files - compat_files}"
         )
+
     table_names = sorted(f.name for f in compat_files)
 
     return table_names, None
@@ -363,6 +378,5 @@ def update_table(key: str, btn: str, table: str):
     # Get the table data
     table_data = read_fn[Path(table).suffix](exp.root / "tables" / table)
     cols = [{"name": col, "id": col} for col in sorted(table_data.columns)]
-    print(len(table_data))
 
     return table_data.to_dict("records"), cols

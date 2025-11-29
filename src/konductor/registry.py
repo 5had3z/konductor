@@ -8,7 +8,7 @@ by a dataset can be used to configure the model
 
 import inspect
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from logging import getLogger, warning
 from typing import Any
 
@@ -39,22 +39,17 @@ class BaseConfig(ABC):
         We use self.__dict__ instead of asdict to prevent recursive dataclass conversion
         since the point of this is just to convert the immediate dataclass to kwargs.
         """
-
         filtered = {}
-        for kwargs in [self.__dict__, extras]:
-            filtered.update(
-                {
-                    k: v
-                    for k, v in kwargs.items()
-                    if k in inspect.signature(target).parameters
-                }
-            )
+        target_kwargs = inspect.signature(target).parameters
+        config_params = asdict(self)
+        kwargs: dict[str, Any]
+        for kwargs in [config_params, extras]:
+            filtered.update({k: v for k, v in kwargs.items() if k in target_kwargs})
 
-        diff = set(extras.keys())
-        diff.update(self.__dict__.keys())
-        diff = diff.difference(set(filtered.keys()))
+        diff = set(extras.keys()) | set(config_params.keys())
+        diff -= set(filtered.keys())
         if known_unused is not None:
-            diff = diff.difference(known_unused)
+            diff -= known_unused
 
         if len(diff) > 0:
             warning("Filtered unused arguments from %s: %s", target.__name__, diff)
