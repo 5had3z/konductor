@@ -9,7 +9,10 @@ from typing import Annotated
 import dash
 import dash_bootstrap_components as dbc
 import typer
-from dash import Dash, dcc, html
+from dash import Dash, Input, callback, dcc, html
+
+from .state import EXPERIMENTS
+from .utils import fill_experiments
 
 webapp = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], use_pages=True)
 cliapp = typer.Typer()
@@ -40,19 +43,59 @@ def get_basic_layout(root_dir: str, content_url: str, db_uri: str):
             dcc.Store(id="root-dir", data=root_dir),
             dcc.Store(id="content-url", data=content_url),
             dcc.Store(id="db-uri", data=db_uri),
-            html.Div(
-                dbc.ButtonGroup(
-                    [
-                        dbc.Button(page["name"], href=page["relative_path"])
-                        for page in dash.page_registry.values()
-                    ]
-                ),
-                style={"padding-bottom": "10px"},
+            dbc.Row(
+                [
+                    dbc.Col(
+                        dbc.ButtonGroup(
+                            [
+                                dbc.Button(page["name"], href=page["relative_path"])
+                                for page in dash.page_registry.values()
+                            ]
+                        ),
+                        width="auto",
+                        style={"display": "flex", "align-items": "center"},
+                    ),
+                    dbc.Col(
+                        dbc.Button(
+                            "Refresh",
+                            id="global-refresh-btn",
+                            size="sm",
+                            style={"margin-left": "16px", "height": "40px"},
+                        ),
+                        width="auto",
+                        style={
+                            "display": "flex",
+                            "align-items": "center",
+                            "justify-content": "flex-end",
+                        },
+                    ),
+                ],
+                align="center",
+                className="mb-2",
+                style={"justify-content": "space-between"},
             ),
             dash.page_container,
         ],
         style=style,
     )
+
+
+@callback(
+    Input("global-refresh-btn", "n_clicks"),
+    Input("root-dir", "data"),
+    prevent_initial_call=True,
+)
+def global_refresh(n_clicks, root_dir):
+    """
+    Refresh experiments globally when the refresh button is clicked.
+    This will trigger any callbacks in pages that depend on root-dir.
+    """
+    if not root_dir:
+        raise dash.exceptions.PreventUpdate
+
+    # Clear and refill experiments
+    EXPERIMENTS.clear()
+    fill_experiments(Path(root_dir), EXPERIMENTS)
 
 
 def port_in_use(port: int) -> bool:
@@ -97,6 +140,7 @@ def main(
                 f"python3 -m http.server {content_port} --directory {workspace}",
                 shell=True,
             )
+        fill_experiments(workspace, EXPERIMENTS)
         webapp.run(port=str(port), debug=debug)
     except Exception as e:
         print(e)

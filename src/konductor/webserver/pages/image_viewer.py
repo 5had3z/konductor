@@ -26,11 +26,10 @@ from dash import Input, Output, callback, dcc, html
 from dash.exceptions import PreventUpdate
 from PIL import Image
 
-from konductor.webserver.utils import Experiment, fill_experiments
+from konductor.webserver.state import EXPERIMENTS, Experiment
 
 dash.register_page(__name__, path="/image-viewer")
 
-EXPERIMENTS: list[Experiment] = []
 
 layout = html.Div(
     children=[
@@ -78,12 +77,16 @@ def get_experiment(name: str):
 
 @callback(
     Output("im-experiment", "options"),
-    Input("root-dir", "data"),
+    Input("global-refresh-btn", "n_clicks"),
 )
-def init_exp(root_dir: str):
-    if len(EXPERIMENTS) == 0:
-        fill_experiments(Path(root_dir), EXPERIMENTS)
-    return [e.name for e in EXPERIMENTS]
+def init_exp(n_clicks):
+    """Populate experiment dropdown"""
+
+    def has_image(e: Experiment):
+        """Experiment has media if any .webm files exist"""
+        return (e.root / "images" / "samples.txt").exists()
+
+    return [e.name for e in EXPERIMENTS if has_image(e)]
 
 
 def make_carousel(

@@ -1,5 +1,4 @@
 import difflib
-from pathlib import Path
 
 import dash
 import dash_bootstrap_components as dbc
@@ -8,16 +7,11 @@ import plotly.graph_objects as go
 from dash import Input, Output, callback, dcc, html
 from dash.exceptions import PreventUpdate
 
-from konductor.webserver.utils import (
-    Experiment,
-    OptionTree,
-    fill_experiments,
-    fill_option_tree,
-)
+from konductor.webserver.state import EXPERIMENTS
+from konductor.webserver.utils import OptionTree, fill_option_tree
 
 dash.register_page(__name__, path="/simple-comparison")
 
-EXPERIMENTS: list[Experiment] = []
 OPTION_TREE = OptionTree.make_root()
 
 layout = html.Div(
@@ -90,11 +84,9 @@ layout = html.Div(
     Output("stat-split", "options"),
     Output("left-select", "options"),
     Output("right-select", "options"),
-    Input("root-dir", "data"),
+    Input("global-refresh-btn", "n_clicks"),
 )
-def init_exp(root_dir: str):
-    if len(EXPERIMENTS) == 0:
-        fill_experiments(Path(root_dir), EXPERIMENTS)
+def init_exp(n_clicks):
     fill_option_tree(EXPERIMENTS, OPTION_TREE)
     opts = [e.name for e in EXPERIMENTS]
     return OPTION_TREE.keys, opts, opts

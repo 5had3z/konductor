@@ -13,18 +13,12 @@ from dash import Input, Output, callback, dash_table, dcc, html
 from dash.exceptions import PreventUpdate
 
 from konductor.metadata.database.metadata import Metadata
-from konductor.webserver.utils import (
-    Experiment,
-    OptionTree,
-    fill_experiments,
-    fill_option_tree,
-)
+from konductor.webserver.state import EXPERIMENTS
+from konductor.webserver.utils import OptionTree, fill_option_tree
 
 dash.register_page(__name__, path="/experiment-summary")
 
-EXPERIMENTS: list[Experiment] = []
 OPTION_TREE = OptionTree.make_root()
-
 
 layout = html.Div(
     children=[
@@ -165,18 +159,15 @@ def get_experiment(key: str, btn: str):
 @callback(
     Output("summary-select", "options"),
     Output("summary-select", "value"),
-    Input("root-dir", "data"),
     Input("summary-opt", "value"),
+    Input("global-refresh-btn", "n_clicks"),
 )
-def init_exp(root_dir: str, btn: str):
-    if len(EXPERIMENTS) == 0:
-        fill_experiments(Path(root_dir), EXPERIMENTS)
-
+def init_exp(btn: str, n_clicks):
+    # Always refresh experiments if refresh button is clicked or on root-dir change
     if not btn:
         raise PreventUpdate
 
     opts = [e.name if btn == "Brief" else e.root.stem for e in EXPERIMENTS]
-
     return opts, None
 
 

@@ -1,14 +1,10 @@
-from pathlib import Path
-
 import dash_cytoscape as cyto
 import yaml
 from dash import Input, Output, callback, html
 
 from konductor.init import ExperimentInitConfig
 from konductor.metadata.manager import Metadata
-from konductor.webserver.utils import Experiment, fill_experiments
-
-EXPERIMENTS: list[Experiment] = []
+from konductor.webserver.state import EXPERIMENTS
 
 layout = html.Div(
     [
@@ -32,11 +28,11 @@ layout = html.Div(
 )
 
 
-@callback(Output("cytoscape", "elements"), Input("root-dir", "data"))
-def init_exp(root_dir: str):
-    if len(EXPERIMENTS) == 0:
-        fill_experiments(Path(root_dir), EXPERIMENTS)
-
+@callback(
+    Output("cytoscape", "elements"),
+    Input("global-refresh-btn", "n_clicks"),
+)
+def init_exp(n_clicks):
     elements_data: list[dict[str, dict[str, str]]] = []
 
     should_add = {}

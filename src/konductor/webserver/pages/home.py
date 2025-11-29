@@ -9,6 +9,8 @@ from dash.exceptions import PreventUpdate
 
 from konductor.metadata.database import Database
 from konductor.utilities.metadata import reduce_all, update_database
+from konductor.webserver.state import EXPERIMENTS
+from konductor.webserver.utils import fill_experiments
 
 dash.register_page(__name__, path="/")
 
@@ -67,8 +69,11 @@ Contents of results.db which contains recorded summary statistics for simple fin
     prevent_initial_call=True,
 )
 def btn_reduce_all(_, root_dir):
+    """Re-run metadata logs reduction and refresh experiments"""
     try:
         reduce_all(Path(root_dir))
+        EXPERIMENTS.clear()
+        fill_experiments(Path(root_dir), EXPERIMENTS)
         return True, "success", "Success"
     except Exception as e:
         return True, "danger", str(e)

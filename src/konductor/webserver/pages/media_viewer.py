@@ -8,11 +8,10 @@ from dash import ALL, Input, Output, callback, ctx, dcc, html
 from dash.exceptions import PreventUpdate
 from PIL import Image
 
-from konductor.webserver.utils import Experiment, fill_experiments
+from konductor.webserver.state import EXPERIMENTS, Experiment
 
 dash.register_page(__name__, path="/media-viewer")
 
-EXPERIMENTS: list[Experiment] = []
 
 layout = html.Div(
     children=[
@@ -52,11 +51,9 @@ def get_experiment(name: str):
 
 @callback(
     Output("md-experiment", "options"),
-    Input("root-dir", "data"),
+    Input("global-refresh-btn", "n_clicks"),
 )
-def init_exp(root_dir: str):
-    if len(EXPERIMENTS) == 0:
-        fill_experiments(Path(root_dir), EXPERIMENTS)
+def init_exp(n_clicks):
 
     def has_media(e: Experiment):
         """Experiment has media if any .webm files exist"""
