@@ -8,6 +8,7 @@ import shutil
 import sys
 from collections import defaultdict
 from contextlib import closing
+from dataclasses import fields
 from io import StringIO
 from pathlib import Path
 from typing import Annotated, Optional
@@ -225,6 +226,23 @@ def reduce_all(workspace: Annotated[Path, typer.Option()] = Path.cwd()) -> None:
         reduce(folder)
 
 
+def update_metadata_entry(meta: Metadata, db: Database):
+    """Update database with metadata yaml file"""
+    existing = db.session.execute(
+        select(Metadata).where(Metadata.hash == meta.hash)
+    ).scalar()
+    if existing is None:
+        print(f"Adding {meta.hash} to database")
+        db.session.add(meta)
+        return
+
+    # Copy all the fields from the new metadata to the existing one
+    for field in fields(meta):
+        if field.name in {"hash", "data"}:
+            continue
+        setattr(existing, field.name, getattr(meta, field.name))
+
+
 @app.command()
 def update_database(
     workspace: Annotated[Path, typer.Option()] = Path.cwd(),
@@ -242,18 +260,7 @@ def update_database(
     with closing(Database(uri, workspace)) as db_handle:
         for meta_file in iterate_metadata():
             meta = Metadata.from_yaml(meta_file)
-            stmt = select(Metadata).where(Metadata.hash == meta.hash)
-            existing = db_handle.session.execute(stmt).scalar()
-            if existing is None:
-                print(f"Adding {meta.hash} to database")
-                db_handle.session.add(meta)
-            else:
-                # Copy all the fields from the new metadata to the existing one
-                if existing.train_last < meta.train_last:
-                    for field in meta.__dataclass_fields__.keys():
-                        if field in {"hash", "data"}:
-                            continue
-                        setattr(existing, field, getattr(meta, field))
+            update_metadata_entry(meta, db_handle)
         db_handle.commit()
 
 

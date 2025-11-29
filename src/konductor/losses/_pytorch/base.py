@@ -10,8 +10,8 @@ from ...losses import REGISTRY, ExperimentInitConfig, LossConfig
 
 class MSELoss(nn.MSELoss):
 
-    def forward(self, inpt: Tensor, target: Tensor):
-        return {"mse": super().forward(inpt, target)}
+    def forward(self, input: Tensor, target: Tensor):
+        return {"mse": super().forward(input, target)}
 
 
 @dataclass
@@ -27,8 +27,8 @@ class MSELossConfig(LossConfig):
 
 class BCELoss(nn.BCELoss):
 
-    def forward(self, inpt: Tensor, target: Tensor):
-        return {"bce": super().forward(inpt, target)}
+    def forward(self, input: Tensor, target: Tensor):
+        return {"bce": super().forward(input, target)}
 
 
 @dataclass
@@ -50,8 +50,8 @@ class BCELossConfig(LossConfig):
 class CELoss(nn.CrossEntropyLoss):
     """Basic wrapper around loss to add 'ce' label"""
 
-    def forward(self, inpt: Tensor, target: Tensor):
-        return {"ce": super().forward(inpt, target)}
+    def forward(self, input: Tensor, target: Tensor):
+        return {"ce": super().forward(input, target)}
 
 
 @dataclass
