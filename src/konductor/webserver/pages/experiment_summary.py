@@ -1,8 +1,7 @@
-"""
-TODO https://dash.plotly.com/datatable/conditional-formatting#highlighting-cells-by-value-with-a-colorscale-like-a-heatmap
-"""
+"""Experiment summary page."""
 
 import base64
+from dataclasses import fields
 from pathlib import Path
 from typing import Callable
 
@@ -13,6 +12,7 @@ import plotly.graph_objects as go
 from dash import Input, Output, callback, dash_table, dcc, html
 from dash.exceptions import PreventUpdate
 
+from konductor.metadata.database.metadata import Metadata
 from konductor.webserver.utils import (
     Experiment,
     OptionTree,
@@ -84,10 +84,15 @@ layout = html.Div(
                 dbc.Col(
                     [
                         html.H4("Metadata", style={"text-align": "center"}),
-                        dcc.Textarea(
-                            id="summary-metadata-txt",
-                            readOnly=True,
-                            style={"width": "100%", "height": 600},
+                        dash_table.DataTable(
+                            id="summary-metadata-table",
+                            columns=[
+                                {"name": "Key", "id": "key"},
+                                {"name": "Value", "id": "value"},
+                            ],
+                            data=[],
+                            style_table={"overflowX": "auto", "minWidth": "100%"},
+                            style_cell={"textAlign": "left"},
                         ),
                     ]
                 ),
@@ -193,7 +198,7 @@ def on_exp_select(key: str, btn: str):
     Output("summary-stat-group", "options"),
     Output("summary-stat-group", "value"),
     Output("summary-traincfg-txt", "value"),
-    Output("summary-metadata-txt", "value"),
+    Output("summary-metadata-table", "data"),
     Input("summary-select", "value"),
     Input("summary-opt", "value"),
 )
@@ -201,7 +206,8 @@ def selected_experiment(key: str, btn: str):
     """Return new statistic group and deselect previous value,
     also initialize the training cfg and metadata text boxes"""
     if not all([key, btn]):
-        return [], None, "", ""
+        return [], None, "", []
+
     OPTION_TREE.children = {}
 
     exp = get_experiment(key, btn)
@@ -213,9 +219,25 @@ def selected_experiment(key: str, btn: str):
         stat_groups.update(OPTION_TREE[split].keys)
 
     cfg_txt = exp.config_path.read_text()
-    meta_txt = exp.metadata_path.read_text()
 
-    return sorted(stat_groups), None, cfg_txt, meta_txt
+    # Load metadata as object and convert to table format
+    try:
+        metadata = Metadata.from_yaml(exp.metadata_path)
+
+        def make_row(key: str):
+            data = {"key": key, "value": str(getattr(metadata, key))}
+            return data
+
+        skip_keys = {"data"}
+
+        metadata_data = [
+            make_row(f.name) for f in fields(metadata) if f.name not in skip_keys
+        ]
+    except Exception as e:
+        print(f"Error loading metadata: {e}")
+        metadata_data = [{"key": "Error", "value": str(e)}]
+
+    return sorted(stat_groups), None, cfg_txt, metadata_data
 
 
 @callback(
