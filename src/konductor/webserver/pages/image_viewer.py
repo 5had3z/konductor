@@ -54,7 +54,10 @@ layout = html.Div(
         ),
         dbc.Row(
             [
-                dbc.Col(dbc.Pagination(id="im-pages", max_value=0)),
+                dbc.Col(
+                    dcc.Dropdown(id="im-sample-dropdown", placeholder="Select Sample"),
+                    width=True,
+                ),
                 dbc.Col(html.H4("Sample Name:", id="im-sample-name")),
             ]
         ),
@@ -87,6 +90,32 @@ def init_exp(n_clicks):
         return (e.root / "images" / "samples.txt").exists()
 
     return [e.name for e in EXPERIMENTS if has_image(e)]
+
+
+@callback(
+    Output("im-sample-dropdown", "options"),
+    Output("im-sample-dropdown", "value"),
+    Input("root-dir", "data"),
+    Input("im-experiment", "value"),
+)
+def update_sample_dropdown(root_dir: str, experiment_name: str):
+    """Populate sample dropdown based on experiment"""
+    if not all((experiment_name, root_dir)):
+        return [], None
+
+    exp = get_experiment(experiment_name)
+    samples_file = exp.root / "images" / "samples.txt"
+
+    if not samples_file.exists():
+        return [], None
+
+    with open(samples_file, "r", encoding="utf-8") as f:
+        sample_names = [s.strip() for s in f.readlines()]
+    sample_names = [s for s in sample_names if s]
+
+    options = [{"label": s, "value": s} for s in sample_names]
+    value = sample_names[0] if sample_names else None
+    return options, value
 
 
 def make_carousel(
@@ -132,35 +161,11 @@ def make_carousel_row(
 
 
 @callback(
-    Output("im-pages", "max_value"),
-    Input("root-dir", "data"),
-    Input("im-experiment", "value"),
-)
-def update_pagination(root_dir: str, experiment_name: str):
-    """ """
-    if not all((experiment_name, root_dir)):
-        raise PreventUpdate
-
-    exp = get_experiment(experiment_name)
-    samples_file = exp.root / "images" / "samples.txt"
-
-    if not samples_file.exists():
-        return 0  # , dbc.Alert(f"No Images In {exp.root.stem}", color="danger")
-
-    with open(samples_file, "r", encoding="utf-8") as f:
-        sample_names = [s.strip() for s in f.readlines()]
-    if sample_names[-1] == "":
-        sample_names = sample_names[:-1]
-
-    return len(sample_names)
-
-
-@callback(
     Output("im-image-container", "children"),
     Output("im-sample-name", "children"),
     Input("root-dir", "data"),
     Input("im-experiment", "value"),
-    Input("im-pages", "active_page"),
+    Input("im-sample-dropdown", "value"),
     Input("im-dark-cap", "value"),
     Input("im-nn-interp", "value"),
     Input("im-scale-down", "value"),
@@ -168,13 +173,13 @@ def update_pagination(root_dir: str, experiment_name: str):
 def update_thumbnails(
     root_dir: str,
     experiment_name: str,
-    sample_idx: int,
+    sample_name: str,
     enable_dark: bool,
     nn_interp: bool,
     scale_down: bool,
 ):
     """ """
-    if not all((experiment_name, root_dir, sample_idx)):
+    if not all((experiment_name, root_dir, sample_name)):
         raise PreventUpdate
 
     exp = get_experiment(experiment_name)
@@ -184,12 +189,6 @@ def update_thumbnails(
         alert = dbc.Alert(f"No Images In {exp.root.stem}", color="danger")
         return alert, "Sample Name:"
 
-    with open(samples_file, "r", encoding="utf-8") as f:
-        sample_names = [s.strip() for s in f.readlines()]
-    if sample_names[-1] == "":
-        sample_names = sample_names[:-1]
-
-    sample_name = sample_names[sample_idx - 1]
     image_data = make_carousel_row(
         exp.root / "images", sample_name, enable_dark, nn_interp, scale_down
     )
