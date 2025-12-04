@@ -77,16 +77,29 @@ class ExperimentEvalConfig:
 class ExperimentTrainConfig(ExperimentEvalConfig):
     criterion: list[LossConfig]
 
-    exp_path: Path
-
     @classmethod
-    def from_init_config(cls, config: ExperimentInitConfig, workspace: Path):
+    def from_init_config(
+        cls,
+        config: ExperimentInitConfig,
+        workspace: Path | None = None,
+        exp_path: Path | None = None,
+    ):
         """
         Create an ExperimentConfig from an ExperimentInitConfig.
         This will include model, dataset and criterion configurations.
+
+        If workspace is passed, the exp_path will be set to
+        workspace / experiment_hash(config, dataset_cfg).
         """
         dataset_cfg = get_dataset_configs(config)
-        exp_path = workspace / experiment_hash(config, dataset_cfg)
+        if exp_path is None:
+            assert (
+                workspace is not None
+            ), "Either workspace or exp_path must be provided"
+            exp_path = workspace / experiment_hash(config, dataset_cfg)
+        else:
+            assert workspace is None, "Cannot provide both workspace and exp_path"
+
         return cls(
             model=get_model_configs(config),
             dataset=get_dataset_configs(config),
@@ -99,14 +112,13 @@ class ExperimentTrainConfig(ExperimentEvalConfig):
     def from_config_file(cls, file: Path, workspace: Path):
         """Create an ExperimentTrainConfig from a configuration file."""
         init = ExperimentInitConfig.from_yaml(file)
-        return cls.from_init_config(init, workspace)
+        return cls.from_init_config(init, workspace=workspace)
 
     @classmethod
     def from_run(cls, run_path: Path):
         """Create an ExperimentTrainConfig from a run directory."""
         init = ExperimentInitConfig.from_run(run_path)
-        config = cls.from_init_config(init, run_path)
-        config.exp_path = run_path  # Override to ensure consistency
+        config = cls.from_init_config(init, exp_path=run_path)
         return config
 
     @property

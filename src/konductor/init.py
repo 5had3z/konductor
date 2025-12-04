@@ -3,17 +3,12 @@ Initialisation configuration dataclasses for library modules
 """
 
 import enum
-import hashlib
-import logging
 from dataclasses import asdict, dataclass, fields
-from io import StringIO
 from pathlib import Path
 from typing import Any
 from warnings import warn
 
 import yaml
-
-from .utilities import comm
 
 TRAIN_CONFIG_FILENAME = "train_config.yaml"
 
