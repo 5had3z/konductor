@@ -4,8 +4,11 @@ import pytest
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
+from konductor.data import Split
 from konductor.metadata import Checkpointer, DataManager, PerfLogger
+from konductor.metadata.loggers import LogWriter
 from konductor.metadata.loggers.pq_writer import ParquetLogger
+from konductor.metadata.statistic import AccumulatingStatistic
 from konductor.scheduler._pytorch import PolyLRConfig
 from konductor.trainer.pytorch import (
     AsyncFiniteMonitor,
@@ -13,6 +16,7 @@ from konductor.trainer.pytorch import (
     PyTorchTrainerConfig,
     PyTorchTrainerModules,
 )
+from konductor.trainer.trainer import BaseTrainer, TrainerConfig, TrainerModules
 
 from ..utils import Accuracy
 from .utils import TrivialLearner, TrivialLoss, make_dataset
@@ -139,3 +143,98 @@ def test_magicmock_does_thing(trainer: PyTorchTrainer):
     trainer.val_step = MagicMock(side_effect=RuntimeError("Should not be called"))
     with pytest.raises(RuntimeError):
         trainer.train(epoch=3)
+
+
+class ListWriter(LogWriter):
+    """In-memory writer to assert logging behavior."""
+
+    def __init__(self):
+        self.records: list[tuple[Split, int, dict[str, float], str | None]] = []
+
+    def __call__(
+        self,
+        split: Split,
+        iteration: int,
+        data: dict[str, float],
+        category: str | None = None,
+    ) -> None:
+        self.records.append((split, iteration, data, category))
+
+    def flush(self):
+        return None
+
+    def add_topic(self, category: str, column_names: list[str]):
+        return None
+
+
+class ValidationAccumulation(AccumulatingStatistic):
+    """Accumulate values during validation and emit a single summary."""
+
+    def __init__(self):
+        super().__init__()
+        self.values: list[float] = []
+        self.reset_count = 0
+
+    def get_keys(self) -> list[str]:
+        return ["mean"]
+
+    def reset(self):
+        self.reset_count += 1
+        self.values = []
+
+    def __call__(self, value) -> dict[str, float]:
+        if self.enabled:
+            self.values.append(float(value))
+        return {}
+
+    def accumulate(self) -> dict[str, float]:
+        return {"mean": sum(self.values) / len(self.values)}
+
+
+class HookTestTrainer(BaseTrainer):
+    """Minimal trainer used to validate accumulating statistic hooks."""
+
+    def _accumulate_losses(self, losses: dict[str, torch.Tensor]) -> None:
+        return None
+
+    def _maybe_step_optimiser(self, optim, sched) -> bool:
+        return False
+
+    def _maybe_step_scheduler(self, sched, is_epoch: bool) -> bool:
+        return False
+
+    def _train(self, max_iter: int | None) -> None:
+        self.data_manager.perflog.train()
+
+    def _validate(self) -> None:
+        self.data_manager.perflog.eval()
+        stat: ValidationAccumulation = self.data_manager.statistics["coco"]
+        for value in self.modules.valloader:
+            stat(value)
+
+
+def test_accumulating_statistic_logs_once_per_validation_epoch(tmp_path):
+    writer = ListWriter()
+    stat = ValidationAccumulation()
+    perflog = PerfLogger(writer=writer, statistics={"coco": stat})
+    checkpointer = Checkpointer(tmp_path, model=torch.nn.Linear(1, 1))
+    data_manager = DataManager(perflog, checkpointer)
+    modules = TrainerModules(
+        model=torch.nn.Linear(1, 1),
+        criterion=[],
+        optimizer=[],
+        scheduler=[],
+        trainloader=[0],
+        valloader=[1.0, 2.0, 3.0],
+    )
+    trainer = HookTestTrainer(TrainerConfig(), modules, data_manager)
+
+    trainer.run_epoch()
+
+    assert len(writer.records) == 1
+    split, iteration, data, category = writer.records[0]
+    assert split is Split.VAL
+    assert iteration == 0
+    assert category == "coco"
+    assert data == {"mean": 2.0}
+    assert stat.reset_count == 2

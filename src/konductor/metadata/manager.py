@@ -175,6 +175,11 @@ class DataManager:
         """Current training iteration"""
         return self.metadata.iteration
 
+    @property
+    def statistics(self):
+        """Current statistics dictionary"""
+        return self.perflog.statistics
+
     @iteration.setter
     def iteration(self, it: int):
         self.metadata.iteration = it

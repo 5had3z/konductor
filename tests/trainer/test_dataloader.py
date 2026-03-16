@@ -3,7 +3,10 @@ from unittest.mock import MagicMock
 import torch
 
 from konductor.data import Split
-from konductor.trainer.trainer import ZipDataloader, _get_dataloader_from_dataset_configs
+from konductor.trainer.trainer import (
+    ZipDataloader,
+    _get_dataloader_from_dataset_configs,
+)
 
 
 def _make_fake_config(tensor: torch.Tensor):
