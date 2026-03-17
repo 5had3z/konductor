@@ -1,8 +1,8 @@
 import re
 from logging import getLogger
 
-from .base_statistic import Statistic
 from .loggers.base_writer import LogWriter, Split
+from .statistic import Statistic
 
 
 class PerfLogger:

@@ -23,4 +23,23 @@ class Statistic(ABC):
 
     @abstractmethod
     def __call__(self, *args, **kwargs) -> dict[str, float]:
-        """Calculate and Return dictionary of Statistics"""
+        """
+        Calculate and return dictionary of statistics based on input, return an
+        empty dictionary if no statistics to log at this time such as when
+        accumulating statistics across calls (see AccumulatingStatistic).
+        """
+
+
+class AccumulatingStatistic(Statistic):
+    """Base interface for statistics that need to accumulate state across calls"""
+
+    def __init__(self):
+        self.enabled = True
+
+    @abstractmethod
+    def reset(self):
+        """Reset the accumulated state"""
+
+    @abstractmethod
+    def accumulate(self) -> dict[str, float]:
+        """Calculate and return dictionary of statistics based on accumulated state"""

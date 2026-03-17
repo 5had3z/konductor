@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import partial
 from logging import getLogger
 from typing import Any, Callable, Sequence, TypeVar
 
@@ -8,6 +9,7 @@ from ..data import DatasetConfig, Split, get_dataset_configs
 from ..init import ExperimentInitConfig
 from ..losses import get_criterion
 from ..metadata import DataManager
+from ..metadata.statistic import AccumulatingStatistic
 from ..models import get_training_models
 from ..utilities import comm
 
@@ -154,6 +156,28 @@ class BaseTrainer(ABC):
                 self._validate = config.pbar(
                     self._validate, total=len(self.modules.valloader), desc="Validation"
                 )
+
+        for name, stat in data_manager.statistics.items():
+            if isinstance(stat, AccumulatingStatistic):
+                self.pre_val_hooks.append(
+                    partial(self._reset_and_enable_accumulate, stat)
+                )
+                self.post_val_hooks.append(
+                    partial(self._accumulate_and_log, name, stat)
+                )
+
+    def _reset_and_enable_accumulate(self, stat: AccumulatingStatistic):
+        """Set an accumulating statistic to accumulate mode, i.e. it will
+        accumulate state but not return statistics until accumulate is called"""
+        stat.enabled = True
+        stat.reset()
+
+    def _accumulate_and_log(self, name: str, stat: AccumulatingStatistic):
+        """Calculate and log an accumulating statistic, i.e. it will return
+        statistics based on accumulated state and then be set to accumulate
+        mode again"""
+        self.data_manager.perflog.log(name, stat.accumulate(), force=True)
+        stat.reset()
 
     def run_epoch(self, max_iter: int | None = None) -> None:
         """Complete one epoch with training and validation epoch"""
