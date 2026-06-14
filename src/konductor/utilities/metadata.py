@@ -160,7 +160,9 @@ def reduce_shard(shards: list[Path]) -> None:
 
     old_data = pq.read_table(target) if target.exists() else None
 
-    with pq.ParquetWriter(target, schema) as writer:
+    temp_target = target.with_suffix(target.suffix + ".tmp")
+
+    with pq.ParquetWriter(temp_target, schema) as writer:
         if old_data is not None:  # rewrite original data
             writer.write_table(old_data)
 
@@ -180,6 +182,8 @@ def reduce_shard(shards: list[Path]) -> None:
                 print(f"Skipping {shard.name}")
 
             shard.unlink()  # remove merged table
+
+    shutil.move(temp_target, target)
 
 
 @app.command()
