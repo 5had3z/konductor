@@ -32,9 +32,6 @@ class TorchModelConfig(ModelConfig):
         if torch.cuda.is_available():
             model = model.cuda()
 
-        if comm.in_distributed_mode():
-            model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-
         optim = self.optimizer.get_instance(model)
         sched = self.optimizer.get_scheduler(optim)
         return model, optim, sched

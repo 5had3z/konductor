@@ -22,7 +22,9 @@ from .utils import TrivialLearner, TrivialLoss, make_dataset
 @pytest.fixture
 def trainer(tmp_path):
     model = TrivialLearner(1, 1)
-    optim = torch.optim.SGD(model.parameters(), lr=1e-4)
+    # A sizeable learning rate makes the model weights move quickly so that the
+    # EMA picks up an unambiguous change within a handful of steps.
+    optim = torch.optim.SGD(model.parameters(), lr=1e-2)
     optim.step_interval = 1
 
     modules = PyTorchTrainerModules(
@@ -37,7 +39,12 @@ def trainer(tmp_path):
         PerfLogger(ParquetLogger(tmp_path), statistics={"acc": Accuracy()}),
         Checkpointer(tmp_path, model=modules.get_model()),
     )
-    return PyTorchTrainer(PyTorchTrainerConfig(model_ema={}), modules, data_manager)
+    # A low decay means each step shifts the EMA strongly towards the current
+    # model weights, so the test does not depend on accumulating many epochs to
+    # produce a change larger than the default ``torch.allclose`` tolerance.
+    return PyTorchTrainer(
+        PyTorchTrainerConfig(model_ema={"decay": 0.9}), modules, data_manager
+    )
 
 
 def test_ema_functionality(trainer: PyTorchTrainer):
@@ -45,15 +52,13 @@ def test_ema_functionality(trainer: PyTorchTrainer):
     correctly, and it can be loaded correctly"""
     assert trainer.modules.model_ema is not None, "Model EMA should be initialized"
     initial_ema = deepcopy(trainer.modules.model_ema.state_dict())
-    trainer.train(epoch=3)
+    trainer.train(epoch=5)
     current_ema = deepcopy(trainer.modules.model_ema.state_dict())
     assert all(
         not torch.allclose(initial_ema[k], current_ema[k]) for k in initial_ema
     ), "EMA did not update during training"
 
-    for _ in range(10):  # Do epochs to change the weights slightly
-        trainer._train()
-
+    trainer.train(epoch=5)  # Train more to change the weights
     trainer.data_manager.checkpointer.load("latest")
     loaded_ema = trainer.modules.model_ema.state_dict()
     assert all(

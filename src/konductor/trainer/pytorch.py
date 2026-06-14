@@ -206,6 +206,7 @@ class PyTorchTrainer(BaseTrainer):
             data_manager.checkpointer.add_checkpointable("model_ema", modules.model_ema)
 
         if comm.in_distributed_mode():
+            torch.nn.SyncBatchNorm.convert_sync_batchnorm(modules.model)
             modules.model = nn.parallel.DistributedDataParallel(
                 modules.model,
                 device_ids=[torch.cuda.current_device()],
