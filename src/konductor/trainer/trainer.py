@@ -147,9 +147,10 @@ class BaseTrainer(ABC):
         self.post_val_hooks: list[Callable] = []
 
         if config.pbar is not None:
-            train_len = len(self.modules.trainloader)
-            if config.validation_interval is not None:
-                train_len = min(train_len, config.validation_interval)
+            # _train loops internally (in iteration mode) until validation_interval
+            # or max_iter is hit, rather than stopping after one dataloader pass,
+            # so size the bar to that target instead of the raw dataloader length.
+            train_len = config.validation_interval or len(self.modules.trainloader)
 
             self._train = config.pbar(self._train, total=train_len, desc="Training")
             if self.modules.valloader is not None:

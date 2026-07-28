@@ -363,35 +363,39 @@ class PyTorchTrainer(BaseTrainer):
         for optim in self.modules.optimizer:
             optim.zero_grad()
 
-        for data in self.modules.trainloader:
-            try:
-                data = self.data_transform(data)
-                losses, preds = self.train_step(data)
-                self.log_step(data, preds, losses)
-                self._accumulate_losses(losses)
+        while True:
+            for data in self.modules.trainloader:
+                try:
+                    data = self.data_transform(data)
+                    losses, preds = self.train_step(data)
+                    self.log_step(data, preds, losses)
+                    self._accumulate_losses(losses)
 
-                with record_function("optimizer"):
-                    for optim, sched in zip(
-                        self.modules.optimizer, self.modules.scheduler
-                    ):
-                        self._maybe_step_optimiser(optim, sched)
+                    with record_function("optimizer"):
+                        for optim, sched in zip(
+                            self.modules.optimizer, self.modules.scheduler
+                        ):
+                            self._maybe_step_optimiser(optim, sched)
 
-            except TrainingError as err:
-                self.training_exception(err, data)
+                except TrainingError as err:
+                    self.training_exception(err, data)
 
-            if self._should_break_training_loop(max_iter):
-                break
+                if self._should_break_training_loop(max_iter):
+                    return
 
-            if pbar is not None:
-                pbar.update(1)
-            if profiler is not None:
-                should_break = (
-                    profiler.schedule(profiler.step_num)
-                    == ProfilerAction.RECORD_AND_SAVE
-                )
-                profiler.step()
-                if should_break:
-                    break
+                if pbar is not None:
+                    pbar.update(1)
+                if profiler is not None:
+                    should_break = (
+                        profiler.schedule(profiler.step_num)
+                        == ProfilerAction.RECORD_AND_SAVE
+                    )
+                    profiler.step()
+                    if should_break:
+                        return
+
+            if max_iter is None:
+                return  # Completed a full epoch pass over the dataset
 
     def train_step(self, data) -> tuple[dict[str, Tensor], dict[str, Tensor] | None]:
         """
