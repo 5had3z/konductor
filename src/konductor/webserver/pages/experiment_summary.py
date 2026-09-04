@@ -1,6 +1,7 @@
 """Experiment summary page."""
 
 import base64
+from contextlib import closing
 from dataclasses import fields
 from pathlib import Path
 from typing import Callable
@@ -9,10 +10,12 @@ import dash
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Input, Output, callback, dash_table, dcc, html
+from dash import Input, Output, State, callback, dash_table, dcc, html
 from dash.exceptions import PreventUpdate
 
+from konductor.metadata.database import Database
 from konductor.metadata.database.metadata import Metadata
+from konductor.metadata.database.tools import update_experiment_notes
 from konductor.webserver.state import EXPERIMENTS
 from konductor.webserver.utils import OptionTree, fill_option_tree
 
@@ -87,6 +90,53 @@ layout = html.Div(
                             data=[],
                             style_table={"overflowX": "auto", "minWidth": "100%"},
                             style_cell={"textAlign": "left"},
+                        ),
+                        html.H4(
+                            "Edit Brief and Notes",
+                            style={"text-align": "center", "margin-top": "20px"},
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(html.H5("Brief:"), width="auto"),
+                                dbc.Col(
+                                    dbc.Input(
+                                        id="summary-brief-input",
+                                        type="text",
+                                        placeholder="Short experiment description",
+                                    )
+                                ),
+                            ],
+                            align="center",
+                        ),
+                        dcc.Textarea(
+                            id="summary-notes-input",
+                            placeholder="Experiment notes",
+                            style={
+                                "width": "100%",
+                                "height": 200,
+                                "margin-top": "10px",
+                            },
+                        ),
+                        dbc.Row(
+                            [
+                                dbc.Col(
+                                    dbc.Button("Save", id="summary-save-btn"),
+                                    width="auto",
+                                ),
+                                dbc.Col(
+                                    dbc.Alert(
+                                        "",
+                                        id="summary-save-alert",
+                                        is_open=False,
+                                        dismissable=True,
+                                        color="success",
+                                        style={"margin-bottom": 0},
+                                    ),
+                                    width=True,
+                                ),
+                            ],
+                            align="center",
+                            style={"margin-top": "10px"},
                         ),
                     ]
                 ),
@@ -185,19 +235,31 @@ def on_exp_select(key: str, btn: str):
     return str(exp.root)
 
 
+def make_metadata_table(metadata: Metadata) -> list[dict[str, str]]:
+    """Convert metadata object into key-value rows for the metadata table"""
+    skip_keys = {"data"}
+    return [
+        {"key": f.name, "value": str(getattr(metadata, f.name))}
+        for f in fields(metadata)
+        if f.name not in skip_keys
+    ]
+
+
 @callback(
     Output("summary-stat-group", "options"),
     Output("summary-stat-group", "value"),
     Output("summary-traincfg-txt", "value"),
     Output("summary-metadata-table", "data"),
+    Output("summary-brief-input", "value"),
+    Output("summary-notes-input", "value"),
     Input("summary-select", "value"),
     Input("summary-opt", "value"),
 )
 def selected_experiment(key: str, btn: str):
-    """Return new statistic group and deselect previous value,
-    also initialize the training cfg and metadata text boxes"""
+    """Return new statistic group and deselect previous value, also initialize
+    the training cfg, metadata text boxes and brief/notes editor"""
     if not all([key, btn]):
-        return [], None, "", []
+        return [], None, "", [], "", ""
 
     OPTION_TREE.children = {}
 
@@ -214,21 +276,62 @@ def selected_experiment(key: str, btn: str):
     # Load metadata as object and convert to table format
     try:
         metadata = Metadata.from_yaml(exp.metadata_path)
-
-        def make_row(key: str):
-            data = {"key": key, "value": str(getattr(metadata, key))}
-            return data
-
-        skip_keys = {"data"}
-
-        metadata_data = [
-            make_row(f.name) for f in fields(metadata) if f.name not in skip_keys
-        ]
+        metadata_data = make_metadata_table(metadata)
+        brief, notes = metadata.brief, metadata.notes
     except Exception as e:
         print(f"Error loading metadata: {e}")
         metadata_data = [{"key": "Error", "value": str(e)}]
+        brief, notes = "", ""
 
-    return sorted(stat_groups), None, cfg_txt, metadata_data
+    return sorted(stat_groups), None, cfg_txt, metadata_data, brief, notes
+
+
+@callback(
+    Output("summary-metadata-table", "data", allow_duplicate=True),
+    Output("summary-select", "options", allow_duplicate=True),
+    Output("summary-select", "value", allow_duplicate=True),
+    Output("summary-save-alert", "is_open"),
+    Output("summary-save-alert", "color"),
+    Output("summary-save-alert", "children"),
+    Input("summary-save-btn", "n_clicks"),
+    State("summary-select", "value"),
+    State("summary-opt", "value"),
+    State("summary-brief-input", "value"),
+    State("summary-notes-input", "value"),
+    State("root-dir", "data"),
+    State("db-uri", "data"),
+    prevent_initial_call=True,
+)
+def save_brief_notes(
+    n_clicks, key: str, btn: str, brief: str, notes: str, root_dir: str, db_uri: str
+):
+    """Write the edited brief and notes to both the experiment's metadata yaml
+    and the results database, then refresh the experiment selection."""
+    if not all([n_clicks, key, btn]):
+        raise PreventUpdate
+
+    exp = get_experiment(key, btn)
+
+    try:
+        with closing(Database(db_uri, Path(root_dir))) as db_handle:
+            metadata = update_experiment_notes(
+                exp.root, db_handle, brief=brief or "", notes=notes or ""
+            )
+    except Exception as e:
+        print(f"Error updating metadata: {e}")
+        return dash.no_update, dash.no_update, dash.no_update, True, "danger", str(e)
+
+    # Keep the in-memory experiment name in sync with the new brief so the
+    # selection dropdown shows (and can resolve) the updated brief.
+    exp.name = metadata.brief if metadata.brief else exp.root.name
+    opts = [e.name if btn == "Brief" else e.root.stem for e in EXPERIMENTS]
+    value = exp.name if btn == "Brief" else exp.root.stem
+    # Only reselect if the label changed, otherwise the page needlessly resets
+    if value == key:
+        value = dash.no_update
+
+    msg = f"Updated brief and notes of {metadata.hash}"
+    return make_metadata_table(metadata), opts, value, True, "success", msg
 
 
 @callback(
