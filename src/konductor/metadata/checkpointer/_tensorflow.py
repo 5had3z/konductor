@@ -11,7 +11,7 @@ class Checkpointer(BaseCheckpointer):
     def add_checkpointable(self, key: str, checkpointable: Any) -> None:
         pass
 
-    def save(self, filename: str, **extras) -> None:
+    def save(self, filename: str, is_latest: bool = True, **extras) -> None:
         pass
 
     def load(self, filename: str) -> dict[str, Any]:

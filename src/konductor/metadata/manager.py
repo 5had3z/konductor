@@ -64,15 +64,33 @@ class CkptConfig:
         EPOCH = enum.auto()
         ITERATION = enum.auto()
 
+    class BestMode(enum.Enum):
+        """Whether the best monitored metric is the smallest or largest seen"""
+
+        MIN = enum.auto()
+        MAX = enum.auto()
+
     mode: Mode = Mode.EPOCH  # save checkpoints on epoch, iteration or time
     latest: int = 1  # interval for updating latest checkpoint
     extra: int | None = None  # interval for updating extra checkpoint
+    # "category/name" of the validation statistic that determines the best
+    # checkpoint i.e. "accuracy/iou", disabled when None
+    best_metric: str | None = None
+    best_mode: BestMode = BestMode.MAX  # minimise or maximise best_metric
 
     def __post_init__(self):
         if isinstance(self.mode, str):
             self.mode = CkptConfig.Mode[self.mode.upper()]
         if not isinstance(self.mode, CkptConfig.Mode):
             raise TypeError(f"Not a valid checkpoint mode: {self.mode}")
+
+        if isinstance(self.best_mode, str):
+            self.best_mode = CkptConfig.BestMode[self.best_mode.upper()]
+        if not isinstance(self.best_mode, CkptConfig.BestMode):
+            raise TypeError(f"Not a valid best checkpoint mode: {self.best_mode}")
+
+        if self.best_metric is not None and not isinstance(self.best_metric, str):
+            raise TypeError(f"Best metric key should be a string: {self.best_metric}")
 
         if self.latest < 1:
             raise ValueError(
@@ -101,6 +119,20 @@ class CkptConfig:
     def save_extra(self, x: int):
         """Check if the extra checkpoint interval should be saved"""
         return self.extra is not None and x % self.extra == 0
+
+    @property
+    def save_best(self):
+        """The checkpointer should track and save the best performing checkpoint"""
+        return self.best_metric is not None
+
+    def is_better(self, new: float, old: float | None) -> bool:
+        """Check if new value of the monitored metric improves on the old best,
+        anything is better than never having seen a value (old is None)"""
+        if old is None:
+            return True
+        if self.best_mode is CkptConfig.BestMode.MIN:
+            return new < old
+        return new > old
 
 
 @dataclass
@@ -151,6 +183,8 @@ class DataManager:
     def __post_init__(self) -> None:
         self.remote_timer = _Timer()
         self._logger = getLogger("DataManager")
+        self._best_metric: float | None = None
+        self.perflog.set_monitor(self.ckpt_cfg.best_metric)
         self.metadata = Metadata(
             hash=self.workspace.name,
             commit_begin=_get_commit(),
@@ -200,14 +234,21 @@ class DataManager:
         assert self.metadata.epoch == extras["epoch"]
         assert self.metadata.iteration == extras["iteration"]
 
+        self._best_metric = extras.get("best_metric", None)
+
         self.perflog.resume(self.iteration)
         self._logger.info(
             "Resuming from epoch %d, iteration %d", self.epoch, self.iteration
         )
+        if self._best_metric is not None:
+            self._logger.info(
+                "Best %s so far is %f", self.ckpt_cfg.best_metric, self._best_metric
+            )
 
     def epoch_step(self) -> None:
         """Step epoch"""
         self.metadata.epoch += 1
+        self.maybe_save_best()
         if self.ckpt_cfg.epoch_mode and self.ckpt_cfg.save_latest(self.epoch):
             filename = (
                 f"epoch_{self.epoch}"
@@ -220,6 +261,7 @@ class DataManager:
         """Step iteration"""
         self.metadata.iteration += 1
         self.perflog.iteration = self.iteration
+        self.maybe_save_best()
         if self.ckpt_cfg.iter_mode and self.ckpt_cfg.save_latest(self.iteration):
             filename = (
                 f"iteration_{self.iteration}"
@@ -228,19 +270,63 @@ class DataManager:
             )
             self.save(filename)
 
-    def save(self, filename: str, force_push: bool = False) -> None:
+    @property
+    def best_metric(self) -> float | None:
+        """Best value of the monitored metric seen so far, None if there hasn't
+        been one yet or best checkpointing is disabled"""
+        return self._best_metric
+
+    def maybe_save_best(self) -> None:
+        """
+        Save the "best" checkpoint if the monitored metric has improved since it
+        was last saved. This is a no-op unless best checkpointing is enabled and
+        the monitored metric has been logged since the last call, hence it is
+        safe (and necessary) to call every step.
+        """
+        if not self.ckpt_cfg.save_best:
+            return
+
+        value = self.perflog.pop_monitored()
+        if value is None:  # Metric hasn't been logged since the last check
+            return
+
+        # Each worker calculates its own statistics, use the main process' value
+        # so that every worker agrees on whether to write a checkpoint
+        if comm.in_distributed_mode():
+            value = comm.all_gather(value)[0]
+
+        if not self.ckpt_cfg.is_better(value, self._best_metric):
+            return
+
+        self._logger.info(
+            "New best %s: %f (previously %s)",
+            self.ckpt_cfg.best_metric,
+            value,
+            self._best_metric,
+        )
+        self._best_metric = value
+        self.save("best", is_latest=False)
+
+    def save(
+        self, filename: str, force_push: bool = False, is_latest: bool = True
+    ) -> None:
         """
         Save metadata and checkpoint
         filename: name of checkpoint
         force_push: push data to remote
+        is_latest: link "latest" checkpoint to this one
         """
 
         self.metadata.commit_last = _get_commit()
         self.metadata.train_last = datetime.now()
 
+        extras: dict[str, Any] = {"epoch": self.epoch, "iteration": self.iteration}
+        if self._best_metric is not None:
+            extras["best_metric"] = self._best_metric
+
         # Only save checkpoint on local rank zero
         if comm.get_local_rank() == 0:
-            self.checkpointer.save(filename, epoch=self.epoch, iteration=self.iteration)
+            self.checkpointer.save(filename, is_latest=is_latest, **extras)
             self.metadata.write(self.workspace / META_FNAME)
 
         self.perflog.flush()  # Ensure all perf data is logged, move to next shard

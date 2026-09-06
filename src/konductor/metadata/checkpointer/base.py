@@ -21,12 +21,17 @@ class BaseCheckpointer(ABC):
         """Path to latest checkpoint"""
         return self.rootdir / f"latest{self.EXTENSION}"
 
+    @property
+    def best(self):
+        """Path to best checkpoint"""
+        return self.rootdir / f"best{self.EXTENSION}"
+
     @abstractmethod
     def add_checkpointable(self, key: str, checkpointable: Any) -> None:
         pass
 
     @abstractmethod
-    def save(self, filename: str, **extras) -> None:
+    def save(self, filename: str, is_latest: bool = True, **extras) -> None:
         pass
 
     @abstractmethod
